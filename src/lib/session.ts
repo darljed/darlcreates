@@ -22,10 +22,10 @@ export async function requireUser() {
 export async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
-  if ((user as { role?: string }).role !== "admin") redirect("/");
+  if ((user as { role?: string | null }).role !== "admin") redirect("/");
   return user;
 }
 
-export function isAdmin(user: { role?: string } | null | undefined) {
+export function isAdmin(user: { role?: string | null } | null | undefined) {
   return user?.role === "admin";
 }
