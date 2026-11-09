@@ -12,8 +12,20 @@ import {
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { canTransition, type OrderStatus } from "@/lib/orders";
+import { sendEmail, orderEmails } from "@/lib/email";
+import { formatPHP } from "@/lib/money";
+import { users } from "@/db/schema";
 
 type Result = { ok: true } | { ok: false; error: string };
+
+async function emailFor(userId: string): Promise<string | null> {
+  const [u] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return u?.email ?? null;
+}
 
 const verifySchema = z.object({ paymentId: z.string().uuid() });
 
@@ -67,6 +79,12 @@ export async function verifyPaymentAction(input: unknown): Promise<Result> {
   revalidatePath("/admin/payments");
   revalidatePath("/admin/orders");
   revalidatePath(`/orders/${order.orderNo}`);
+
+  const email = await emailFor(order.userId);
+  if (email) {
+    const m = orderEmails.paymentVerified(order.orderNo);
+    await sendEmail(email, m.subject, m.text);
+  }
   return { ok: true };
 }
 
@@ -99,13 +117,20 @@ export async function rejectPaymentAction(input: unknown): Promise<Result> {
     .where(eq(payments.id, pay.id));
 
   const [order] = await db
-    .select({ orderNo: orders.orderNo })
+    .select({ orderNo: orders.orderNo, userId: orders.userId })
     .from(orders)
     .where(eq(orders.id, pay.orderId))
     .limit(1);
 
   revalidatePath("/admin/payments");
-  if (order) revalidatePath(`/orders/${order.orderNo}`);
+  if (order) {
+    revalidatePath(`/orders/${order.orderNo}`);
+    const email = await emailFor(order.userId);
+    if (email) {
+      const m = orderEmails.paymentRejected(order.orderNo, parsed.data.reason);
+      await sendEmail(email, m.subject, m.text);
+    }
+  }
   return { ok: true };
 }
 
@@ -156,6 +181,23 @@ export async function transitionOrderAction(input: unknown): Promise<Result> {
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath(`/orders/${order.orderNo}`);
+
+  if (to === "shipped") {
+    const [ship] = await db
+      .select()
+      .from(shipments)
+      .where(eq(shipments.orderId, order.id))
+      .limit(1);
+    const email = await emailFor(order.userId);
+    if (email) {
+      const m = orderEmails.shipped(
+        order.orderNo,
+        ship?.carrier || "courier",
+        ship?.trackingNo || "N/A",
+      );
+      await sendEmail(email, m.subject, m.text);
+    }
+  }
   return { ok: true };
 }
 

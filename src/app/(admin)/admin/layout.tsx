@@ -4,6 +4,7 @@ import {
   Package,
   ClipboardList,
   BadgeDollarSign,
+  Star,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { Toaster } from "@/components/ui/sonner";
@@ -37,6 +38,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           <NavLink href="/admin/payments" icon={BadgeDollarSign}>
             Payments
           </NavLink>
+          <NavLink href="/admin/reviews" icon={Star}>
+            Reviews
+          </NavLink>
         </nav>
       </aside>
       <main className="flex-1 bg-background">
@@ -46,6 +50,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
             <Link href="/admin/products">Products</Link>
             <Link href="/admin/orders">Orders</Link>
             <Link href="/admin/payments">Payments</Link>
+            <Link href="/admin/reviews">Reviews</Link>
           </nav>
         </div>
         <div className="mx-auto max-w-6xl p-6">{children}</div>

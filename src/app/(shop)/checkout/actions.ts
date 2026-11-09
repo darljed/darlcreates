@@ -17,7 +17,8 @@ import { getProductById } from "@/lib/catalog";
 import { getOrCreateCart, getCartLines, cartSubtotalCents } from "@/lib/cart";
 import { generateOrderNo } from "@/lib/orders";
 import { computeUnitPrice } from "@/lib/pricing";
-import { parsePesoInput } from "@/lib/money";
+import { parsePesoInput, formatPHP } from "@/lib/money";
+import { sendEmail, orderEmails } from "@/lib/email";
 import type { ConfigSelection } from "@/lib/pricing";
 
 const addressSchema = z.object({
@@ -138,6 +139,10 @@ export async function placeOrderAction(formData: FormData) {
 
   revalidatePath("/cart");
   revalidatePath("/orders");
+
+  const placed = orderEmails.placed(orderNo, formatPHP(total));
+  await sendEmail(user.email, placed.subject, placed.text);
+
   redirect(`/orders/${orderNo}`);
 }
 
