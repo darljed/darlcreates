@@ -68,7 +68,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Item |
 |---|---|---|
-| T-01 | 🟡 | `stl-viewer.tsx` has a stray `export { Loader2 }` and an `import` mid-file (ErrorBoundary) — tidy. |
 | T-02 | 🟡 | `generateOrderNo()` uses `Math.random()` (4 chars). Collisions are caught by the `UNIQUE` constraint but would surface as a 500. Use nanoid/retry. |
 | T-03 | 🟡 | `scripts/seed.ts` deletes sample products by slug; will fail once real orders reference them (`order_items` FK is `restrict`). Fine for dev, never run against prod. |
 | T-04 | 🟡 | `getProductById` is uncached by design (used in actions); catalog list/detail are cached. Watch for N+1 queries in `assembleProduct` / `listPublishedProducts` as catalog grows. |
@@ -113,6 +112,13 @@ Verified against the code on 2026-11-09 (not from memory).
 
 ---
 
+## C2. Candidate features (raised 2026-11-10, not yet decided)
+
+| ID | Idea | Notes |
+|---|---|---|
+| F-16 | **3MF support** alongside STL | Upload + preview (three has `3MFLoader`; fflate present). Value: explicit mm units, multi-part files, per-part color/filament, slicer metadata. Best used for personalized-order output. See `docs/personalization-and-3mf.md`. |
+| F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
+
 ## D. Resolved
 
 | ID | Resolved | Notes |
@@ -127,4 +133,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | T-08 | 2026-11-10 | Designer supplied black and white wordmark logos; wired via `BrandLogo` (replaces the CSS-invert workaround). |
 | G-31 | 2026-11-10 | Admin "Instant" dev error on `/admin/products/[id]`: a layout's `instant = false` does **not** cover its child pages. First fix covered only pages reading params; the same error then appeared on `/admin/products` because **any** uncached read triggers it. Now every admin page that awaits data has its own `export const instant = false`, and `scripts/test-instant.ts` fails if one is missing. Rule: any page reading uncached data or params outside Suspense needs its own opt-out or a Suspense boundary. |
 | G-32 | 2026-11-10 | Admin STL upload failed in the browser (nothing reached S3): bucket CORS allowed only `localhost:3000/3001`, so the PUT was blocked from `127.0.0.1` / the Tailscale hostname. Added those origins; new `scripts/test-cors.ts`; the upload UI now explains a CORS failure instead of "Failed to fetch". |
+| G-33 | 2026-11-10 | STL preview unusable for off-origin files (Outdoor Phone Stand exported at the bed middle, center 128,128,15, ~182 mm from origin). Auto-rotate spun the mesh around its own origin, so the model swung off-screen, and zoom limits were fixed numbers. Rebuilt viewer: geometry centered on its bounding box, camera/clip/zoom derived from model size, auto-rotate orbits the camera and stops on touch, pan enabled, Reset view button + double-click. Default elevation 10° (centering degrades with elevation; measured). Tests: `scripts/test-viewer-framing.ts` (synthetic + real files), verified in a real browser (drag/zoom/reset). |
+| G-34 | 2026-11-10 | `/products/[slug]` threw the dev "Instant" error for any product created after build (`await params` outside Suspense). `params` now read inside a Suspense-wrapped component with a skeleton. `scripts/test-instant.ts` now covers every page, not just admin. Also T-01 (viewer tidy-up) and a plain `<a>` -> `<Link>`. |
 

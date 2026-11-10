@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, listPublishedProducts } from "@/lib/catalog";
 import { getProductReviews } from "@/lib/reviews";
@@ -19,9 +21,44 @@ export async function generateMetadata({
   return { title: product?.name ?? "Product" };
 }
 
-export default async function ProductPage({
+export default function ProductPage({
   params,
 }: PageProps<"/products/[slug]">) {
+  // Don't await params here: reading it outside <Suspense> blocks the navigation
+  // for any slug not known at build time (e.g. a product created after deploy).
+  return (
+    <Suspense fallback={<ProductSkeleton />}>
+      <ProductContent params={params} />
+    </Suspense>
+  );
+}
+
+function ProductSkeleton() {
+  return (
+    <main className="flex-1" aria-busy="true">
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-8 space-y-3">
+          <div className="h-9 w-72 animate-pulse rounded-lg bg-muted" />
+          <div className="h-4 w-96 max-w-full animate-pulse rounded bg-muted" />
+        </div>
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div className="aspect-square animate-pulse rounded-xl bg-muted" />
+          <div className="space-y-4">
+            <div className="h-10 animate-pulse rounded-lg bg-muted" />
+            <div className="h-10 animate-pulse rounded-lg bg-muted" />
+            <div className="h-24 animate-pulse rounded-xl bg-muted" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+async function ProductContent({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const product = await getProductBySlug(slug, { publishedOnly: true });
   if (!product) notFound();
@@ -34,9 +71,9 @@ export default async function ProductPage({
     <main className="flex-1">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <nav className="mb-6 text-sm text-muted-foreground">
-          <a href="/products" className="hover:text-foreground">
+          <Link href="/products" className="hover:text-foreground">
             Shop
-          </a>{" "}
+          </Link>{" "}
           / <span className="capitalize">{product.category}</span>
         </nav>
 

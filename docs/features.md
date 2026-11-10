@@ -12,7 +12,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 ## Storefront (customer) ✅
 - Catalog listing (category chips) + product cards
 - Product detail with **interactive 3D STL viewer** (lazy, reduced-motion,
-  fallback) + photo thumbnails
+  fallback; auto-centers any model, orbit/pan/zoom, Reset view) + photo thumbnails
 - **Customizer**: color swatches / size choices / text input / image (schema-
   driven), **live server-authoritative price**, color drives the 3D material
 - Cart (add/update qty/remove) with immutable config + price snapshots

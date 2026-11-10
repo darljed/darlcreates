@@ -15,6 +15,9 @@ could not be fetched as static HTML — we have **not** inspected its source. Be
 designing, open it in a browser (or its GitHub repo), check its **license**, and
 decide: reimplement the idea, or embed/fork if the license allows.
 
+> **Not the same as personalizing an existing product** (adding a name to a stand etc.).
+> That is a smaller feature with its own plan: [personalization-and-3mf.md](./personalization-and-3mf.md).
+
 ## Why this is its own phase
 
 "Looks right on screen" and "slices cleanly and prints" are different bars. A

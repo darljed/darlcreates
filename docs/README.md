@@ -12,6 +12,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [features.md](./features.md) | What is built, by area |
 | [api-routes.md](./api-routes.md) | Route handlers + Server Actions |
 | [phase-2-generators.md](./phase-2-generators.md) | Plan + open questions for in-browser STL generators |
+| [personalization-and-3mf.md](./personalization-and-3mf.md) | Proposal: 3MF support + adding a name to an existing product (levels 1-3, owner questions) |
 | [backlog.md](./backlog.md) | Pointer to the roadmap |
 
 Scope source of truth: `.kiro/specs/darl-creates-ecommerce/` (requirements,

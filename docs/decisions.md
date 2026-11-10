@@ -136,3 +136,13 @@ earlier `dark:invert` hack, and the old stacked/tagline art was removed.
 Sources are kept in `brand/source/`; `scripts/build-brand-assets.py` regenerates
 `public/brand/*` and the favicon/apple-icon (white mark on brand blue).
 The tagline ("Your 3D Printing and Modeling Partner") is not in the new files.
+
+## D-18 — STL viewer: size-independent framing
+Models arrive in unpredictable positions and units (slicers export at the bed
+middle; CAD may use meters). The viewer therefore never trusts the file's origin or
+scale: it centers the geometry on its own bounding box, derives camera distance,
+clip planes and zoom limits from the bounding radius, and orbits the *camera*
+(OrbitControls `autoRotate`) instead of spinning the mesh. Default elevation is
+10°: with perspective, the higher the camera looks down on an elongated part the
+lower its silhouette sits (measured 0.07 NDC offset at 0°, 0.11 at 10°, 0.22 at
+32°). Logic lives in `src/lib/viewer-framing.ts` (pure, tested).
