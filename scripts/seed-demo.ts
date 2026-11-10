@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, eq, inArray, like, notLike } from "drizzle-orm";
 import { CARRIERS, DEMO_CUSTOMERS, DEMO_PRODUCTS, REVIEW_BODIES, type DemoProduct } from "./fixtures/demo-data";
+import { refreshStorefrontCache } from "./lib/revalidate";
 
 // ---------------------------------------------------------------- helpers
 function rng(seed: number) {
@@ -136,6 +137,7 @@ async function main() {
   if (cmd === "clear") {
     const r = await clear();
     console.log(`cleared ${r.users} demo customers and ${r.products} demo products (with their orders, reviews and files)`);
+    await refreshStorefrontCache(DEMO_PRODUCTS.map((p) => p.slug));
     process.exit(0);
   }
   if (cmd !== "seed") throw new Error("usage: seed-demo.ts seed | clear | status");
@@ -361,6 +363,7 @@ async function main() {
     console.log(`        ${orders.length} orders ${JSON.stringify(byStatus)}`);
     console.log(`        ${items.length} order lines, ${pays.length} payments, ${ships.length} shipments, ${hist.length} history rows, ${reviews.length} reviews`);
     console.log("remove it all later with: npx tsx scripts/seed-demo.ts clear");
+    await refreshStorefrontCache(DEMO_PRODUCTS.map((p) => p.slug));
   } catch (e) {
     console.error("seed failed, rolling back what was created:", (e as Error).message);
     await clear().catch(() => undefined);

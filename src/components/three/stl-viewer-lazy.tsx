@@ -1,14 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
+import { ViewerLoading } from "./viewer-loading";
 import type { StlViewerProps } from "./stl-viewer";
 
 const Inner = dynamic(() => import("./stl-viewer"), {
   ssr: false,
+  // Same loading look as the model-download phase inside the viewer, so there is no flicker between the two.
   loading: () => (
-    <div className="flex size-full items-center justify-center bg-muted">
-      <Loader2 className="size-8 animate-spin text-primary" />
+    <div className="relative size-full">
+      <ViewerLoading />
     </div>
   ),
 });

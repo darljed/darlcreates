@@ -15,6 +15,7 @@
 */
 
 :root {
+  color-scheme: light; /* there is no dark theme yet (G-30): stop dark-mode browsers recolouring controls and default pages */
   --radius: 0.9rem;
 
   /* Neutrals — warm near-black ink on bright paper */
@@ -262,4 +263,64 @@
     text-transform: uppercase;
     color: var(--muted-foreground);
   }
+}
+
+/* ---- 3D viewer loading animation (src/components/three/viewer-loading.tsx) ---- */
+.viewer-scene {
+  --s: 56px;
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  perspective: 420px;
+}
+.viewer-cube {
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  animation: viewer-spin 3.2s linear infinite;
+}
+.viewer-face {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--primary);
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  border-radius: 6px;
+}
+.viewer-front { transform: translateZ(calc(var(--s) / 2)); }
+.viewer-back { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.viewer-right { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-left { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-top { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-bottom { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -26px;
+  width: 52px;
+  height: 10px;
+  margin-left: -26px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+  filter: blur(3px);
+  animation: viewer-shadow 1.6s ease-in-out infinite;
+}
+.viewer-slow {
+  opacity: 0;
+  animation: viewer-fade-in 0.4s ease 6s forwards;
+}
+@keyframes viewer-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to { transform: rotateX(-24deg) rotateY(360deg); }
+}
+@keyframes viewer-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.9; }
+  50% { transform: scaleX(0.8); opacity: 0.6; }
+}
+@keyframes viewer-fade-in {
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .viewer-cube { animation: none; transform: rotateX(-24deg) rotateY(35deg); }
+  .viewer-shadow { animation: none; }
 }

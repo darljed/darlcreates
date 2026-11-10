@@ -8,6 +8,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { inArray, like } from "drizzle-orm";
+import { refreshStorefrontCache } from "./lib/revalidate";
 
 const PREFIX = "TEST-E2E-";
 const IDS = { customer: `${PREFIX}customer`, admin: `${PREFIX}admin` };
@@ -37,6 +38,7 @@ async function main() {
 
   if (cmd === "cleanup") {
     await cleanup();
+    await refreshStorefrontCache(["test-e2e-keychain"]); // the deleted test product must not linger in the cached shop listing
     const left = await db.select().from(s.users).where(like(s.users.id, `${PREFIX}%`));
     console.log(JSON.stringify({ cleaned: true, leftoverUsers: left.length }));
     process.exit(0);

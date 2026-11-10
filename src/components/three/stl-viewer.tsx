@@ -4,6 +4,7 @@ import {
   Component,
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -23,6 +24,7 @@ import {
   VIEWER_FOV_DEG,
 } from "@/lib/viewer-framing";
 import { modelFormatOf } from "@/lib/uploads";
+import { ViewerLoading } from "./viewer-loading";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 function subscribeReducedMotion(cb: () => void) {
@@ -154,9 +156,29 @@ function Placeholder({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Rendered next to the scene inside the same <Suspense>, so it only mounts once the model has downloaded AND parsed.
+ * Two animation frames later the first frame is on screen, which is when the loading overlay may fade out.
+ */
+function ReadySignal({ onReady }: { onReady: () => void }) {
+  useEffect(() => {
+    let id2 = 0;
+    const id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(onReady);
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      cancelAnimationFrame(id2);
+    };
+  }, [onReady]);
+  return null;
+}
+
 function Viewer({ url, color, className }: { url: string; color: string; className?: string }) {
   const reduced = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const markReady = useCallback(() => setReady(true), []);
   const [spinning, setSpinning] = useState(true);
   // Bumping this remounts the canvas contents => camera + controls return to the framed view.
   const [view, setView] = useState(0);
@@ -190,9 +212,11 @@ function Viewer({ url, color, className }: { url: string; color: string; classNa
             ) : (
               <StlScene key={view} {...sceneProps} />
             )}
+            <ReadySignal onReady={markReady} />
           </Suspense>
         </Canvas>
       </ErrorBoundary>
+      <ViewerLoading ready={ready} />
       <button
         type="button"
         onClick={reset}
