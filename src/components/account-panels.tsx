@@ -7,7 +7,7 @@ import { Loader2, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SavedAddress } from "@/lib/addresses";
-import { deleteAccountAction, deleteAddressAction, setDefaultAddressAction } from "@/app/(shop)/account/actions";
+import { deleteAccountAction, deleteAddressAction, setDefaultAddressAction } from "@/app/(portal)/account/actions";
 
 export function AddressBook({ addresses }: { addresses: SavedAddress[] }) {
   const router = useRouter();
@@ -23,7 +23,7 @@ export function AddressBook({ addresses }: { addresses: SavedAddress[] }) {
   return (
     <ul className="space-y-3">
       {addresses.map((a) => (
-        <li key={a.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border-2 border-border p-4">
+        <li key={a.id} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3">
           <div className="text-sm">
             <p className="font-bold">{a.label}{a.isDefault && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">Default</span>}</p>
             <p className="text-muted-foreground">{a.recipient} · {a.phone}</p>
@@ -59,7 +59,7 @@ export function DeleteAccount() {
     return <Button variant="outline" className="border-destructive text-destructive" onClick={() => setOpen(true)}>Delete my account…</Button>;
   }
   return (
-    <div className="space-y-3 rounded-xl border-2 border-destructive/50 bg-destructive/5 p-4">
+    <div className="space-y-3 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
       <p className="text-sm">
         This removes your name, email, saved addresses, reviews and uploaded images, and signs you out everywhere.
         Past orders and payments are kept for our records but no longer linked to your personal details.

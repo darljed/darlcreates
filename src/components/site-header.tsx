@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/session";
+import { cartItemCount } from "@/lib/cart";
 import { UserMenu } from "./user-menu";
 import { Button } from "./ui/button";
 import { BrandLogo } from "./brand-logo";
@@ -37,6 +38,7 @@ export function SiteHeaderSkeleton() {
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
+  const count = user ? await cartItemCount(user.id) : 0;
 
   return (
     <HeaderShell>
@@ -53,9 +55,14 @@ export async function SiteHeader() {
           <Link href="/admin">Admin</Link>
         </Button>
       )}
-      <Button asChild variant="ghost" size="icon" aria-label="Cart">
+      <Button asChild variant="ghost" size="icon" className="relative" aria-label={count ? `Cart, ${count} item${count === 1 ? "" : "s"}` : "Cart"}>
         <Link href="/cart">
           <ShoppingBag className="size-5" />
+          {count > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-bold leading-4 text-primary-foreground">
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
         </Link>
       </Button>
       {user ? (

@@ -13,11 +13,9 @@ export const instant = false;
 export default async function AcknowledgmentPage({ params }: PageProps<"/orders/[orderNo]/acknowledgment">) {
   const { orderNo } = await params;
   return (
-    <main className="flex-1 px-4 py-8 print:p-0">
-      <Suspense fallback={<p className="text-center text-muted-foreground">Loading…</p>}>
-        <Doc orderNo={orderNo} />
-      </Suspense>
-    </main>
+    <Suspense fallback={<p className="text-center text-muted-foreground">Loading…</p>}>
+      <Doc orderNo={orderNo} />
+    </Suspense>
   );
 }
 

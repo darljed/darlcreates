@@ -24,6 +24,8 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | `uploads`, `cors` | upload rules, ZIP/magic-byte checks, presigned PUT round trip, CORS from every dev origin | S3 |
 | `order-lifecycle` | snapshot immutability, append-only payments, DB one-pending-payment rule | DB |
 | `checkout` | **the real service functions**: order placement, server-owned amount, duplicate references, concurrent verify, cancelled orders, transitions | DB |
+| `content` | landing-page CMS: link/icon allowlists, limits, defaults, `site/` upload rules, store round trip + corrupt-row fallback (isolated key, never the live `home` row) | DB |
+| `customer-orders` | customer cancel (unpaid only, blocked while a payment is pending), order list data, Buy again (recomputed price, archived product refused) | DB |
 | `customer-images` | customer upload security (ownership, magic bytes, smuggled keys) | DB + S3 |
 | `privacy` | consent versioning, address book, export, account deletion | DB + S3 |
 

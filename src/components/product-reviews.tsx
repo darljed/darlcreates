@@ -45,7 +45,7 @@ export function ProductReviews({
   }
 
   return (
-    <section className="mt-12 border-t pt-8">
+    <section id="reviews" className="mt-12 scroll-mt-20 border-t pt-8">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-extrabold">Reviews</h2>
         {session?.user && (

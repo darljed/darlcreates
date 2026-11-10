@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import { getCartLines, cartSubtotalCents } from "@/lib/cart";
 import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { CheckoutSteps } from "@/components/order-progress";
 import { CheckoutForm } from "@/components/checkout-form";
 import { listAddresses } from "@/lib/addresses";
 import { shippingCentsFor } from "@/lib/shipping";
@@ -14,7 +15,8 @@ export default function CheckoutPage() {
   return (
     <main className="flex-1">
       <div className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="mb-8 text-3xl font-extrabold">Checkout</h1>
+        <h1 className="mb-4 text-3xl font-extrabold">Checkout</h1>
+        <CheckoutSteps current={2} />
         <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
           <CheckoutContents />
         </Suspense>

@@ -24,12 +24,16 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Privacy: consent step (versioned), **My account** (saved addresses, download my data, delete account), privacy policy (RA 10173)
 - **Order Acknowledgment**: printable non-VAT sales record per order (customer + admin)
 - **Address book**: saved addresses at checkout, managed in My account
+- **Customer area** (inset sidebar): orders table (Pay now / Track / Buy again), order page with progress bar, copy buttons for GCash number + amount, cancel an unpaid order, review prompt after delivery
+- Cart badge in the header, "Go to cart" toast, checkout steps, and customizer choices kept across the sign-in redirect
+- **Landing page + footer are editable** by the owner (see Admin)
 - Email notifications (order placed / payment verified / rejected / shipped),
   SMTP when configured, console in dev
 
 ## Admin (owner) ✅
-- RBAC-gated layout (`instant=false`), dashboard (verified revenue, status
-  counts, top products)
+- RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
+  status counts, needs-attention, top products, recent orders)
+- **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA, footer links
 - Product CRUD + **customization-schema builder** (options + color/size values)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**

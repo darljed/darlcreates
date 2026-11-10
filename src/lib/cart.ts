@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { fileUrl, readUrl } from "./storage";
 import type { ConfigSelection, ProductOptionInput } from "./pricing";
@@ -87,4 +87,14 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
 
 export function cartSubtotalCents(lines: CartLine[]): number {
   return lines.reduce((acc, l) => acc + l.lineTotalCents, 0);
+}
+
+/** Total quantity in the user's cart, for the header badge. One cheap aggregate, no joins. */
+export async function cartItemCount(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`coalesce(sum(${cartItems.qty}), 0)::int` })
+    .from(cartItems)
+    .innerJoin(carts, eq(cartItems.cartId, carts.id))
+    .where(eq(carts.userId, userId));
+  return row?.n ?? 0;
 }

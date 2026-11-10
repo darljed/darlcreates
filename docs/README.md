@@ -22,4 +22,4 @@ design, tasks). Cross-agent rules: [`../AGENTS.md`](../AGENTS.md).
 When you fix a gap: move its row to **Resolved** in `roadmap-and-gaps.md`, update
 the relevant doc, and bump `Last updated`.
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10

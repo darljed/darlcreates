@@ -8,19 +8,18 @@ const LABELS: Record<string, string> = {
   ready_to_ship: "Ready to ship",
   shipped: "Shipped",
   delivered: "Delivered",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
 };
 
 /** A compact progress timeline built from the append-only status history. */
 export function OrderTimeline({
   history,
-  current,
 }: {
   history: { toStatus: string; note: string; createdAt: Date }[];
-  current: string;
 }) {
   // history is newest-first; reverse to show chronological progress.
   const chrono = [...history].reverse();
-  const cancelled = current === "cancelled" || current === "refunded";
 
   return (
     <ol className="space-y-3">
@@ -45,11 +44,6 @@ export function OrderTimeline({
           </div>
         </li>
       ))}
-      {cancelled && (
-        <li className="text-sm font-semibold text-destructive">
-          Order {current}
-        </li>
-      )}
     </ol>
   );
 }

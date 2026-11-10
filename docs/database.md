@@ -14,11 +14,12 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 - **BIR-ready, feature-off**: `orders.or_number`, `orders.vat_cents` exist but
   are unused until BIR registration.
 
-## Tables (18)
+## Tables (19)
 **Auth**: `users` (+ `role` customer|admin), `sessions`, `accounts`,
 `verifications`.
 **Catalog**: `products`, `product_photos`, `product_options`,
 `product_option_values`, `reviews`, `review_photos`.
+**Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited landing page, one row `home`; shape validated in code (D-25).
 **Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items`,
 `payments`, `shipments`, `order_status_history`.
 

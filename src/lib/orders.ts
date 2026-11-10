@@ -8,7 +8,7 @@ import {
   type orderStatus,
 } from "@/db/schema";
 import { randomInt } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { summarizeConfig } from "./cart";
 import { readUrl } from "./storage";
@@ -60,6 +60,8 @@ export type OrderDetail = {
   items: {
     id: string;
     name: string;
+    /** Storefront slug for "review this" / "buy again" links; null if the product is gone. */
+    slug: string | null;
     qty: number;
     unitPriceCents: number;
     summary: { label: string; value: string }[];
@@ -93,6 +95,7 @@ async function assembleOrderDetail(
     detailItems.push({
       id: it.id,
       name: it.nameSnapshot,
+      slug: product?.slug ?? null,
       qty: it.qty,
       unitPriceCents: it.unitPriceCents,
       summary: product ? summarizeConfig(product.options, config) : [],
@@ -170,8 +173,20 @@ export async function getOrderByIdAdmin(id: string): Promise<OrderDetail | null>
   return assembleOrderDetail(order);
 }
 
-export async function listUserOrders(userId: string) {
-  return db
+export type UserOrderRow = {
+  id: string;
+  orderNo: string;
+  status: OrderStatus;
+  totalCents: number;
+  placedAt: Date;
+  /** "2× Desk Clicker, Name Keychain": one line for the list view. */
+  itemsLabel: string;
+  /** A GCash reference was submitted and is waiting for the owner. */
+  paymentPending: boolean;
+};
+
+export async function listUserOrders(userId: string): Promise<UserOrderRow[]> {
+  const rows = await db
     .select({
       id: orders.id,
       orderNo: orders.orderNo,
@@ -182,4 +197,22 @@ export async function listUserOrders(userId: string) {
     .from(orders)
     .where(eq(orders.userId, userId))
     .orderBy(desc(orders.placedAt));
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const items = await db
+    .select({ orderId: orderItems.orderId, name: orderItems.nameSnapshot, qty: orderItems.qty })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, ids));
+  const pending = await db
+    .select({ orderId: payments.orderId })
+    .from(payments)
+    .where(and(inArray(payments.orderId, ids), eq(payments.status, "pending")));
+  const pendingSet = new Set(pending.map((p) => p.orderId));
+
+  return rows.map((r) => ({
+    ...r,
+    itemsLabel: items.filter((i) => i.orderId === r.id).map((i) => `${i.qty}× ${i.name}`).join(", "),
+    paymentPending: pendingSet.has(r.id),
+  }));
 }

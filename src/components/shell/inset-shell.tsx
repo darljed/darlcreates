@@ -32,13 +32,14 @@ export type NavItem = {
 export type NavGroup = { label?: string; items: NavItem[] };
 
 /** Breadcrumb labels by path segment; anything unknown that looks like an id becomes "Details". */
-function crumbs(pathname: string, rootLabel: string, labels: Record<string, string>) {
+function crumbs(pathname: string, rootLabel: string, labels: Record<string, string>, rootless: boolean) {
   const parts = pathname.split("/").filter(Boolean);
-  const out: { href: string; label: string }[] = [];
+  // "rootless": the shell has no URL segment of its own (customer area), so the root crumb is "/"
+  const out: { href: string; label: string }[] = rootless ? [{ href: "/", label: rootLabel }] : [];
   let acc = "";
   parts.forEach((seg, i) => {
     acc += `/${seg}`;
-    if (i === 0) {
+    if (i === 0 && !rootless) {
       out.push({ href: acc, label: rootLabel });
       return;
     }
@@ -61,6 +62,7 @@ export function InsetShell({
   sidebarFooter,
   topbarRight,
   rootLabel,
+  rootless = false,
   labels = {},
   children,
 }: {
@@ -70,13 +72,15 @@ export function InsetShell({
   sidebarFooter?: React.ReactNode;
   topbarRight?: React.ReactNode;
   rootLabel: string;
+  /** True when pages live at top-level paths (/orders, /account) instead of under one root segment. */
+  rootless?: boolean;
   labels?: Record<string, string>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
-  const trail = crumbs(pathname, rootLabel, labels);
+  const trail = crumbs(pathname, rootLabel, labels, rootless);
 
   const nav = (isCollapsed: boolean, onNavigate?: () => void) => (
     <nav aria-label={`${rootLabel} navigation`} className="flex-1 space-y-4 overflow-y-auto py-2">
@@ -189,7 +193,7 @@ export function InsetShell({
             </nav>
             {topbarRight}
           </header>
-          <main id="main" className="flex-1 p-5 group-data-[density=compact]/shell:p-4">
+          <main id="main" className="flex-1 p-5 group-data-[density=compact]/shell:p-4 print:p-0">
             {children}
           </main>
         </div>

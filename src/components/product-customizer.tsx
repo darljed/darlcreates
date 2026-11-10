@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, ShoppingBag } from "lucide-react";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ProductGallery, type GalleryPhoto } from "@/components/product-gallery";
 import { CustomerImageUpload } from "@/components/customer-image-upload";
 import { formatPHP } from "@/lib/money";
-import { computeUnitPrice, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
+import { computeUnitPrice, configSelectionSchema, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
 import { addToCartAction } from "@/app/(shop)/cart/actions";
@@ -36,6 +36,34 @@ export function ProductCustomizer({
   const signedIn = Boolean(session?.user);
   const [selection, setSelection] = useState<ConfigSelection>({});
   const [pending, startTransition] = useTransition();
+  const storeKey = `dc:selection:${productId}`;
+
+  // Restore choices saved just before a sign-in redirect. sessionStorage only exists in the
+  // browser, so this has to run after mount; the saved copy is removed as soon as it's used.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(storeKey);
+      if (!saved) return;
+      sessionStorage.removeItem(storeKey);
+      const parsed = configSelectionSchema.safeParse(JSON.parse(saved));
+      if (parsed.success && Object.keys(parsed.data).length) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelection(parsed.data);
+        toast.info("We kept your choices. Add to cart when you're ready.");
+      }
+    } catch {
+      /* private mode or corrupt value: start fresh */
+    }
+  }, [storeKey]);
+
+  function goSignIn() {
+    try {
+      sessionStorage.setItem(storeKey, JSON.stringify(selection));
+    } catch {
+      /* storage unavailable: they'll just re-pick */
+    }
+    router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
+  }
 
   // Live, client-side preview of the authoritative price (server re-checks).
   const { unitPriceCents, errors } = useMemo(
@@ -61,7 +89,7 @@ export function ProductCustomizer({
 
   function onAddToCart() {
     if (!signedIn) {
-      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
+      goSignIn();
       return;
     }
     if (errors.length) {
@@ -71,7 +99,7 @@ export function ProductCustomizer({
     startTransition(async () => {
       const res = await addToCartAction({ productId, selection, qty: 1 });
       if (res.ok) {
-        toast.success("Added to cart");
+        toast.success("Added to cart", { action: { label: "Go to cart", onClick: () => router.push("/cart") } });
         router.refresh();
       } else {
         toast.error(res.error ?? "Could not add to cart");
@@ -162,7 +190,7 @@ export function ProductCustomizer({
                 signedIn={signedIn}
                 value={selection[opt.id]?.imageKey}
                 onChange={(key) => setValue(opt.id, { imageKey: key })}
-                onNeedSignIn={() => router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`)}
+                onNeedSignIn={goSignIn}
               />
             )}
           </div>

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { getProductById } from "./catalog";
 import { getCartLines, getOrCreateCart } from "./cart";
+import { addToCart } from "./cart-service";
 import { canTransition, generateOrderNo, type OrderStatus } from "./orders";
 import { computeUnitPrice, firstImageKey, type ConfigSelection } from "./pricing";
 import { shippingCentsFor } from "./shipping";
@@ -358,6 +359,70 @@ export async function saveShipment(
     await db.insert(shipments).values({ orderId, ...values });
   }
   return { ok: true, orderNo: order.orderNo };
+}
+
+// ---------------------------------------------------------------------------
+// Customer self-service: cancel an unpaid order, order again
+// ---------------------------------------------------------------------------
+
+/**
+ * Customer cancels THEIR OWN order, only while it is still awaiting payment and no GCash
+ * reference is waiting for verification (once they've sent money, the owner decides).
+ * Row-locked like the admin transitions; the change is recorded in the append-only history.
+ */
+export async function cancelOwnOrder(userId: string, orderNo: string): Promise<Result<{ orderNo: string }>> {
+  return db.transaction(async (tx) => {
+    const [order] = await tx.select().from(orders).where(eq(orders.orderNo, orderNo)).for("update");
+    if (!order || order.userId !== userId) return { ok: false as const, error: "Order not found" };
+    if (order.status !== "awaiting_payment") {
+      return { ok: false as const, error: "Only an unpaid order can be cancelled. Message us for anything else." };
+    }
+    const [pending] = await tx
+      .select({ id: payments.id })
+      .from(payments)
+      .where(and(eq(payments.orderId, order.id), eq(payments.status, "pending")))
+      .limit(1);
+    if (pending) {
+      return { ok: false as const, error: "A payment is awaiting verification. Please wait for the result before cancelling." };
+    }
+    await tx.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
+    await tx.insert(orderStatusHistory).values({
+      orderId: order.id,
+      fromStatus: "awaiting_payment",
+      toStatus: "cancelled",
+      note: "Cancelled by customer",
+      actorId: userId,
+    });
+    return { ok: true as const, orderNo: order.orderNo };
+  });
+}
+
+/**
+ * "Order again": put an earlier order's items back in the user's cart. Each line goes through
+ * the normal addToCart path, so prices are recomputed from the CURRENT product schema and an
+ * unpublished product or a changed option is skipped (reported) instead of silently re-priced.
+ */
+export async function reorderToCart(
+  userId: string,
+  orderNo: string,
+): Promise<Result<{ added: number; skipped: { name: string; reason: string }[] }>> {
+  const [order] = await db.select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1);
+  if (!order || order.userId !== userId) return { ok: false, error: "Order not found" };
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+  let added = 0;
+  const skipped: { name: string; reason: string }[] = [];
+  for (const it of items) {
+    const res = await addToCart(userId, {
+      productId: it.productId,
+      selection: (it.config ?? {}) as ConfigSelection,
+      qty: it.qty,
+    });
+    if (res.ok) added++;
+    else skipped.push({ name: it.nameSnapshot, reason: res.error });
+  }
+  if (added === 0) return { ok: false, error: skipped[0] ? `${skipped[0].name}: ${skipped[0].reason}` : "Nothing to add" };
+  return { ok: true, added, skipped };
 }
 
 /** Revenue counts verified payments on orders that were not cancelled or refunded. */

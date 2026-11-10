@@ -187,3 +187,30 @@ Every page and action that needs a signed-in customer goes through `requireUser`
 without current consent to `/consent`. Changing `PRIVACY_VERSION` (src/lib/business.ts) re-asks everyone.
 `/consent` itself uses `getCurrentUser` to avoid a redirect loop. The admin area is gated by `requireAdmin`
 only (the owner is the data controller).
+
+## D-24 — One custom inset shell, density from one place
+`npx shadcn add sidebar` hung (like `init` before it), and the CLI re-adds a stray `cn` npm package, so
+`src/components/shell/inset-shell.tsx` is hand-built (collapsible desktop sidebar, mobile sheet, breadcrumbs,
+skip link). The shell sets `data-density="compact|comfortable"`; the page primitives (`shell/ui.tsx`) and an
+unlayered block in `globals.css` key off it, so a control is never edited per page. Tables are square
+(`DataTable`); panels `rounded-lg`. Admin = compact, customer area = comfortable. The storefront, cart,
+checkout and consent keep the top-header layout. After any `shadcn add`: `npm uninstall cn` and rewrite
+`from "cn"` imports to `@/lib/utils`.
+
+## D-25 — Landing page is content in the DB, validated by code
+`site_content(key, data jsonb)` holds one row, `home`. The JSON shape lives in
+`src/lib/site-content-schema.ts` (Zod + defaults), not in the DB, and is re-validated on every read: an
+invalid or missing row falls back to the built-in defaults, so the page cannot break. Safety: everything renders
+as React text (no raw HTML); links pass `isSafeHref` (paths, `#anchors`, https/http, mailto, tel; never
+`javascript:` or `//host`); icons come from an allowlist. `getHomeContent()` is `"use cache"` + tag `site:home`;
+saving calls `revalidateTag("site:home","max")`. The optional hero image uses a new public `site/` prefix: presign kind
+`site` (admin only), the save action checks the object exists, size and magic bytes, and `/api/files` serves a
+`site/` key only while it is the current hero image. A replaced or removed image is deleted (best effort); an image
+uploaded but never saved stays orphaned in S3.
+
+## D-26 — Customer cancel is limited to unpaid orders
+`cancelOwnOrder` works only on `awaiting_payment` with no pending payment (row-locked, recorded in the append-only
+history with the customer as actor). Once money may have been sent, the owner decides. Known tiny race: a
+reference submitted in the same instant as a cancel can leave a pending payment on a cancelled order; `verifyPayment`
+refuses it, so the owner rejects it. "Buy again" re-adds items through `addToCart`, so prices are recomputed and
+unpublished products are skipped with a reason.

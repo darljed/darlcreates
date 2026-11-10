@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-10 (new logo pair)
+Last updated: 2026-11-10 (UI redesign, landing-page CMS, customer workflow)
 
 ---
 
@@ -69,7 +69,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | ID | Sev | Gap | Spec ref | Status |
 |---|---|---|---|---|
 | G-17 | 🟡 | Review photos + reviewer name (`review_photos` unused; `authorName` never populated) | FR-9.1 | ⬜ |
-| G-18 | 🟡 | Dashboard time-series chart (only totals + top products) | FR-10.1 | ⬜ |
 | G-19 | 🟡 | Option/photo **reordering**, option **edit**, option-value **delete** in schema builder (add + delete-option only) | FR-2.5 | ⬜ |
 | G-21 | 🟡 | Per-value STL/scale override for size options (column exists, unused) | FR-2.4 | ⬜ |
 | G-22 | 🟡 | Accessibility audit (contrast of accent-on-primary pairs, keyboard walk-through, 3D viewer a11y) | NFR-4 | ⬜ |
@@ -166,4 +165,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-43 | 2026-11-10 | Retention choice (keep anonymized order + payment rows after account deletion) **approved by owner**. |
 | G-11b | 2026-11-10 | Order Acknowledgment wording **approved by owner**. |
 | G-04 | 2026-11-10 | Hosting: owner serves the app publicly via **Tailscale Funnel** (works, incl. Google sign-in). Caveat: it must run a production build (`npm run build && npm run start`), not `next dev`. Database stays on the agent-server (reachable from this Mac). |
-
+| G-18 | 2026-11-10 | **Dashboard time series.** Admin dashboard has a 30-day verified-revenue chart (pure CSS bars + a screen-reader table), stat cards, needs-attention strip, top products and recent orders. |
+| G-49 | 2026-11-10 | **Admin + customer redesign.** One inset-sidebar shell (`InsetShell`): compact for admin, comfortable for customers (`(portal)` group: `/orders`, `/orders/[orderNo]`, acknowledgment, `/account`). Square tables. See D-24. |
+| G-50 | 2026-11-10 | **Landing-page CMS** at `/admin/content`: announcement bar, hero (+ optional image), highlights, featured products, FAQ, CTA band, site-wide footer. See D-25. `test-content.ts` (53 checks). |
+| G-51 | 2026-11-10 | **Customer workflow.** Cart-count badge, add-to-cart toast with "Go to cart", customizer choices survive the sign-in redirect, checkout steps, order progress bar, copy buttons for the GCash number/amount, customer cancel of an unpaid order, Buy again, review prompt on delivered orders. `test-customer-orders.ts` (21 checks). |
+| G-52 | 2026-11-10 | "Top products" counted items from cancelled/refunded orders; now excluded. |

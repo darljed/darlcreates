@@ -3,12 +3,37 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Smartphone } from "lucide-react";
+import { Check, Copy, Loader2, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatPHP } from "@/lib/money";
+import { centavosToPesos, formatPHP } from "@/lib/money";
 import { submitPaymentAction } from "@/app/(shop)/checkout/actions";
+
+/** Copy to clipboard with feedback; falls back to a toast when the browser blocks clipboard access. */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      aria-label={`Copy ${label}`}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        } catch {
+          toast.error("Couldn't copy. Select the text and copy it manually.");
+        }
+      }}
+    >
+      {done ? <Check className="mr-1 size-4" /> : <Copy className="mr-1 size-4" />}
+      {done ? "Copied" : "Copy"}
+    </Button>
+  );
+}
 
 export function GcashPaymentPanel({
   orderNo,
@@ -52,38 +77,46 @@ export function GcashPaymentPanel({
   }
 
   return (
-    <div className="rounded-xl border-2 border-primary bg-primary/5 p-5">
+    <div id="pay" className="scroll-mt-4 rounded-lg border-2 border-primary bg-primary/5 p-4">
       <div className="flex items-center gap-2">
         <Smartphone className="size-5 text-primary" />
         <h2 className="text-lg font-extrabold">Pay with GCash</h2>
       </div>
 
-      <ol className="mt-3 space-y-1 text-sm">
+      <ol className="mt-3 space-y-3 text-sm">
         <li>
           1. Send exactly{" "}
-          <span className="font-extrabold text-primary">
-            {formatPHP(totalCents)}
-          </span>{" "}
-          via GCash to:
+          <span className="font-extrabold text-primary">{formatPHP(totalCents)}</span> via GCash to:
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-background p-2.5">
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">GCash number · {gcashName}</p>
+                <p className="font-mono font-semibold">{gcashNumber || "(set by admin)"}</p>
+              </div>
+              {gcashNumber && <CopyButton value={gcashNumber.replace(/\s+/g, "")} label="GCash number" />}
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-md border bg-background p-2.5">
+              <div>
+                <p className="text-xs text-muted-foreground">Amount</p>
+                <p className="font-mono font-semibold">{formatPHP(totalCents)}</p>
+              </div>
+              <CopyButton value={centavosToPesos(totalCents).toFixed(2)} label="amount" />
+            </div>
+          </div>
         </li>
-        <li className="ml-4 rounded-lg bg-background p-3 font-mono">
-          {gcashName}
-          <br />
-          {gcashNumber || "(GCash number set by admin)"}
-        </li>
-        <li>2. Copy the GCash reference number from your receipt.</li>
-        <li>3. Paste it below and submit. We verify, then start printing.</li>
+        <li>2. Copy the reference number from your GCash receipt.</li>
+        <li>3. Paste it below and submit. We verify it, then start printing.</li>
       </ol>
 
       {isPending ? (
-        <p className="mt-4 rounded-lg bg-accent/40 p-3 text-sm font-medium">
+        <p className="mt-4 rounded-md bg-accent/40 p-3 text-sm font-medium">
           Reference <span className="font-mono">{latestPayment!.reference}</span>{" "}
           submitted. Awaiting verification — you&apos;ll be notified.
         </p>
       ) : (
         <div className="mt-4 space-y-2">
           {isRejected && (
-            <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               Previous reference was rejected
               {latestPayment?.rejectReason
                 ? `: ${latestPayment.rejectReason}`

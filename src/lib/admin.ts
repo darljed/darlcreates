@@ -99,6 +99,8 @@ export async function adminDashboard(): Promise<DashboardStats> {
       qty: sql<number>`sum(${orderItems.qty})`,
     })
     .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .where(REVENUE_ORDER_FILTER) // cancelled / refunded orders don't count as sold
     .groupBy(orderItems.nameSnapshot)
     .orderBy(desc(sql`sum(${orderItems.qty})`))
     .limit(5);

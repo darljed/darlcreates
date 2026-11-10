@@ -11,8 +11,8 @@ prices and state transitions.
 |---|---|---|
 | `GET/POST /api/auth/[...all]` | public | BetterAuth (Google OAuth, session) |
 | `GET /admin/orders/[id]/stl/[itemId]` | admin | Redirects to a 120s signed S3 URL for the item's STL snapshot. 404 no STL, 503 storage not configured |
-| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp), `customer` (same limits; **any signed-in user**, key `customer/<userId>/…`, 30 per hour). `model`/`photo` are admin-only. Content type is forced from the extension (`model/stl` / `model/3mf`) |
-| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/` keys; public only if the file belongs to a published product, else admin only. `customer/`,`proof/` never served here |
+| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp), `site` (landing-page hero image, same limits, admin only, key `site/…`), `customer` (same limits; **any signed-in user**, key `customer/<userId>/…`, 30 per hour). `model`/`photo` are admin-only. Content type is forced from the extension (`model/stl` / `model/3mf`) |
+| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/`,`site/` keys; public only if the file belongs to a published product (or is the current landing hero image), else admin only. `customer/`,`proof/` never served here |
 
 ## Server Actions
 
@@ -40,8 +40,14 @@ prices and state transitions.
 
 ## Service layer (`src/lib/order-service.ts`)
 Framework-free business logic; actions call it, tests call it directly.
-`placeOrder`, `submitGcashReference`, `verifyPayment`, `rejectPayment`, `transitionOrder`, `saveShipment`.
+`placeOrder`, `submitGcashReference`, `verifyPayment`, `rejectPayment`, `transitionOrder`, `saveShipment`, `cancelOwnOrder`, `reorderToCart`.
 Verify/reject/transition are transactional with row locks. Callers do auth, Zod, revalidation, email.
+
+## Customer order actions & CMS
+| Action | Notes |
+|---|---|
+| `cancelOrderAction`, `reorderAction` (`(portal)/orders/actions.ts`) | `requireUser` + Zod, then `cancelOwnOrder` / `reorderToCart` (ownership enforced in the service) |
+| `saveHomeContentAction`, `resetHomeContentAction` (`admin/content/actions.ts`) | `requireAdmin`; Zod `homeContentSchema`; verifies a new hero image (exists, size, magic bytes); revalidates tag `site:home` and `/` |
 
 ## Account & privacy
 | Route / action | Notes |
@@ -55,7 +61,7 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 
 Storefront: `/`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
-Admin: `/admin`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
+Admin: `/admin`, `/admin/content`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
 `/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
@@ -64,7 +70,8 @@ Admin: `/admin`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]
 |---|---|---|
 | `products`, `product:<slug>` | `listPublishedProducts`, `getProductBySlug` | product / option actions |
 | `reviews:<productId>` | `getProductReviews` | review submit + moderate |
+| `site:home` | `getHomeContent` (landing page + footer) | `saveHomeContentAction`, `resetHomeContentAction` |
 
 `revalidateTag(tag, "max")` — Next 16 requires the second argument.
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
