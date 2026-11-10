@@ -132,5 +132,8 @@ Keep these four in sync when conventions change.
   hand (`components.json`) and `shadcn add` works.
 - Google Drive logo folder is blocked by macOS privacy (TCC). Grant the terminal
   Full Disk Access, or copy the logos into `brand/` in the repo.
+- Opening the dev server via the Tailscale hostname (`macbook-01.tail85990d.ts.net`)
+  needs `allowedDevOrigins` in `next.config.ts` (set), otherwise Next blocks
+  `/_next/hmr`. Add any other hostname/IP you browse from, then restart `next dev`.
 - Starting `npm run dev` from inside an agent command can be blocked/killed;
   run it in your own terminal.
