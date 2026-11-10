@@ -1,6 +1,7 @@
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/session";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/session";
 import { getOrderForUser } from "@/lib/orders";
 import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
@@ -33,8 +34,7 @@ export default async function OrderPage({
 }
 
 async function OrderContents({ orderNo }: { orderNo: string }) {
-  const user = await getCurrentUser();
-  if (!user) redirect(`/sign-in?redirect=/orders/${orderNo}`);
+  const user = await requireUser(`/orders/${orderNo}`);
 
   const order = await getOrderForUser(orderNo, user.id);
   if (!order) notFound();
@@ -53,7 +53,10 @@ async function OrderContents({ orderNo }: { orderNo: string }) {
             Placed {order.placedAt.toLocaleDateString("en-PH")}
           </p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <div className="flex items-center gap-3">
+          <Link href={`/orders/${order.orderNo}/acknowledgment`} className="text-sm font-semibold underline">Order Acknowledgment</Link>
+          <OrderStatusBadge status={order.status} />
+        </div>
       </div>
 
       {order.status === "awaiting_payment" && (

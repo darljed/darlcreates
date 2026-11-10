@@ -26,8 +26,10 @@ export default function PrivacyPage() {
           verified manually against the reference number you provide.
         </Section>
         <Section title="Your rights">
-          You may access, correct, or request deletion of your personal data.
-          Email{" "}
+          You can download a copy of your data and delete your account yourself from your Account page. Deleting removes
+          your name, email, saved addresses, reviews and uploaded images and signs you out; order and payment records
+          are kept for our business records but are no longer linked to your personal details. Orders still in
+          progress must be completed or cancelled first. For anything else, email{" "}
           <a className="underline" href="mailto:darljedmatundan@gmail.com">
             darljedmatundan@gmail.com
           </a>{" "}

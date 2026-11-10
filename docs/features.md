@@ -20,7 +20,9 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **GCash manual payment**: instructions + reference submission (append-only)
 - Order tracking: status timeline, shipment/tracking, order history
 - Reviews: delivered-order-gated submit + star rating (moderated before shown)
-- Privacy policy (RA 10173) + consent note at sign-in
+- Privacy: consent step (versioned), **My account** (saved addresses, download my data, delete account), privacy policy (RA 10173)
+- **Order Acknowledgment**: printable non-VAT sales record per order (customer + admin)
+- **Address book**: saved addresses at checkout, managed in My account
 - Email notifications (order placed / payment verified / rejected / shipped),
   SMTP when configured, console in dev
 

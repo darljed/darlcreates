@@ -132,6 +132,12 @@ Rules:
 
 Keep these four in sync when conventions change.
 
+## Business details on documents
+
+`src/lib/business.ts` holds the name / contact shown on the Order Acknowledgment. Override with
+`NEXT_PUBLIC_BUSINESS_NAME` and `NEXT_PUBLIC_BUSINESS_EMAIL`. Bump `PRIVACY_VERSION` there whenever
+the privacy policy changes in a way users must re-accept.
+
 ## Brand assets
 
 - Originals: `brand/source/wordmark-black.png` and `wordmark-white.png` (icon + wordmark,

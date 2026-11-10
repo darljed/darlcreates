@@ -26,8 +26,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail / fix | Status |
 |---|---|---|---|---|
-| G-10 | 🟠 | **RA 10173 deletion path is email-only; no consent checkbox** | Privacy page tells users to email for deletion; sign-in shows a notice but no explicit consent capture/record. Spec FR-1.5 asks for explicit consent + a deletion path. Add consent timestamp on user + self-serve "delete my data" request. | ⬜ |
-| G-11 | 🟠 | **No "Order Acknowledgment" document** | Spec FR-6.6 / task 11.2: printable non-BIR acknowledgment per order. Not built. (Schema already BIR-ready: `or_number`, `vat_cents`.) | ⬜ |
 | G-13 | 🟠 | **Seeded DB password was shown in chat/terminal output** | The `darlcreates` DB role password was generated in-session and echoed. Rotate it and store in Bitwarden. | ⬜ |
 | G-14 | 🟠 | **No real UI/browser testing yet** | Build, typecheck and 3 scripts pass, and unauthenticated pages were curl-checked. The authenticated customer flow, admin flow and 3D viewer with a real STL have **not** been exercised in a browser. Planned right after G-05/G-06. | ⬜ next |
 
@@ -60,11 +58,18 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-41 | 🟡 | **Image rate limit is per-instance memory** | Fine for one server; on serverless each instance counts separately. Move to a DB/Redis counter before scaling. |
 | G-42 | 🟡 | **No image moderation** | Customers can upload anything that is a valid JPG/PNG/WebP. The admin sees it before printing (nothing auto-prints), but there is no automated screening. |
 
+### Found while adding privacy tools
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-43 | 🟠 | **Retention policy needs a human decision** | We keep order + payment rows (amounts, GCash reference, status) indefinitely after account deletion, with the delivery address redacted. That is a reasonable default for sales records, but the PH retention period and what a "no BIR registration" seller must keep are questions for your accountant. Also decide whether to purge very old orders. |
+| G-44 | 🟡 | **Deleted accounts block re-registration with the same Google account?** | Deletion removes the linked Google `accounts` row, so signing in again creates a *new* user (fresh consent). Intended, but untested end to end because it needs a real Google login. |
+| G-45 | 🟡 | **Export is JSON only, no admin-side "export for a customer"** | Customers self-serve. If someone emails a request instead, there is no admin button yet. |
+
 ### Missing from the spec (planned, not built)
 
 | ID | Sev | Gap | Spec ref | Status |
 |---|---|---|---|---|
-| G-16 | 🟡 | Address book (`addresses` table unused; checkout re-types address every time) | FR-1.4 | ⬜ |
 | G-17 | 🟡 | Review photos + reviewer name (`review_photos` unused; `authorName` never populated) | FR-9.1 | ⬜ |
 | G-18 | 🟡 | Dashboard time-series chart (only totals + top products) | FR-10.1 | ⬜ |
 | G-19 | 🟡 | Option/photo **reordering**, option **edit**, option-value **delete** in schema builder (add + delete-option only) | FR-2.5 | ⬜ |
@@ -154,3 +159,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-38 | 2026-11-10 | **Race conditions fixed.** Verify/reject/transition now run in one transaction with row locks (`FOR UPDATE`): 3 concurrent verifies => exactly 1 succeeds; 2 conflicting transitions => exactly 1 applies. |
 | G-39 | 2026-11-10 | **Money-integrity holes closed.** (a) a payment on a cancelled/refunded order can no longer be verified into 'paid' (must be rejected); (b) the same GCash reference cannot back two live payments (unique partial index, references normalized: trimmed/upper-cased); (c) one pending payment per order (unique partial index); (d) 'paid' can only be reached by verifying a payment, never by hand; (e) dashboard revenue excludes cancelled/refunded orders. |
 | G-09 | 2026-11-10 | **Customer image personalization.** Products can have an `image` option; signed-in customers upload JPG/PNG/WebP (max 5 MB) straight to S3 under `customer/<userId>/` (presign kind `customer`, rate-limited 30/h). On add-to-cart the server verifies ownership of the key, that the object exists and is within the limit, and the file's **magic bytes** (a non-image renamed `.png` is refused); a normalizer drops any field the product schema doesn't allow, so a crafted request can't attach someone else's file or a payment proof. Customer sees a thumbnail in cart/order; admin gets a preview + open link. `test-customer-images.ts` (34 checks). |
+| G-10 | 2026-11-10 | **RA 10173 tools.** Privacy consent recorded with timestamp + policy version (`users.consent_at/consent_version`); `requireUser` sends anyone without current consent to `/consent` (bump `PRIVACY_VERSION` to re-ask). `/account` has a JSON data export (right of access) and self-serve account deletion (anonymizes the person, removes sessions/addresses/cart/reviews/uploaded images; keeps order + payment rows; refused while an order is in progress). `test-privacy.ts` (36 checks). **Owner/legal review needed on the retention choice, see D-22.** |
+| G-11 | 2026-11-10 | **Order Acknowledgment** at `/orders/[orderNo]/acknowledgment` (owner only) and `/admin/orders/[id]/acknowledgment`: printable / Save-as-PDF, VAT shown as 0, states it is not an official receipt or tax invoice. `test-acknowledgment.ts` guards the wording. **Owner/accountant should read the wording once.** |
+| G-16 | 2026-11-10 | **Address book.** Checkout offers saved addresses and a "save this address" box (max 10, no duplicates, first is default); `/account` lists, sets default, deletes. |

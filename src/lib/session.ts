@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
+import { getConsent, hasCurrentConsent } from "./privacy";
+import { safeRedirect } from "./safe-redirect";
 
 /**
  * The signed-in user (or null). Reads the session from request headers.
@@ -15,10 +17,17 @@ export async function getCurrentUser() {
   return session?.user ?? null;
 }
 
-/** Require any authenticated user; redirect to sign-in otherwise. */
-export async function requireUser() {
+/**
+ * Require any authenticated user; redirect to sign-in otherwise. Users who haven't accepted
+ * the current privacy policy are sent to /consent first (RA 10173), and a deleted account
+ * is never allowed back in. Pass `where` so they return to the page they wanted.
+ */
+export async function requireUser(where = "/") {
   const user = await getCurrentUser();
-  if (!user) redirect("/sign-in");
+  if (!user) redirect(`/sign-in?redirect=${encodeURIComponent(safeRedirect(where))}`);
+  const c = await getConsent(user.id);
+  if (c?.deletedAt) redirect("/sign-in");
+  if (!hasCurrentConsent(c)) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
   return user;
 }
 

@@ -51,6 +51,9 @@ export function UserMenu({
         <DropdownMenuItem onSelect={() => router.push("/orders")}>
           <Package className="mr-2 size-4" /> My Orders
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => router.push("/account")}>
+          <UserIcon className="mr-2 size-4" /> My account
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={async () => {

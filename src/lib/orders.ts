@@ -72,6 +72,7 @@ export type OrderDetail = {
     amountCents: number;
     proofKey: string | null;
     rejectReason: string | null;
+    verifiedAt: Date | null;
   } | null;
   shipment: { carrier: string; trackingNo: string; status: string } | null;
   history: { toStatus: string; note: string; createdAt: Date }[];
@@ -136,6 +137,7 @@ async function assembleOrderDetail(
           amountCents: pay.amountCents,
           proofKey: pay.proofKey,
           rejectReason: pay.rejectReason,
+          verifiedAt: pay.verifiedAt,
         }
       : null,
     shipment: ship

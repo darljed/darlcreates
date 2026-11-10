@@ -43,12 +43,20 @@ Framework-free business logic; actions call it, tests call it directly.
 `placeOrder`, `submitGcashReference`, `verifyPayment`, `rejectPayment`, `transitionOrder`, `saveShipment`.
 Verify/reject/transition are transactional with row locks. Callers do auth, Zod, revalidation, email.
 
+## Account & privacy
+| Route / action | Notes |
+|---|---|
+| `GET /account/export` | Signed-in user's data as a JSON download (`Cache-Control: no-store`) |
+| `acceptConsentAction` (`/consent`) | Records `consent_at` + `PRIVACY_VERSION`, then returns to a `safeRedirect`ed target |
+| `deleteAddressAction`, `setDefaultAddressAction` | Scoped to the caller's own addresses |
+| `deleteAccountAction` | Requires typing DELETE; `deleteAccount` refuses while an order is in progress or for the admin account |
+
 ## Pages
 
 Storefront: `/`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
-`/orders/[orderNo]`, `/sign-in`, `/privacy`.
+`/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
 Admin: `/admin`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
-`/admin/orders`, `/admin/orders/[id]`, `/admin/payments`, `/admin/reviews`.
+`/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
 

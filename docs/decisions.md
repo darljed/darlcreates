@@ -172,3 +172,18 @@ Customers can now put files in our bucket, so: (1) keys are bound to the uploade
 refused (SVG can carry script); (4) the server rebuilds the stored selection from the product schema so
 no foreign S3 key can ride along; (5) `/api/files` never serves `customer/` or `proof/`; only the owner
 (signed URL on their own pages) and the admin can see them. Nothing prints automatically; the admin reviews.
+
+## D-22 — Account deletion anonymizes; it does not erase business records
+RA 10173 gives people the right to erasure, but a seller also has to keep sales records. So deletion
+removes everything that identifies the person (name, email, linked Google account, sessions, saved
+addresses, cart, reviews, uploaded images, the delivery address on past orders) and keeps the order and
+payment rows (amounts, status, GCash reference) with no link back to a named person. It is refused while
+an order is still in progress so we never lose the address of something we owe someone. The Order
+Acknowledgment of a deleted account shows "address removed". The retention period itself is an open
+question for the owner/accountant (G-43).
+
+## D-23 — Consent is versioned and enforced in `requireUser`
+Every page and action that needs a signed-in customer goes through `requireUser`, which sends users
+without current consent to `/consent`. Changing `PRIVACY_VERSION` (src/lib/business.ts) re-asks everyone.
+`/consent` itself uses `getCurrentUser` to avoid a redirect loop. The admin area is gated by `requireAdmin`
+only (the owner is the data controller).

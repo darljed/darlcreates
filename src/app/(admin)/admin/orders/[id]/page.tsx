@@ -32,7 +32,10 @@ export default async function AdminOrderDetailPage({
       </Link>
       <div className="mb-6 mt-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold md:text-3xl">{order.orderNo}</h1>
-        <OrderStatusBadge status={order.status} />
+        <div className="flex items-center gap-3">
+          <Link href={`/admin/orders/${order.id}/acknowledgment`} className="text-sm font-semibold underline">Order Acknowledgment</Link>
+          <OrderStatusBadge status={order.status} />
+        </div>
       </div>
 
       <div className="grid gap-8 md:grid-cols-[1fr_300px]">

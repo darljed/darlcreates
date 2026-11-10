@@ -6,6 +6,7 @@
  */
 export const FLAT_SHIPPING_CENTS = 8000; // ₱80.00
 
-export function shippingCentsFor(_subtotalCents: number): number {
+export function shippingCentsFor(subtotalCents: number): number {
+  void subtotalCents; // flat for now; the parameter exists so callers don't change when this becomes zone/threshold based
   return FLAT_SHIPPING_CENTS;
 }

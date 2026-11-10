@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { getCartLines, cartSubtotalCents } from "@/lib/cart";
 import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -25,8 +24,7 @@ export default function CheckoutPage() {
 }
 
 async function CheckoutContents() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in?redirect=/checkout");
+  const user = await requireUser("/checkout");
 
   const lines = await getCartLines(user.id);
   if (lines.length === 0) {

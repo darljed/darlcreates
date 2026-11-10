@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, requireUser } from "@/lib/session";
 import { getCartLines, cartSubtotalCents } from "@/lib/cart";
 import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ async function CartContents() {
     );
   }
 
+  await requireUser("/cart"); // routes users who haven't accepted the privacy policy to /consent
   const lines = await getCartLines(user.id);
   if (lines.length === 0) {
     return (

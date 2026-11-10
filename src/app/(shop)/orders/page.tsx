@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { listUserOrders } from "@/lib/orders";
 import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
@@ -23,8 +22,7 @@ export default function OrdersPage() {
 }
 
 async function OrdersList() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in?redirect=/orders");
+  const user = await requireUser("/orders");
 
   const orders = await listUserOrders(user.id);
   if (orders.length === 0) {
