@@ -64,7 +64,10 @@ async function ProductContent({
   if (!product) notFound();
 
   const stlUrl = fileUrl(product.stlKey);
-  const photoUrls = product.photos.map((p) => fileUrl(p.key));
+  const photos = product.photos.flatMap((p) => {
+    const url = fileUrl(p.key);
+    return url ? [{ url, alt: p.alt }] : [];
+  });
   const reviews = await getProductReviews(product.id);
 
   return (
@@ -92,10 +95,11 @@ async function ProductContent({
 
         <ProductCustomizer
           productId={product.id}
+          productName={product.name}
           basePriceCents={product.basePriceCents}
           options={product.options}
           stlUrl={stlUrl}
-          photoUrls={photoUrls.filter((u): u is string => Boolean(u))}
+          photos={photos}
         />
 
         <ProductReviews

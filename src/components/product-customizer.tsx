@@ -7,7 +7,7 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StlViewer } from "@/components/three/stl-viewer-lazy";
+import { ProductGallery, type GalleryPhoto } from "@/components/product-gallery";
 import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -16,16 +16,18 @@ import { addToCartAction } from "@/app/(shop)/cart/actions";
 
 export function ProductCustomizer({
   productId,
+  productName,
   basePriceCents,
   options,
   stlUrl,
-  photoUrls,
+  photos,
 }: {
   productId: string;
+  productName: string;
   basePriceCents: number;
   options: ProductOptionInput[];
   stlUrl: string | null;
-  photoUrls: string[];
+  photos: GalleryPhoto[];
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -77,29 +79,12 @@ export function ProductCustomizer({
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      {/* Visual: 3D viewer + photo thumbnails */}
-      <div>
-        <div className="aspect-square overflow-hidden rounded-xl border-2 border-border bg-card">
-          <StlViewer url={stlUrl} color={activeColor} className="size-full" />
-        </div>
-        {photoUrls.length > 0 && (
-          <div className="mt-3 flex gap-2">
-            {photoUrls.slice(0, 4).map((u, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={u}
-                alt={`Product photo ${i + 1}`}
-                className="size-16 rounded-lg border object-cover"
-              />
-            ))}
-          </div>
-        )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Drag to rotate · scroll to zoom. The 3D model is the actual
-          print-ready shape.
-        </p>
-      </div>
+      <ProductGallery
+        productName={productName}
+        modelUrl={stlUrl}
+        color={activeColor}
+        photos={photos}
+      />
 
       {/* Customizer form */}
       <div className="space-y-6">
