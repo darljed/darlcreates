@@ -22,8 +22,8 @@ prices and state transitions.
 |---|---|---|
 | `addToCartAction` | `(shop)/cart/actions.ts` | Recomputes price from the live option schema |
 | `updateQtyAction`, `removeItemAction` | same | Scoped to the user's own cart |
-| `placeOrderAction` | `(shop)/checkout/actions.ts` | Re-validates every line, transaction: order + items + history + clear cart; sends "placed" email; redirects to the order. Flat ₱80 shipping (G-08) |
-| `submitPaymentAction` | same | Inserts a *new* pending payment (append-only). ⚠️ amount currently comes from the client (G-07) |
+| `placeOrderAction` | `(shop)/checkout/actions.ts` | Thin wrapper over `placeOrder` (service). Returns `{error}` for `useActionState`; redirects on success. Optional "save address" |
+| `submitPaymentAction` | same | Wrapper over `submitGcashReference`. Amount is the order total from the DB; reference normalized; duplicates and a 2nd pending payment are refused |
 | `submitReviewAction` | `(shop)/products/[slug]/review-actions.ts` | Only for delivered orders, once per product; saved unapproved |
 
 **Admin**
@@ -37,6 +37,11 @@ prices and state transitions.
 | `transitionOrderAction` | same | Forward-only via `ORDER_TRANSITIONS`; appends history; "shipped" email |
 | `saveShipmentAction` | same | Upsert carrier / tracking |
 | `moderateReviewAction` | `(shop)/products/[slug]/review-actions.ts` | Approve / hide |
+
+## Service layer (`src/lib/order-service.ts`)
+Framework-free business logic; actions call it, tests call it directly.
+`placeOrder`, `submitGcashReference`, `verifyPayment`, `rejectPayment`, `transitionOrder`, `saveShipment`.
+Verify/reject/transition are transactional with row locks. Callers do auth, Zod, revalidation, email.
 
 ## Pages
 

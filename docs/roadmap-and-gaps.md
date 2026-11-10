@@ -26,15 +26,11 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail / fix | Status |
 |---|---|---|---|---|
-| G-07 | 🟠 | **Payment amount is client-supplied** | `submitPaymentAction` stores the `amount` the browser sends. Server should use the order's `totalCents` (or reject a mismatch). Admin verifies manually, but the recorded figure must not be user-controlled. | ⬜ |
-| G-08 | 🟠 | **Flat shipping fee defined twice** | `FLAT_SHIPPING_CENTS = 8000` is duplicated in `checkout/page.tsx` and `checkout/actions.ts`. Display and charge can drift. Move to one config module (also the first step toward region-based fees, F-05). | ⬜ |
 | G-09 | 🟠 | **"Image" customization option is non-functional** | Customizer shows a placeholder sentence; `computeUnitPrice` requires an `imageKey` for image options, so a *required* image option makes the product un-addable. Needs customer upload flow (depends G-01) + server-side image validation (type/size/dimensions). | ⬜ |
 | G-10 | 🟠 | **RA 10173 deletion path is email-only; no consent checkbox** | Privacy page tells users to email for deletion; sign-in shows a notice but no explicit consent capture/record. Spec FR-1.5 asks for explicit consent + a deletion path. Add consent timestamp on user + self-serve "delete my data" request. | ⬜ |
 | G-11 | 🟠 | **No "Order Acknowledgment" document** | Spec FR-6.6 / task 11.2: printable non-BIR acknowledgment per order. Not built. (Schema already BIR-ready: `or_number`, `vat_cents`.) | ⬜ |
-| G-12 | 🟠 | **Add-to-cart sign-in redirect loses the product** | `product-customizer.tsx` sends `/sign-in?redirect=/products`, not the current product page. Also confirm BetterAuth rejects off-site `callbackURL` values (open-redirect check). | ⬜ |
 | G-13 | 🟠 | **Seeded DB password was shown in chat/terminal output** | The `darlcreates` DB role password was generated in-session and echoed. Rotate it and store in Bitwarden. | ⬜ |
 | G-14 | 🟠 | **No real UI/browser testing yet** | Build, typecheck and 3 scripts pass, and unauthenticated pages were curl-checked. The authenticated customer flow, admin flow and 3D viewer with a real STL have **not** been exercised in a browser. Planned right after G-05/G-06. | ⬜ next |
-| G-15 | 🟠 | **Tests don't call the real Server Actions** | `scripts/test-order-lifecycle.ts` re-creates the DB steps by hand; it validates the schema/rules, not `placeOrderAction` / `verifyPaymentAction` themselves. Refactor logic into callable service functions and test those. | ⬜ |
 
 ### Found while choosing the logo
 
@@ -75,7 +71,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Item |
 |---|---|---|
-| T-02 | 🟡 | `generateOrderNo()` uses `Math.random()` (4 chars). Collisions are caught by the `UNIQUE` constraint but would surface as a 500. Use nanoid/retry. |
 | T-03 | 🟡 | `scripts/seed.ts` deletes sample products by slug; will fail once real orders reference them (`order_items` FK is `restrict`). Fine for dev, never run against prod. |
 | T-04 | 🟡 | `getProductById` is uncached by design (used in actions); catalog list/detail are cached. Watch for N+1 queries in `assembleProduct` / `listPublishedProducts` as catalog grows. |
 | T-05 | 🟡 | Primary pair verified (5.03:1 light, 9.4:1 dark). **Still unchecked:** the hero's lime "We'll print it." on the blue is 3.81:1 (passes only as large bold text); muted-foreground, badges, and the lime accent buttons have not been measured. Full audit = G-22. |
@@ -144,4 +139,11 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-34 | 2026-11-10 | `/products/[slug]` threw the dev "Instant" error for any product created after build (`await params` outside Suspense). `params` now read inside a Suspense-wrapped component with a skeleton. `scripts/test-instant.ts` now covers every page, not just admin. Also T-01 (viewer tidy-up) and a plain `<a>` -> `<Link>`. |
 | F-16a | 2026-11-10 | **3MF upload + preview.** Admin can upload `.stl` or `.3mf` (max 50 MB). New uploads go under `models/` (old `stl/` keys still valid; DB column stays `stl_key`). 3MF is verified to be a real ZIP (first-bytes check) before attaching. Viewer loads 3MF with three's `3MFLoader`, keeps colors embedded in the file and applies the customer's swatch only to parts with no color. Tested: `test-uploads.ts`, `test-viewer-framing.ts` (multi-part), and a real-browser render of a generated two-part 3MF (`scripts/fixtures/base-plus-name.3mf`). **Not yet tested with a real slicer-exported 3MF.** |
 | G-37 | 2026-11-10 | Customer color selection on 3MF verified end to end on the real Bambu file: before selecting = neutral gray, then Green/Blue/Red measured hue 145°/219°/357° on the rendered model (headless browser, real clicks). The file has no color data, so the swatch paints the whole model. Note: the **Outdoor Phone Stand product has no Color option yet**, which is why it showed no color choices. |
+| G-07 | 2026-11-10 | Payment amount is no longer taken from the browser: `submitGcashReference` stores the order total from the DB. A DB check also requires `payment.amount == order.total` at verify time. |
+| G-08 | 2026-11-10 | Shipping fee defined once in `src/lib/shipping.ts`; checkout display and order placement both use it. |
+| G-12 | 2026-11-10 | Sign-in from "Add to cart" returns to the product page you were on. New `safeRedirect()` rejects off-site / protocol-relative / `javascript:` targets (open-redirect guard). |
+| G-15 | 2026-11-10 | Order logic moved to `src/lib/order-service.ts` (no framework imports); Server Actions are thin wrappers. `scripts/test-checkout.ts` exercises the real functions against the live DB (53 checks). |
+| T-02 | 2026-11-10 | Order numbers: crypto RNG, 6 unambiguous chars, PH business date, unique-violation retry. |
+| G-38 | 2026-11-10 | **Race conditions fixed.** Verify/reject/transition now run in one transaction with row locks (`FOR UPDATE`): 3 concurrent verifies => exactly 1 succeeds; 2 conflicting transitions => exactly 1 applies. |
+| G-39 | 2026-11-10 | **Money-integrity holes closed.** (a) a payment on a cancelled/refunded order can no longer be verified into 'paid' (must be rejected); (b) the same GCash reference cannot back two live payments (unique partial index, references normalized: trimmed/upper-cased); (c) one pending payment per order (unique partial index); (d) 'paid' can only be reached by verifying a payment, never by hand; (e) dashboard revenue excludes cancelled/refunded orders. |
 

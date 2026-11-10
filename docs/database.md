@@ -28,6 +28,11 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 `order_status` (awaiting_payment|paid|in_production|ready_to_ship|shipped|delivered|cancelled|refunded),
 `payment_status` (pending|verified|rejected).
 
+## Payment guard rails (DB-enforced)
+Partial unique indexes on `payments`: `payments_active_reference_uq` (a GCash reference can back at most
+one pending/verified payment) and `payments_one_pending_per_order_uq`. `users` also has `consent_at`,
+`consent_version`, `deleted_at` (privacy work).
+
 ## Model files (STL / 3MF)
 `products.stl_key` and `order_items.stl_key_snapshot` hold the S3 key of the print-ready
 model. Despite the name they accept **STL or 3MF** (format is read from the extension).

@@ -7,6 +7,7 @@ import {
   shipments,
   type orderStatus,
 } from "@/db/schema";
+import { randomInt } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { summarizeConfig } from "./cart";
@@ -31,14 +32,20 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-/** Generate a human order number like DC-20261109-AB12. */
-export function generateOrderNo(): string {
-  const d = new Date();
-  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `DC-${ymd}-${rand}`;
+const ORDER_NO_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+
+/**
+ * Human order number like DC-20261109-K7M2QX. Date is the PH business day; the suffix is
+ * 6 chars from a crypto RNG (32^6 ~ 1.07B per day). A collision is still possible in
+ * theory, so the DB column is UNIQUE and placeOrder retries on a unique violation.
+ */
+export function generateOrderNo(now: Date = new Date()): string {
+  const ymd = now
+    .toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) // YYYY-MM-DD
+    .replaceAll("-", "");
+  let suffix = "";
+  for (let i = 0; i < 6; i++) suffix += ORDER_NO_ALPHABET[randomInt(ORDER_NO_ALPHABET.length)];
+  return `DC-${ymd}-${suffix}`;
 }
 
 export type OrderDetail = {

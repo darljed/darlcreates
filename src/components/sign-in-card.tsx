@@ -6,11 +6,12 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signIn } from "@/lib/auth-client";
+import { safeRedirect } from "@/lib/safe-redirect";
 import { BrandLogo } from "@/components/brand-logo";
 
 export function SignInCard() {
   const params = useSearchParams();
-  const redirect = params.get("redirect") ?? "/";
+  const redirect = safeRedirect(params.get("redirect"));
   const [loading, setLoading] = useState(false);
 
   async function onGoogle() {

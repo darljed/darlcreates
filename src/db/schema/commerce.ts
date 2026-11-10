@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -6,6 +7,7 @@ import {
   jsonb,
   pgEnum,
   uuid,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 import { products } from "./catalog";
@@ -123,7 +125,17 @@ export const payments = pgTable("payments", {
   verifiedBy: text("verified_by").references(() => users.id),
   verifiedAt: timestamp("verified_at"),
   rejectReason: text("reject_reason"),
-});
+},
+(t) => [
+  // A GCash reference can back at most one live (pending/verified) payment, ever.
+  uniqueIndex("payments_active_reference_uq")
+    .on(t.gcashReference)
+    .where(sql`${t.status} in ('pending', 'verified')`),
+  // At most one pending submission per order at a time.
+  uniqueIndex("payments_one_pending_per_order_uq")
+    .on(t.orderId)
+    .where(sql`${t.status} = 'pending'`),
+]);
 
 export const shipments = pgTable("shipments", {
   id: uuid("id").defaultRandom().primaryKey(),

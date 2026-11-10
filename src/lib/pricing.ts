@@ -108,6 +108,12 @@ export function computeUnitPrice(
   return { unitPriceCents: sumCentavos(deltas), errors };
 }
 
+/** The customer's uploaded image key from a config snapshot, if any (first image option). */
+export function firstImageKey(config: ConfigSelection): string | null {
+  for (const sel of Object.values(config)) if (sel?.imageKey) return sel.imageKey;
+  return null;
+}
+
 /** Zod schema for a raw selection payload coming from the client. */
 export const configSelectionSchema = z.record(
   z.string(),

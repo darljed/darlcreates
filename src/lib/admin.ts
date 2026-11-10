@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { products, orders, payments, orderItems } from "@/db/schema";
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { REVENUE_ORDER_FILTER } from "./order-service";
 
 export async function adminListProducts() {
   return db
@@ -81,7 +82,8 @@ export async function adminDashboard(): Promise<DashboardStats> {
       total: sql<number>`coalesce(sum(${payments.amountCents}), 0)`,
     })
     .from(payments)
-    .where(eq(payments.status, "verified"));
+    .innerJoin(orders, eq(payments.orderId, orders.id))
+    .where(and(eq(payments.status, "verified"), REVENUE_ORDER_FILTER));
 
   const statusRows = await db
     .select({ status: orders.status, c: sql<number>`count(*)` })

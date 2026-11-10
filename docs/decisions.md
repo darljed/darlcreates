@@ -157,3 +157,11 @@ swatch, so multi-color files stay multi-color; (5) viewer framing is size-indepe
 because 3MF and STL differ in units and origin. 3MF parsing needs a browser
 (`DOMParser`), so it is tested in a real browser, not in Node. Detail and the
 personalization plan: [personalization-and-3mf.md](./personalization-and-3mf.md).
+
+## D-20 — Order logic lives in a service layer; the DB enforces payment rules
+Server Actions mixed auth, validation and business rules, which made the rules untestable
+without a request context and left check-then-write races (two admin clicks could both verify;
+a payment on a cancelled order could be marked verified). Rules now live in `order-service.ts`
+(transactions + `FOR UPDATE`), and the invariants that must never break are also enforced by
+partial unique indexes, so a bug in app code cannot create a duplicate live reference.
+The client never supplies money: amounts come from the order row.

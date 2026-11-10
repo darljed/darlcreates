@@ -5,12 +5,11 @@ import { getCurrentUser } from "@/lib/session";
 import { getCartLines, cartSubtotalCents } from "@/lib/cart";
 import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { placeOrderAction } from "./actions";
+import { CheckoutForm } from "@/components/checkout-form";
+import { listAddresses } from "@/lib/addresses";
+import { shippingCentsFor } from "@/lib/shipping";
 
 export const metadata = { title: "Checkout" };
-const FLAT_SHIPPING_CENTS = 8000;
 
 export default function CheckoutPage() {
   return (
@@ -42,38 +41,13 @@ async function CheckoutContents() {
   }
 
   const subtotal = cartSubtotalCents(lines);
-  const total = subtotal + FLAT_SHIPPING_CENTS;
+  const shipping = shippingCentsFor(subtotal);
+  const total = subtotal + shipping;
+  const saved = await listAddresses(user.id);
 
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_320px]">
-      <form action={placeOrderAction} className="space-y-4">
-        <h2 className="text-xl font-bold">Shipping address</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="recipient" label="Full name" required />
-          <Field name="phone" label="Mobile number" required placeholder="0917…" />
-        </div>
-        <Field name="line1" label="Street / House no." required />
-        <Field name="line2" label="Apt / Landmark (optional)" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="barangay" label="Barangay" />
-          <Field name="city" label="City / Municipality" required />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="province" label="Province" required />
-          <Field name="postalCode" label="Postal code" />
-        </div>
-        <Button
-          type="submit"
-          size="lg"
-          className="w-full bg-primary text-primary-foreground"
-        >
-          Place order
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          You&apos;ll get GCash payment instructions on the next screen. We print
-          after your payment is verified.
-        </p>
-      </form>
+      <CheckoutForm saved={saved} defaultName={user.name} />
 
       <aside className="h-fit rounded-xl border-2 border-border bg-muted/40 p-5">
         <h2 className="mb-3 font-bold">Order summary</h2>
@@ -89,34 +63,13 @@ async function CheckoutContents() {
         </ul>
         <div className="mt-3 space-y-1 border-t pt-3 text-sm">
           <Row label="Subtotal" value={formatPHP(subtotal)} />
-          <Row label="Shipping (flat)" value={formatPHP(FLAT_SHIPPING_CENTS)} />
+          <Row label="Shipping (flat)" value={formatPHP(shipping)} />
         </div>
         <div className="mt-3 flex justify-between border-t pt-3 text-lg font-extrabold">
           <span>Total</span>
           <span className="text-primary">{formatPHP(total)}</span>
         </div>
       </aside>
-    </div>
-  );
-}
-
-function Field({
-  name,
-  label,
-  required,
-  placeholder,
-}: {
-  name: string;
-  label: string;
-  required?: boolean;
-  placeholder?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name}>
-        {label} {required && <span className="text-primary">*</span>}
-      </Label>
-      <Input id={name} name={name} required={required} placeholder={placeholder} />
     </div>
   );
 }

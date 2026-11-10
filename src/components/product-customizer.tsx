@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export function ProductCustomizer({
   photos: GalleryPhoto[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = useSession();
   const signedIn = Boolean(session?.user);
   const [selection, setSelection] = useState<ConfigSelection>({});
@@ -59,7 +60,7 @@ export function ProductCustomizer({
 
   function onAddToCart() {
     if (!signedIn) {
-      router.push("/sign-in?redirect=/products");
+      router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
     if (errors.length) {

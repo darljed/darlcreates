@@ -22,6 +22,11 @@ export const users = pgTable("users", {
     .notNull(),
   image: text("image"),
   role: userRole("role").default("customer").notNull(),
+  // RA 10173: when the user accepted the privacy policy, and which version.
+  consentAt: timestamp("consent_at"),
+  consentVersion: text("consent_version"),
+  // Set when the user deletes their account (PII is anonymized; order records are kept).
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),

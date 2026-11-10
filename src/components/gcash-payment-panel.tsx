@@ -31,7 +31,6 @@ export function GcashPaymentPanel({
   const [reference, setReference] = useState("");
   const [pending, startTransition] = useTransition();
 
-  const amount = (totalCents / 100).toFixed(2);
   const isPending = latestPayment?.status === "pending";
   const isRejected = latestPayment?.status === "rejected";
 
@@ -41,7 +40,7 @@ export function GcashPaymentPanel({
       return;
     }
     startTransition(async () => {
-      const res = await submitPaymentAction({ orderNo, reference, amount });
+      const res = await submitPaymentAction({ orderNo, reference });
       if (res.ok) {
         toast.success("Reference submitted — we'll verify it shortly");
         setReference("");
