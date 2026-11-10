@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { siteContent } from "@/db/schema";
+import { siteContent, users } from "@/db/schema";
 import {
   DEFAULT_HOME,
   DEFAULT_SITE_INFO,
@@ -95,4 +95,30 @@ export async function saveLegal(
   const data: LegalDoc = { ...edit, version: askAgain ? new Date().toISOString() : current.version };
   await upsert(key, data, userId);
   return data;
+}
+
+// ---- editor metadata ----
+export type DocMeta = { updatedAt: Date; updatedByName: string | null } | null;
+
+/** When a document was last saved and by whom (null if it was never saved, i.e. still the default). */
+export async function loadMeta(key: string): Promise<DocMeta> {
+  const [row] = await db
+    .select({ updatedAt: siteContent.updatedAt, name: users.name })
+    .from(siteContent)
+    .leftJoin(users, eq(siteContent.updatedBy, users.id))
+    .where(eq(siteContent.key, key))
+    .limit(1);
+  return row ? { updatedAt: row.updatedAt, updatedByName: row.name ?? null } : null;
+}
+
+/** How many active customers have accepted `version` of the privacy policy. */
+export async function privacyAcceptance(version: string): Promise<{ accepted: number; total: number }> {
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      accepted: sql<number>`count(*) filter (where ${users.consentVersion} = ${version} and ${users.consentAt} is not null)::int`,
+    })
+    .from(users)
+    .where(and(eq(users.role, "customer"), isNull(users.deletedAt)));
+  return { accepted: row?.accepted ?? 0, total: row?.total ?? 0 };
 }

@@ -98,8 +98,30 @@ async function main() {
   assert("garbage legal data falls back to the default", parseLegal("terms", { x: 1 }) === DEFAULT_LEGAL.terms);
   assert("default terms text contains no unsafe links", !parseLegalBody(DEFAULT_LEGAL.terms.body).some((b) => b.type === "p" && b.parts.some((x) => x.href && !sc.isSafeHref(x.href))));
 
+  console.log("\nlegal editor helpers");
+  const lf = await import("../src/lib/legal-format");
+  const h1 = lf.toggleHeading("Intro\nTitle line\nMore", 8, 8);
+  assert("heading toggle adds ## to the cursor line only", h1.value === "Intro\n## Title line\nMore", JSON.stringify(h1.value));
+  assert("heading toggle again removes it", lf.toggleHeading(h1.value, h1.start, h1.end).value === "Intro\nTitle line\nMore");
+  const b1 = lf.toggleBullets("a\nb\n\nc", 0, 3);
+  assert("bullets: selected lines become a list, others untouched", b1.value === "- a\n- b\n\nc", JSON.stringify(b1.value));
+  assert("bullets toggle off when all selected are bullets", lf.toggleBullets(b1.value, 0, 7).value === "a\nb\n\nc");
+  assert("bullets skip blank lines", lf.toggleBullets("x\n\ny", 0, 4).value === "- x\n\n- y");
+  const l1 = lf.insertLink("See terms here", 4, 9, "", "/terms");
+  assert("link wraps the selection", l1.ok && l1.value === "See [terms](/terms) here", JSON.stringify(l1));
+  assert("link with its own text", lf.insertLink("", 0, 0, "Our terms", "https://x.com/t").ok);
+  assert("link refuses javascript:", !lf.insertLink("x", 0, 1, "a", "javascript:alert(1)").ok);
+  assert("link refuses protocol-relative", !lf.insertLink("x", 0, 1, "a", "//evil.com").ok);
+  const l2 = lf.insertLink("", 0, 0, "bad ] [label\n", "/ok");
+  assert("brackets/newlines in link text can't break the markup", l2.ok && !/\n/.test(l2.value) && l2.value.startsWith("[") && l2.value.endsWith("](/ok)"), JSON.stringify(l2));
+  assert("outline lists headings in order", lf.outline("## A\ntext\n\n## B").join(",") === "A,B");
+  assert("word count ignores markup", lf.wordCount("## Hi there\n- one two\n[link](/x)") === 6, String(lf.wordCount("## Hi there\n- one two\n[link](/x)")));
+  const metaStore = await import("../src/lib/site-content-store");
+  assert("acceptance counts are sane", await (async () => { const a = await metaStore.privacyAcceptance("no-such-version"); return a.accepted === 0 && a.total >= 0; })());
+  assert("meta is null for a never-saved document", (await metaStore.loadMeta(`TEST-never-${Date.now()}`)) === null);
+
   console.log("\nrendering never uses raw HTML");
-  for (const f of ["src/app/(shop)/page.tsx", "src/components/cms.tsx", "src/components/site-footer.tsx", "src/components/legal-body.tsx", "src/components/admin/content-editor.tsx", "src/components/admin/store-editor.tsx", "src/components/admin/legal-editor.tsx"])
+  for (const f of ["src/app/(shop)/page.tsx", "src/components/cms.tsx", "src/components/site-footer.tsx", "src/components/legal-body.tsx", "src/components/admin/content-editor.tsx", "src/components/admin/store-editor.tsx", "src/components/admin/legal-editor.tsx", "src/components/admin/legal-workspace.tsx"])
     assert(`${f} has no dangerouslySetInnerHTML`, !readFileSync(f, "utf8").includes("dangerouslySetInnerHTML"));
 
   console.log("\nstore (live DB, TEST key)");

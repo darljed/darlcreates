@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 /** Label wraps its control, so every input has an accessible name without id plumbing. */
 export function Field({ label, hint, children, className }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {
   return (
-    <label className={`grid gap-1 text-xs font-medium ${className ?? ""}`}>
+    <label className={`grid content-start gap-1 text-xs font-medium ${className ?? ""}`}>
       <span>{label}</span>
       {children}
       {hint && <span className="font-normal text-muted-foreground">{hint}</span>}

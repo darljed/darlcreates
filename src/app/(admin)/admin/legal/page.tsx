@@ -1,6 +1,6 @@
-import { LegalEditor } from "@/components/admin/legal-editor";
+import { LegalWorkspace } from "@/components/admin/legal-workspace";
 import { PageHeader } from "@/components/shell/ui";
-import { loadLegal } from "@/lib/site-content-store";
+import { legalKey, loadLegal, loadMeta, privacyAcceptance } from "@/lib/site-content-store";
 
 export const metadata = { title: "Legal pages · Admin" };
 
@@ -8,18 +8,24 @@ export const metadata = { title: "Legal pages · Admin" };
 // (A layout's `instant = false` does not cover its child pages.)
 export const instant = false;
 
+const iso = (m: Awaited<ReturnType<typeof loadMeta>>) =>
+  m ? { updatedAt: m.updatedAt.toISOString(), updatedByName: m.updatedByName } : null;
+
 export default async function AdminLegalPage() {
-  const [privacy, terms] = await Promise.all([loadLegal("privacy"), loadLegal("terms")]);
+  const [privacy, terms, pMeta, tMeta] = await Promise.all([
+    loadLegal("privacy"),
+    loadLegal("terms"),
+    loadMeta(legalKey("privacy")),
+    loadMeta(legalKey("terms")),
+  ]);
+  const acceptance = await privacyAcceptance(privacy.version);
   return (
     <div className="max-w-4xl">
       <PageHeader
         title="Legal pages"
         description="Your Privacy Policy and Terms and Conditions. Have them reviewed by a lawyer or your accountant before relying on them."
       />
-      <div className="space-y-3">
-        <LegalEditor slug="privacy" initial={privacy} />
-        <LegalEditor slug="terms" initial={terms} />
-      </div>
+      <LegalWorkspace privacy={{ doc: privacy, meta: iso(pMeta) }} terms={{ doc: terms, meta: iso(tMeta) }} acceptance={acceptance} />
     </div>
   );
 }
