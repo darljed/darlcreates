@@ -4,6 +4,10 @@ import { formatPHP } from "@/lib/money";
 
 export const metadata = { title: "Admin Dashboard" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 export default async function AdminDashboardPage() {
   const stats = await adminDashboard();
 

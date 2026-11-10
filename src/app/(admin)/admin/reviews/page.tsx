@@ -5,6 +5,10 @@ import { ReviewModeration } from "@/components/admin/review-moderation";
 
 export const metadata = { title: "Reviews · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 export default async function AdminReviewsPage() {
   const rows = await db
     .select({

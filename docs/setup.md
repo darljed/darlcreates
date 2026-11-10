@@ -25,6 +25,9 @@ npm run build && npm run typecheck
 npx tsx scripts/test-money.ts
 npx tsx scripts/test-pricing.ts
 npx tsx scripts/test-order-lifecycle.ts   # needs DB (Tailscale)
+npx tsx scripts/test-instant.ts           # every admin page has its instant opt-out
+npx tsx scripts/test-uploads.ts           # S3 round trip
+npx tsx scripts/test-cors.ts              # browser-style CORS from each dev origin
 ```
 
 ## Environment variables (`.env.local`)

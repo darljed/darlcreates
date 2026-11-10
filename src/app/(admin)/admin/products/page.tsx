@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Products · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 const STATUS_STYLE: Record<string, string> = {
   published: "bg-green-600 text-white",
   draft: "bg-accent text-accent-foreground",

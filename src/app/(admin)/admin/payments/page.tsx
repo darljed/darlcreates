@@ -5,6 +5,10 @@ import { PaymentActions } from "@/components/admin/payment-actions";
 
 export const metadata = { title: "Payments · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 export default async function AdminPaymentsPage() {
   const pending = await adminPendingPayments();
 
