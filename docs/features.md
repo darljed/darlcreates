@@ -10,7 +10,8 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Multi-agent steering (Kiro `.kiro/steering`, `AGENTS.md`, `CLAUDE.md`)
 
 ## Storefront (customer) ✅
-- Catalog listing (category chips) + product cards
+- Catalog listing with **search** and **category filters** (instant, client-side) + product cards
+- Product page gallery: a 3D tile plus clickable photos that swap the preview box
 - Product detail with **interactive 3D STL viewer** (lazy, reduced-motion,
   fallback; auto-centers any model, orbit/pan/zoom, Reset view) + photo thumbnails
 - **Customizer**: color swatches / size choices / text input / image (schema-

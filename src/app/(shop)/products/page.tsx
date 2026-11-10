@@ -1,6 +1,6 @@
 import { listPublishedProducts } from "@/lib/catalog";
 import { fileUrl } from "@/lib/storage";
-import { ProductCard } from "@/components/product-card";
+import { ProductBrowser } from "@/components/product-browser";
 
 export const metadata = { title: "Shop" };
 
@@ -11,10 +11,6 @@ export default async function ProductsPage() {
     imageUrl: fileUrl(p.photoKey),
   }));
 
-  const categories = Array.from(
-    new Set(products.map((p) => p.category)),
-  ).sort();
-
   return (
     <main className="flex-1">
       <section className="bg-primary text-primary-foreground">
@@ -24,36 +20,14 @@ export default async function ProductsPage() {
             Pick a product, spin it in 3D, make it yours. Every item is printed
             to order.
           </p>
-          {categories.length > 0 && (
-            <div className="mt-6 flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <span
-                  key={c}
-                  className="rounded-full bg-primary-foreground/15 px-3 py-1 text-sm font-medium capitalize"
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-12">
         {withImages.length === 0 ? (
-          <p className="text-muted-foreground">
-            No products yet. Check back soon!
-          </p>
+          <p className="text-muted-foreground">No products yet. Check back soon!</p>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {withImages.map(({ product, imageUrl }) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                imageUrl={imageUrl}
-              />
-            ))}
-          </div>
+          <ProductBrowser items={withImages} />
         )}
       </section>
     </main>

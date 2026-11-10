@@ -73,7 +73,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-17 | 🟡 | Review photos + reviewer name (`review_photos` unused; `authorName` never populated) | FR-9.1 | ⬜ |
 | G-18 | 🟡 | Dashboard time-series chart (only totals + top products) | FR-10.1 | ⬜ |
 | G-19 | 🟡 | Option/photo **reordering**, option **edit**, option-value **delete** in schema builder (add + delete-option only) | FR-2.5 | ⬜ |
-| G-20 | 🟡 | Product search + category filtering (listing shows category chips only, non-interactive) | FR-3.1 | ⬜ |
 | G-21 | 🟡 | Per-value STL/scale override for size options (column exists, unused) | FR-2.4 | ⬜ |
 | G-22 | 🟡 | Accessibility audit (contrast of accent-on-primary pairs, keyboard walk-through, 3D viewer a11y) | NFR-4 | ⬜ |
 | G-23 | 🟡 | SMTP not configured — emails only log to console | FR-8.2 | ⬜ |
@@ -162,3 +161,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-10 | 2026-11-10 | **RA 10173 tools.** Privacy consent recorded with timestamp + policy version (`users.consent_at/consent_version`); `requireUser` sends anyone without current consent to `/consent` (bump `PRIVACY_VERSION` to re-ask). `/account` has a JSON data export (right of access) and self-serve account deletion (anonymizes the person, removes sessions/addresses/cart/reviews/uploaded images; keeps order + payment rows; refused while an order is in progress). `test-privacy.ts` (36 checks). **Owner/legal review needed on the retention choice, see D-22.** |
 | G-11 | 2026-11-10 | **Order Acknowledgment** at `/orders/[orderNo]/acknowledgment` (owner only) and `/admin/orders/[id]/acknowledgment`: printable / Save-as-PDF, VAT shown as 0, states it is not an official receipt or tax invoice. `test-acknowledgment.ts` guards the wording. **Owner/accountant should read the wording once.** |
 | G-16 | 2026-11-10 | **Address book.** Checkout offers saved addresses and a "save this address" box (max 10, no duplicates, first is default); `/account` lists, sets default, deletes. |
+| G-20 | 2026-11-10 | **Shop search + category filter.** Client-side (`ProductBrowser` + pure `product-filter.ts`): every word must match name/description/category, accent- and case-insensitive; category chips with counts; empty state with Clear filters. Done client-side on purpose so the listing stays static (no `searchParams`). Revisit server-side search past a few hundred products. `test-product-filter.ts` (23 checks). |
