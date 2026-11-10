@@ -5,6 +5,10 @@ import { OrderStatusBadge } from "@/components/order-status-badge";
 
 export const metadata = { title: "Orders · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 const FILTERS = [
   { key: "", label: "All" },
   { key: "awaiting_payment", label: "Awaiting payment" },

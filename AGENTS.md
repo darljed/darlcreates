@@ -82,3 +82,6 @@ Reference IDs in commits; move rows to Resolved when fixed. Setup/ops detail:
 
 ## Session reads (Next 16)
 `getCurrentUser()` calls `await connection()` (session expiry uses the current time; forbidden during prerender). Call it only inside `<Suspense>` or a dynamic segment. See `docs/decisions.md` D-16.
+
+## Instant validation + S3 CORS
+A layout's `instant = false` does not cover child pages: a page that awaits `params`/`searchParams` outside `<Suspense>` needs its own `instant = false` or a Suspense boundary. Browser uploads to S3 need the page origin in the bucket CORS rules; check with `npx tsx scripts/test-cors.ts`.

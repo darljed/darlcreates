@@ -102,7 +102,12 @@ Rules:
   on `arn:aws:s3:::darlcreates-uploads/*` and `s3:ListBucket` on the bucket —
   nothing else.
 - Lifecycle: abort incomplete multipart uploads after 3 days. (Sweep for orphaned objects is G-27.)
-- CORS currently lists only localhost origins — add the production origin (G-26).
+- CORS origins (dev): `localhost`, `127.0.0.1` and `macbook-01.tail85990d.ts.net` on ports 3000/3001.
+  A browser upload from any other address fails with "Failed to fetch" even though the
+  presign call returns 200. Check with `npx tsx scripts/test-cors.ts`. To add an origin:
+  `aws s3api put-bucket-cors --bucket darlcreates-uploads --cors-configuration file://cors.json --profile darljed --region ap-south-1`
+  (verify the account is 551892774595 first) and add the origin to `scripts/test-cors.ts`.
+- Production origin still missing (G-26).
 - IAM user: `darlcreates-app`, inline policy `darlcreates-uploads-only`.
 - To rotate the key: `aws iam create-access-key --user-name darlcreates-app --profile darljed`, update `.env.local`, then delete the old key.
 

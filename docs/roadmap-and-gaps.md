@@ -46,7 +46,7 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail |
 |---|---|---|---|
-| G-26 | 🟠 | **Production origins missing from S3 CORS** | CORS allows only `localhost:3000/3001`. Add the production domain before launch or admin uploads fail there. |
+| G-26 | 🟠 | **Production origin missing from S3 CORS** | CORS lists only dev origins (localhost, 127.0.0.1, the Tailscale hostname). Add the production domain before launch or admin uploads fail there. |
 | G-27 | 🟡 | **Orphaned S3 objects** | A file uploaded but never attached (admin closes the tab mid-way) stays in the bucket; replaced STLs are kept on purpose (orders reference them). Add a periodic sweep of unreferenced `stl/`/`photos/` keys. |
 | G-28 | 🟡 | **App S3 key has no rotation plan** | `darlcreates-app` access key lives in `.env.local`. Store in Bitwarden; rotate periodically. |
 
@@ -125,3 +125,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-24 | 2026-11-10 | Real logo applied (header, admin, sign-in, favicon/apple-icon) from `brand/source/`; theme primary changed from magenta to cyan-blue (`oklch(0.52 0.14 225)`, white-on-primary 5.03:1). Built by `scripts/build-brand-assets.py`. |
 | G-29 | 2026-11-10 | Dev-server `new Date()` blocking-route error: `getCurrentUser()` now calls `await connection()` first (decision D-16). Production build was unaffected; the dev check needs confirming on your side. |
 | T-08 | 2026-11-10 | Designer supplied black and white wordmark logos; wired via `BrandLogo` (replaces the CSS-invert workaround). |
+| G-31 | 2026-11-10 | Admin "Instant" dev error on `/admin/products/[id]`: a layout's `instant = false` does **not** cover its child pages. Added `export const instant = false` to the admin pages that `await params/searchParams` (`products/[id]`, `orders/[id]`, `orders`). Rule: any page reading params/searchParams outside Suspense needs its own opt-out or a Suspense boundary. |
+| G-32 | 2026-11-10 | Admin STL upload failed in the browser (nothing reached S3): bucket CORS allowed only `localhost:3000/3001`, so the PUT was blocked from `127.0.0.1` / the Tailscale hostname. Added those origins; new `scripts/test-cors.ts`; the upload UI now explains a CORS failure instead of "Failed to fetch". |
+

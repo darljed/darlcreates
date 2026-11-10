@@ -8,6 +8,10 @@ import { fileUrl } from "@/lib/storage";
 
 export const metadata = { title: "Edit product · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 export default async function EditProductPage({
   params,
 }: PageProps<"/admin/products/[id]">) {

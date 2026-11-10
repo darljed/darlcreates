@@ -58,3 +58,6 @@ Gaps/next steps: `docs/roadmap-and-gaps.md` (G-/T-/F- IDs). Setup & ops:
 
 ## Session reads
 `getCurrentUser()` (src/lib/session.ts) calls `await connection()` first, because the session check uses the current time and Cache Components forbids that during prerender. Callers must be inside `<Suspense>` or a dynamic segment (`instant = false`). Don't use `use cache: private` for it. See docs/decisions.md D-16.
+
+## Instant validation
+A layout's `export const instant = false` does NOT cover its child pages. A page that `await`s `params`/`searchParams` outside `<Suspense>` needs its own `instant = false` (admin/per-user pages) or a Suspense boundary. Direct browser uploads to S3 also need the page's origin in the bucket CORS (`scripts/test-cors.ts`).

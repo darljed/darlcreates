@@ -30,12 +30,20 @@ async function uploadToS3(kind: AdminUploadKind, file: File): Promise<string> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Could not start upload");
 
-  const put = await fetch(data.url, {
-    method: "PUT",
-    headers: { "Content-Type": data.contentType },
-    body: file,
-  });
-  if (!put.ok) throw new Error("Upload to storage failed");
+  let put: Response;
+  try {
+    put = await fetch(data.url, {
+      method: "PUT",
+      headers: { "Content-Type": data.contentType },
+      body: file,
+    });
+  } catch {
+    // A CORS-blocked PUT never gets a response; the browser throws a bare TypeError.
+    throw new Error(
+      `Couldn't reach storage from ${window.location.origin}. The bucket's CORS rules probably don't list this address (see docs/setup.md).`,
+    );
+  }
+  if (!put.ok) throw new Error(`Upload to storage failed (${put.status})`);
   return data.key as string;
 }
 

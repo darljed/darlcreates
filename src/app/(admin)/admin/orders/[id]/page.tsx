@@ -8,6 +8,10 @@ import { OrderAdminControls } from "@/components/admin/order-admin-controls";
 
 export const metadata = { title: "Order · Admin" };
 
+// Admin pages are per-request and RBAC-gated; they may block on navigation.
+// (A layout's `instant = false` does not cover its child pages.)
+export const instant = false;
+
 export default async function AdminOrderDetailPage({
   params,
 }: PageProps<"/admin/orders/[id]">) {
