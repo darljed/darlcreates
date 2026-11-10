@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductGallery, type GalleryPhoto } from "@/components/product-gallery";
+import { CustomerImageUpload } from "@/components/customer-image-upload";
 import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -157,9 +158,12 @@ export function ProductCustomizer({
             )}
 
             {opt.type === "image" && (
-              <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                Image upload is available at checkout once storage is enabled.
-              </p>
+              <CustomerImageUpload
+                signedIn={signedIn}
+                value={selection[opt.id]?.imageKey}
+                onChange={(key) => setValue(opt.id, { imageKey: key })}
+                onNeedSignIn={() => router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`)}
+              />
             )}
           </div>
         ))}

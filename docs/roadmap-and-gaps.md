@@ -26,7 +26,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail / fix | Status |
 |---|---|---|---|---|
-| G-09 | 🟠 | **"Image" customization option is non-functional** | Customizer shows a placeholder sentence; `computeUnitPrice` requires an `imageKey` for image options, so a *required* image option makes the product un-addable. Needs customer upload flow (depends G-01) + server-side image validation (type/size/dimensions). | ⬜ |
 | G-10 | 🟠 | **RA 10173 deletion path is email-only; no consent checkbox** | Privacy page tells users to email for deletion; sign-in shows a notice but no explicit consent capture/record. Spec FR-1.5 asks for explicit consent + a deletion path. Add consent timestamp on user + self-serve "delete my data" request. | ⬜ |
 | G-11 | 🟠 | **No "Order Acknowledgment" document** | Spec FR-6.6 / task 11.2: printable non-BIR acknowledgment per order. Not built. (Schema already BIR-ready: `or_number`, `vat_cents`.) | ⬜ |
 | G-13 | 🟠 | **Seeded DB password was shown in chat/terminal output** | The `darlcreates` DB role password was generated in-session and echoed. Rotate it and store in Bitwarden. | ⬜ |
@@ -52,6 +51,14 @@ Verified against the code on 2026-11-09 (not from memory).
 |---|---|---|---|
 | G-35 | 🟡 | **3MF verified with one real Bambu Studio export; richer files untested** | The real `Outdoor_Version_mit_Handyhülle` Bambu project (geometry in a separate `3D/Objects/object_3.model`, single filament, no color data) loads and renders. NOT yet tested: Bambu/Prusa files with **multiple filaments or painted regions** (colors live in vendor metadata, which three's loader ignores, so those parts show gray/white), and Cura exports. If a multi-color file previews gray, that is the cause. |
 | G-36 | 🟡 | **Per-part color override** | A 3MF part with no color takes the customer's swatch; parts with colors never change. If a product needs the *customer* to recolor a colored part (e.g. the name), that needs part naming + a mapping on the product (ties into F-17). |
+
+### Found while adding customer uploads
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-40 | 🟡 | **Customer uploads live forever** | `customer/<userId>/` objects are only deleted by the account-deletion flow. Abandoned uploads (never added to a cart) accumulate. Needs a sweep (e.g. delete objects older than N days that no cart/order references). Same family as G-27. |
+| G-41 | 🟡 | **Image rate limit is per-instance memory** | Fine for one server; on serverless each instance counts separately. Move to a DB/Redis counter before scaling. |
+| G-42 | 🟡 | **No image moderation** | Customers can upload anything that is a valid JPG/PNG/WebP. The admin sees it before printing (nothing auto-prints), but there is no automated screening. |
 
 ### Missing from the spec (planned, not built)
 
@@ -146,4 +153,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | T-02 | 2026-11-10 | Order numbers: crypto RNG, 6 unambiguous chars, PH business date, unique-violation retry. |
 | G-38 | 2026-11-10 | **Race conditions fixed.** Verify/reject/transition now run in one transaction with row locks (`FOR UPDATE`): 3 concurrent verifies => exactly 1 succeeds; 2 conflicting transitions => exactly 1 applies. |
 | G-39 | 2026-11-10 | **Money-integrity holes closed.** (a) a payment on a cancelled/refunded order can no longer be verified into 'paid' (must be rejected); (b) the same GCash reference cannot back two live payments (unique partial index, references normalized: trimmed/upper-cased); (c) one pending payment per order (unique partial index); (d) 'paid' can only be reached by verifying a payment, never by hand; (e) dashboard revenue excludes cancelled/refunded orders. |
-
+| G-09 | 2026-11-10 | **Customer image personalization.** Products can have an `image` option; signed-in customers upload JPG/PNG/WebP (max 5 MB) straight to S3 under `customer/<userId>/` (presign kind `customer`, rate-limited 30/h). On add-to-cart the server verifies ownership of the key, that the object exists and is within the limit, and the file's **magic bytes** (a non-image renamed `.png` is refused); a normalizer drops any field the product schema doesn't allow, so a crafted request can't attach someone else's file or a payment proof. Customer sees a thumbnail in cart/order; admin gets a preview + open link. `test-customer-images.ts` (34 checks). |

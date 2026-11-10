@@ -46,6 +46,10 @@ export function CartItemRow({ line }: { line: CartLine }) {
 
       <div className="min-w-0 flex-1">
         <h3 className="font-bold">{line.productName}</h3>
+        {line.uploadUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={line.uploadUrl} alt="Your uploaded image" className="mt-2 size-14 rounded-md border object-cover" />
+        )}
         <ul className="mt-1 text-sm text-muted-foreground">
           {line.summary.map((s) => (
             <li key={s.label}>

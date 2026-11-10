@@ -83,6 +83,10 @@ async function OrderContents({ orderNo }: { orderNo: string }) {
                     {formatPHP(it.unitPriceCents * it.qty)}
                   </span>
                 </div>
+                {it.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.imageUrl} alt="Your uploaded image" className="mt-2 size-14 rounded-md border object-cover" />
+                )}
                 <ul className="mt-1 text-sm text-muted-foreground">
                   {it.summary.map((s) => (
                     <li key={s.label}>

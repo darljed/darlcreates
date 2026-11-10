@@ -108,6 +108,38 @@ export function computeUnitPrice(
   return { unitPriceCents: sumCentavos(deltas), errors };
 }
 
+/**
+ * Rebuild a customer's selection from scratch, keeping ONLY what the product's option schema
+ * allows: known option ids; for color/size just `valueId`; for text just trimmed `text`; for image
+ * just `imageKey`, and only if `isOwnImageKey` says the caller owns that file. Anything else the
+ * client sent (extra keys, an imageKey on a text option, someone else's file) is dropped, so a
+ * crafted request can't attach an arbitrary S3 key to an order. Pure, so it is unit-tested.
+ */
+export function normalizeSelection(
+  options: ProductOptionInput[],
+  raw: ConfigSelection,
+  isOwnImageKey: (key: string) => boolean,
+): { config: ConfigSelection; errors: string[] } {
+  const config: ConfigSelection = {};
+  const errors: string[] = [];
+  for (const opt of options) {
+    const sel = raw[opt.id];
+    if (!sel) continue;
+    if (opt.type === "color" || opt.type === "size") {
+      if (sel.valueId) config[opt.id] = { valueId: sel.valueId };
+    } else if (opt.type === "text") {
+      const text = (sel.text ?? "").trim();
+      if (text) config[opt.id] = { text };
+    } else if (opt.type === "image") {
+      if (sel.imageKey) {
+        if (isOwnImageKey(sel.imageKey)) config[opt.id] = { imageKey: sel.imageKey };
+        else errors.push(`${opt.label}: that image isn't yours or is invalid. Upload it again.`);
+      }
+    }
+  }
+  return { config, errors };
+}
+
 /** The customer's uploaded image key from a config snapshot, if any (first image option). */
 export function firstImageKey(config: ConfigSelection): string | null {
   for (const sel of Object.values(config)) if (sel?.imageKey) return sel.imageKey;

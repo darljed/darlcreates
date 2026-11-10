@@ -74,13 +74,10 @@ export default async function AdminOrderDetailPage({
                       </span>
                     )}
                     {it.imageUrl && (
-                      <a
-                        href={it.imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm underline"
-                      >
-                        Customer image
+                      <a href={it.imageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold underline">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={it.imageUrl} alt="Customer's uploaded image" className="size-14 rounded-md border object-cover" />
+                        Open customer image
                       </a>
                     )}
                   </div>

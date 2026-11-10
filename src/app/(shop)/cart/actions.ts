@@ -6,51 +6,17 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { cartItems } from "@/db/schema";
 import { requireUser } from "@/lib/session";
-import { getProductById } from "@/lib/catalog";
 import { getOrCreateCart } from "@/lib/cart";
-import { computeUnitPrice, configSelectionSchema } from "@/lib/pricing";
+import { addToCart } from "@/lib/cart-service";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-const addSchema = z.object({
-  productId: z.string().uuid(),
-  selection: configSelectionSchema,
-  qty: z.number().int().min(1).max(99),
-});
-
-/**
- * Add a configured item to the cart. The price is recomputed server-side from
- * the product's real option schema — the client value is never trusted.
- */
+/** Thin wrapper: auth -> service (validation, price, image checks) -> revalidate. */
 export async function addToCartAction(input: unknown): Promise<ActionResult> {
   const user = await requireUser();
-  const parsed = addSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid request" };
-  const { productId, selection, qty } = parsed.data;
-
-  const product = await getProductById(productId);
-  if (!product || product.status !== "published") {
-    return { ok: false, error: "Product not available" };
-  }
-
-  const { unitPriceCents, errors } = computeUnitPrice(
-    product.basePriceCents,
-    product.options,
-    selection,
-  );
-  if (errors.length) return { ok: false, error: errors[0] };
-
-  const cartId = await getOrCreateCart(user.id);
-  await db.insert(cartItems).values({
-    cartId,
-    productId,
-    qty,
-    config: selection,
-    unitPriceCents,
-  });
-
-  revalidatePath("/cart");
-  return { ok: true };
+  const res = await addToCart(user.id, input);
+  if (res.ok) revalidatePath("/cart");
+  return res;
 }
 
 const qtySchema = z.object({

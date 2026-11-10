@@ -4,6 +4,8 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { nanoid } from "nanoid";
@@ -46,9 +48,10 @@ const PREFIXES = {
 export type UploadKind = keyof typeof PREFIXES;
 
 /** Build a collision-resistant, prefix-scoped object key. */
-export function buildKey(kind: UploadKind, filename: string): string {
+export function buildKey(kind: UploadKind, filename: string, scope?: string): string {
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
-  return `${PREFIXES[kind]}/${nanoid(12)}-${safe}`;
+  const dir = scope ? `${PREFIXES[kind]}/${scope.replace(/[^A-Za-z0-9_-]/g, "_")}` : PREFIXES[kind];
+  return `${dir}/${nanoid(12)}-${safe}`;
 }
 
 /** Presigned PUT URL for a direct browser upload (scoped key + content-type). */
@@ -110,6 +113,27 @@ export async function peekBytes(key: string, n = 4): Promise<Uint8Array> {
     new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=0-${n - 1}` }),
   );
   return (await res.Body?.transformToByteArray()) ?? new Uint8Array();
+}
+
+/** Delete every object under `prefix` (used when a user deletes their account). Returns the count. */
+export async function deletePrefix(prefix: string): Promise<number> {
+  if (!prefix.endsWith("/") || prefix.split("/").filter(Boolean).length < 2) {
+    throw new Error("deletePrefix needs a specific folder like customer/<id>/");
+  }
+  let deleted = 0;
+  let token: string | undefined;
+  do {
+    const page = await client().send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
+    );
+    const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+    if (keys.length) {
+      await client().send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys, Quiet: true } }));
+      deleted += keys.length;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return deleted;
 }
 
 export async function deleteObject(key: string): Promise<void> {

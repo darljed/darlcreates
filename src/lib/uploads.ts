@@ -18,9 +18,18 @@ export const UPLOAD_RULES = {
     types: ["image/jpeg", "image/png", "image/webp"],
     maxBytes: 5 * 1024 * 1024,
   },
+  // Customer-supplied artwork for personalization. Any signed-in user may upload one.
+  customer: {
+    exts: [".jpg", ".jpeg", ".png", ".webp"],
+    types: ["image/jpeg", "image/png", "image/webp"],
+    maxBytes: 5 * 1024 * 1024,
+  },
 } as const;
 
-export type AdminUploadKind = keyof typeof UPLOAD_RULES;
+export type RuleKind = keyof typeof UPLOAD_RULES;
+export type AdminUploadKind = RuleKind; // existing imports
+/** Kinds only an admin may upload. */
+export const ADMIN_ONLY_KINDS: readonly RuleKind[] = ["model", "photo"];
 export type ModelFormat = "stl" | "3mf";
 
 /** "stl" | "3mf" from a filename, key or URL (query/hash ignored). Defaults to stl. */
@@ -45,8 +54,8 @@ export function validateUpload(
   if (size > rule.maxBytes) {
     return `File too large (max ${Math.round(rule.maxBytes / 1024 / 1024)} MB)`;
   }
-  if (kind === "photo" && !UPLOAD_RULES.photo.types.some((t) => t === contentType)) {
-    return "Photo must be JPEG, PNG or WebP";
+  if ((kind === "photo" || kind === "customer") && !UPLOAD_RULES[kind].types.some((t) => t === contentType)) {
+    return "Image must be JPEG, PNG or WebP";
   }
   return null;
 }
@@ -68,7 +77,30 @@ export function storedContentType(kind: AdminUploadKind, filename: string, clien
 export const KEY_PATTERNS = {
   model: /^(stl|models)\/[A-Za-z0-9._-]+$/,
   photo: /^photos\/[A-Za-z0-9._-]+$/,
+  /** customer/<userId>/<file>: the owner's id is part of the key. */
+  customer: /^customer\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/,
 } as const;
+
+/** Prefix that every one of a user's customer uploads must start with. */
+export function customerPrefix(userId: string): string {
+  return `customer/${userId.replace(/[^A-Za-z0-9_-]/g, "_")}/`;
+}
+
+/** True only if `key` is a well-formed customer upload that belongs to `userId`. */
+export function isOwnCustomerKey(userId: string, key: string): boolean {
+  return KEY_PATTERNS.customer.test(key) && key.startsWith(customerPrefix(userId));
+}
+
+/**
+ * Identify an image by its magic bytes (never by the filename or the client's content type).
+ * Needs the first 12 bytes. Returns null for anything that isn't JPEG / PNG / WebP.
+ */
+export function sniffImageType(b: Uint8Array): "jpeg" | "png" | "webp" | null {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
+  if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) return "png";
+  if (b.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "webp";
+  return null;
+}
 
 /** A 3MF is a ZIP: it must start with the local-file-header signature "PK\x03\x04". */
 export function looksLikeZip(first4: Uint8Array): boolean {
