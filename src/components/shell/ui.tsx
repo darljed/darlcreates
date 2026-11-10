@@ -71,7 +71,7 @@ export function Panel({
 export function DataTable({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={cn("overflow-x-auto rounded-none border bg-card", className)}>
-      <table className={cn("w-full border-collapse text-left text-sm", `${compact}:text-[13px]`)}>{children}</table>
+      <table className={cn("stack-table w-full border-collapse text-left text-sm", `${compact}:text-[13px]`)}>{children}</table>
     </div>
   );
 }
@@ -94,8 +94,9 @@ export function Tr({ className, ...p }: React.HTMLAttributes<HTMLTableRowElement
   return <tr className={cn("border-b last:border-b-0 transition-colors hover:bg-muted/40", className)} {...p} />;
 }
 
-export function Td({ className, ...p }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 align-middle", `${compact}:px-3 ${compact}:py-1.5`, className)} {...p} />;
+/** `label` is the column name; on phones the table stacks into cards and shows it beside each value. */
+export function Td({ className, label, ...p }: React.TdHTMLAttributes<HTMLTableCellElement> & { label?: string }) {
+  return <td data-label={label} className={cn("px-4 py-3 align-middle", `${compact}:px-3 ${compact}:py-1.5`, className)} {...p} />;
 }
 
 export function Stat({
@@ -114,7 +115,7 @@ export function Stat({
   const body = (
     <div
       className={cn(
-        "rounded-lg border p-4 transition-colors",
+        "flex h-full flex-col rounded-lg border p-4 transition-colors",
         `${compact}:p-3`,
         tone === "primary" && "border-primary bg-primary text-primary-foreground",
         tone === "warn" && "border-accent bg-accent/40",
@@ -124,11 +125,12 @@ export function Stat({
     >
       <p className={cn("text-xs", tone === "primary" ? "opacity-85" : "text-muted-foreground")}>{label}</p>
       <p className={cn("mt-1 text-2xl font-extrabold leading-none", `${compact}:text-xl`)}>{value}</p>
-      {hint && <p className={cn("mt-1 text-xs", tone === "primary" ? "opacity-80" : "text-muted-foreground")}>{hint}</p>}
+      {/* Always reserve the hint line so every card in a row has the same height. */}
+      <p className={cn("mt-1 min-h-4 text-xs leading-4", tone === "primary" ? "opacity-80" : "text-muted-foreground")}>{hint ?? "\u00a0"}</p>
     </div>
   );
   return href ? (
-    <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={href} className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {body}
     </Link>
   ) : (

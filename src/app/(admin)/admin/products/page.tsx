@@ -54,16 +54,16 @@ export default async function AdminProductsPage() {
                     {p.name}
                   </Link>
                 </Td>
-                <Td className="capitalize text-muted-foreground">{p.category}</Td>
-                <Td>{formatPHP(p.basePriceCents)}</Td>
-                <Td>
+                <Td label="Category" className="capitalize text-muted-foreground">{p.category}</Td>
+                <Td label="Base price">{formatPHP(p.basePriceCents)}</Td>
+                <Td label="3D model">
                   {p.stlKey ? (
                     <Box className="size-4 text-primary" aria-label="Has 3D model" />
                   ) : (
                     <span className="text-xs text-muted-foreground">none</span>
                   )}
                 </Td>
-                <Td>
+                <Td label="Status">
                   <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${STATUS_STYLE[p.status] ?? ""}`}>
                     {p.status}
                   </span>

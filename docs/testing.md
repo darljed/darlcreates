@@ -24,7 +24,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | `uploads`, `cors` | upload rules, ZIP/magic-byte checks, presigned PUT round trip, CORS from every dev origin | S3 |
 | `order-lifecycle` | snapshot immutability, append-only payments, DB one-pending-payment rule | DB |
 | `checkout` | **the real service functions**: order placement, server-owned amount, duplicate references, concurrent verify, cancelled orders, transitions | DB |
-| `content` | landing-page CMS: link/icon allowlists, limits, defaults, `site/` upload rules, store round trip + corrupt-row fallback (isolated key, never the live `home` row) | DB |
+| `content` | CMS: link/icon allowlists, limits, defaults, `site/` upload rules, store info + footer schema, legal text format (safe links, headings), privacy-version rules (normal edit keeps it, "ask again" renews it, browser cannot choose it), consent follows the version, round trips + corrupt-row fallback (isolated keys, never the live rows) | DB |
 | `customer-orders` | customer cancel (unpaid only, blocked while a payment is pending), order list data, Buy again (recomputed price, archived product refused) | DB |
 | `customer-images` | customer upload security (ownership, magic bytes, smuggled keys) | DB + S3 |
 | `privacy` | consent versioning, address book, export, account deletion | DB + S3 |
@@ -52,6 +52,7 @@ What the 2026-11-10 run verified in a real browser:
 - `getByRole('main')`, not `locator('main')`: Next keeps the previous route hidden in the DOM.
 - Dev server re-renders after a Server Action; wait for the expected text, not a fixed delay.
 - A product inserted by a script is "not found" until its cache tag is invalidated if the page was requested first.
+- **Mobile check:** drive the pages at 375 and 320 px and compare `documentElement.scrollWidth` to `clientWidth`; list elements whose right edge is past the viewport and elements inside `overflow:hidden` whose `scrollWidth` exceeds `clientWidth`. Visually-hidden (`sr-only`) text and the stacked-table header are expected to show up as "clipped".
 - Never run `next build` over a running dev server's `.next` (use `NEXT_DIST_DIR=.next-build` and delete it).
 
 ## 5. Cleanup if a run is interrupted

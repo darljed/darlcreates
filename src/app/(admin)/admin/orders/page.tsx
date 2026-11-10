@@ -66,9 +66,9 @@ export default async function AdminOrdersPage({ searchParams }: PageProps<"/admi
                     {o.orderNo}
                   </Link>
                 </Td>
-                <Td className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
-                <Td>{formatPHP(o.totalCents)}</Td>
-                <Td>
+                <Td label="Placed" className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
+                <Td label="Total">{formatPHP(o.totalCents)}</Td>
+                <Td label="Status">
                   <OrderStatusBadge status={o.status} size="sm" />
                 </Td>
               </Tr>

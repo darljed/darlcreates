@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { getConsent, hasCurrentConsent } from "./privacy";
+import { getPrivacyVersion } from "./site-content";
 import { safeRedirect } from "./safe-redirect";
 
 /**
@@ -27,7 +28,7 @@ export async function requireUser(where = "/") {
   if (!user) redirect(`/sign-in?redirect=${encodeURIComponent(safeRedirect(where))}`);
   const c = await getConsent(user.id);
   if (c?.deletedAt) redirect("/sign-in");
-  if (!hasCurrentConsent(c)) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
+  if (!hasCurrentConsent(c, await getPrivacyVersion())) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
   return user;
 }
 

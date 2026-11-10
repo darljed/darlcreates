@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BadgeDollarSign, ClipboardList, FileText, Home, LayoutDashboard, MapPin, Menu, Package,
-  PanelLeftClose, PanelLeftOpen, Receipt, ShoppingBag, Star, Store, User,
+  PanelLeftClose, PanelLeftOpen, Receipt, Scale, ShoppingBag, Star, Store, User,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   dashboard: LayoutDashboard, products: Package, orders: ClipboardList, payments: BadgeDollarSign,
   reviews: Star, content: FileText, store: Store, cart: ShoppingBag, account: User, address: MapPin,
-  receipt: Receipt, home: Home,
+  receipt: Receipt, home: Home, legal: Scale,
 } satisfies Record<string, LucideIcon>;
 export type IconName = keyof typeof ICONS;
 
@@ -180,8 +180,8 @@ export function InsetShell({
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
               <ol className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 {trail.map((c, i) => (
-                  <li key={c.href} className="flex min-w-0 items-center gap-1.5">
-                    {i > 0 && <span aria-hidden>/</span>}
+                  <li key={c.href} className={cn("flex min-w-0 items-center gap-1.5", i < trail.length - 2 && "max-sm:hidden")}>
+                    {i > 0 && <span aria-hidden className={cn(i === trail.length - 2 && "max-sm:hidden")}>/</span>}
                     {i === trail.length - 1 ? (
                       <span aria-current="page" className="truncate font-semibold capitalize text-foreground">{c.label}</span>
                     ) : (

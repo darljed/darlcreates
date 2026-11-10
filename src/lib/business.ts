@@ -11,5 +11,5 @@ export const BUSINESS = {
   location: "Philippines",
 } as const;
 
-/** Bump when the privacy policy changes in a way users must re-accept. */
-export const PRIVACY_VERSION = "2026-11-10";
+// The privacy policy text and its version now live in the DB (Admin > Legal pages); see
+// getPrivacyVersion() in site-content.ts. Tick "ask everyone to accept again" to re-ask customers.

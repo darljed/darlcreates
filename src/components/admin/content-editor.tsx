@@ -3,57 +3,16 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Panel } from "@/components/shell/ui";
+import { Check, Field, RowTools, swap } from "@/components/admin/editor-bits";
 import { uploadToS3 } from "@/lib/upload-client";
 import { fileUrl } from "@/lib/storage-url";
 import { ICON_NAMES, type HomeContent } from "@/lib/site-content-schema";
 import { resetHomeContentAction, saveHomeContentAction } from "@/app/(admin)/admin/content/actions";
-
-/** Label wraps its control, so every input has an accessible name without id plumbing. */
-function Field({ label, hint, children, className }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {
-  return (
-    <label className={`grid gap-1 text-xs font-medium ${className ?? ""}`}>
-      <span>{label}</span>
-      {children}
-      {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
-    </label>
-  );
-}
-
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 text-sm font-medium">
-      <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      {label}
-    </label>
-  );
-}
-
-function RowTools({ i, n, onMove, onRemove, what }: { i: number; n: number; onMove: (d: -1 | 1) => void; onRemove: () => void; what: string }) {
-  return (
-    <div className="flex shrink-0 gap-1">
-      <Button type="button" size="icon" variant="outline" disabled={i === 0} onClick={() => onMove(-1)} aria-label={`Move ${what} up`}>
-        <ArrowUp className="size-4" />
-      </Button>
-      <Button type="button" size="icon" variant="outline" disabled={i === n - 1} onClick={() => onMove(1)} aria-label={`Move ${what} down`}>
-        <ArrowDown className="size-4" />
-      </Button>
-      <Button type="button" size="icon" variant="outline" onClick={onRemove} aria-label={`Remove ${what}`}>
-        <Trash2 className="size-4 text-destructive" />
-      </Button>
-    </div>
-  );
-}
-
-function swap<T>(arr: T[], i: number, d: -1 | 1) {
-  const j = i + d;
-  if (j < 0 || j >= arr.length) return;
-  [arr[i], arr[j]] = [arr[j], arr[i]];
-}
 
 export function ContentEditor({ initial }: { initial: HomeContent }) {
   const router = useRouter();
@@ -317,44 +276,6 @@ export function ContentEditor({ initial }: { initial: HomeContent }) {
           <Field label="Button link">
             <Input value={d.cta.href} onChange={(e) => upd((n) => void (n.cta.href = e.target.value))} />
           </Field>
-        </div>
-      </Panel>
-
-      <Panel
-        title="Footer (every storefront page)"
-        actions={
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={d.footer.links.length >= 6}
-            onClick={() => upd((n) => void n.footer.links.push({ label: "Link", href: "/" }))}
-          >
-            <Plus className="mr-1 size-4" /> Add link
-          </Button>
-        }
-      >
-        <div className="space-y-2">
-          <Field label="Text after “© Darl Creates ·”">
-            <Input value={d.footer.text} maxLength={160} onChange={(e) => upd((n) => void (n.footer.text = e.target.value))} />
-          </Field>
-          {d.footer.links.map((l, i) => (
-            <div key={i} className="flex flex-wrap items-end gap-2 rounded-md border p-2">
-              <Field label="Label" className="min-w-32 flex-1">
-                <Input value={l.label} maxLength={30} onChange={(e) => upd((n) => void (n.footer.links[i].label = e.target.value))} />
-              </Field>
-              <Field label="Link" className="min-w-48 flex-[2]">
-                <Input value={l.href} onChange={(e) => upd((n) => void (n.footer.links[i].href = e.target.value))} />
-              </Field>
-              <RowTools
-                i={i}
-                n={d.footer.links.length}
-                what={`footer link ${i + 1}`}
-                onMove={(dir) => upd((n) => swap(n.footer.links, i, dir))}
-                onRemove={() => upd((n) => void n.footer.links.splice(i, 1))}
-              />
-            </div>
-          ))}
         </div>
       </Panel>
     </div>

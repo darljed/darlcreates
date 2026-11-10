@@ -57,7 +57,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
             </li>
           ))}
         </ul>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="inline-flex items-center rounded-lg border-2 border-border">
             <button
               type="button"

@@ -47,21 +47,23 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 | Action | Notes |
 |---|---|
 | `cancelOrderAction`, `reorderAction` (`(portal)/orders/actions.ts`) | `requireUser` + Zod, then `cancelOwnOrder` / `reorderToCart` (ownership enforced in the service) |
+| `saveSiteInfoAction`, `resetSiteInfoAction` (same file) | `requireAdmin`; Zod `siteInfoSchema`; revalidates tag `site:info` and the storefront layout |
+| `saveLegalAction`, `resetLegalAction` (same file) | `requireAdmin`; Zod; the browser can never set the version: only `askAgain` (privacy only) creates a new one; revalidates `site:legal:<slug>` |
 | `saveHomeContentAction`, `resetHomeContentAction` (`admin/content/actions.ts`) | `requireAdmin`; Zod `homeContentSchema`; verifies a new hero image (exists, size, magic bytes); revalidates tag `site:home` and `/` |
 
 ## Account & privacy
 | Route / action | Notes |
 |---|---|
 | `GET /account/export` | Signed-in user's data as a JSON download (`Cache-Control: no-store`) |
-| `acceptConsentAction` (`/consent`) | Records `consent_at` + `PRIVACY_VERSION`, then returns to a `safeRedirect`ed target |
+| `acceptConsentAction` (`/consent`) | Records `consent_at` + the current privacy version (`getPrivacyVersion()`), then returns to a `safeRedirect`ed target |
 | `deleteAddressAction`, `setDefaultAddressAction` | Scoped to the caller's own addresses |
 | `deleteAccountAction` | Requires typing DELETE; `deleteAccount` refuses while an order is in progress or for the admin account |
 
 ## Pages
 
-Storefront: `/`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
+Storefront: `/`, `/privacy`, `/terms`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
-Admin: `/admin`, `/admin/content`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
+Admin: `/admin`, `/admin/content`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
 `/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
@@ -70,7 +72,9 @@ Admin: `/admin`, `/admin/content`, `/admin/products`, `/admin/products/new`, `/a
 |---|---|---|
 | `products`, `product:<slug>` | `listPublishedProducts`, `getProductBySlug` | product / option actions |
 | `reviews:<productId>` | `getProductReviews` | review submit + moderate |
-| `site:home` | `getHomeContent` (landing page + footer) | `saveHomeContentAction`, `resetHomeContentAction` |
+| `site:home` | `getHomeContent` (landing page) | `saveHomeContentAction`, `resetHomeContentAction` |
+| `site:info` | `getSiteInfo` (footer) | `saveSiteInfoAction`, `resetSiteInfoAction` |
+| `site:legal:privacy`, `site:legal:terms` | `getLegal`, `getPrivacyVersion` | `saveLegalAction`, `resetLegalAction` |
 
 `revalidateTag(tag, "max")` — Next 16 requires the second argument.
 

@@ -2,9 +2,20 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/session";
-import { homeContentSchema } from "@/lib/site-content-schema";
-import { HOME_TAG } from "@/lib/site-content";
-import { loadHomeContent, resetHomeContent, saveHomeContent } from "@/lib/site-content-store";
+import { z } from "zod";
+import { LEGAL_SLUGS, homeContentSchema, siteInfoSchema } from "@/lib/site-content-schema";
+import { HOME_TAG, SITE_TAG, legalTag } from "@/lib/site-content";
+import {
+  legalEditSchema,
+  legalKey,
+  loadHomeContent,
+  resetContent,
+  resetHomeContent,
+  saveHomeContent,
+  saveLegal,
+  saveSiteInfo,
+  SITE_KEY,
+} from "@/lib/site-content-store";
 import { deleteObject, headObject, isStorageConfigured, peekBytes } from "@/lib/storage";
 import { UPLOAD_RULES, sniffImageType } from "@/lib/uploads";
 
@@ -64,5 +75,65 @@ export async function resetHomeContentAction(): Promise<Result> {
   await resetHomeContent();
   await dropImage(before.hero.imageKey);
   invalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Store info + footer
+// ---------------------------------------------------------------------------
+
+function firstIssue(err: z.ZodError): string {
+  const issue = err.issues[0];
+  return `${issue.path.join(" › ") || "Content"}: ${issue.message}`;
+}
+
+export async function saveSiteInfoAction(input: unknown): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = siteInfoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  await saveSiteInfo(parsed.data, admin.id);
+  revalidateTag(SITE_TAG, "max");
+  revalidatePath("/", "layout"); // the footer is on every storefront page
+  return { ok: true };
+}
+
+export async function resetSiteInfoAction(): Promise<Result> {
+  await requireAdmin();
+  await resetContent(SITE_KEY);
+  revalidateTag(SITE_TAG, "max");
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Legal pages (privacy policy, terms)
+// ---------------------------------------------------------------------------
+
+const legalActionSchema = legalEditSchema.extend({
+  slug: z.enum(LEGAL_SLUGS),
+  /** Privacy policy only: make every customer accept the new text once. */
+  askAgain: z.boolean().optional().default(false),
+});
+
+export async function saveLegalAction(input: unknown): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = legalActionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const { slug, askAgain, ...edit } = parsed.data;
+  await saveLegal(slug, edit, admin.id, slug === "privacy" && askAgain);
+  revalidateTag(legalTag(slug), "max");
+  revalidatePath(`/${slug}`);
+  revalidatePath("/admin/legal");
+  return { ok: true };
+}
+
+export async function resetLegalAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = z.object({ slug: z.enum(LEGAL_SLUGS) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  await resetContent(legalKey(parsed.data.slug));
+  revalidateTag(legalTag(parsed.data.slug), "max");
+  revalidatePath(`/${parsed.data.slug}`);
+  revalidatePath("/admin/legal");
   return { ok: true };
 }

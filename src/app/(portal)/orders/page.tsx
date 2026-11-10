@@ -62,11 +62,11 @@ async function OrdersList() {
                 </Link>
                 <span className="block text-xs text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</span>
               </Td>
-              <Td className="max-w-xs truncate text-muted-foreground" title={o.itemsLabel}>
+              <Td label="Items" className="max-w-xs truncate text-muted-foreground" title={o.itemsLabel}>
                 {o.itemsLabel}
               </Td>
-              <Td>{formatPHP(o.totalCents)}</Td>
-              <Td>
+              <Td label="Total">{formatPHP(o.totalCents)}</Td>
+              <Td label="Status">
                 <OrderStatusBadge status={o.status} size="sm" />
                 {o.status === "awaiting_payment" && o.paymentPending && (
                   <span className="mt-1 block text-xs text-muted-foreground">We&apos;re verifying your payment</span>

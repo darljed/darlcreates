@@ -26,14 +26,17 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Address book**: saved addresses at checkout, managed in My account
 - **Customer area** (inset sidebar): orders table (Pay now / Track / Buy again), order page with progress bar, copy buttons for GCash number + amount, cancel an unpaid order, review prompt after delivery
 - Cart badge in the header, "Go to cart" toast, checkout steps, and customizer choices kept across the sign-in redirect
-- **Landing page + footer are editable** by the owner (see Admin)
+- **Footer** on every storefront page: store details, contact info, links, social links, Privacy Policy and Terms and Conditions (`/privacy`, `/terms`), all editable by the owner (see Admin)
+- Phone-friendly: admin and customer tables stack into labelled cards on small screens; checked for sideways overflow at 320 and 375 px
 - Email notifications (order placed / payment verified / rejected / shipped),
   SMTP when configured, console in dev
 
 ## Admin (owner) ✅
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
   status counts, needs-attention, top products, recent orders)
-- **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA, footer links
+- **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA band
+- **Store & footer** (`/admin/store`): store name, tagline, about, email, phone (tap to call), address, hours, explore links, social links, bottom line
+- **Legal pages** (`/admin/legal`): edit the Privacy Policy and Terms and Conditions in a tiny text format (headings, bullets, safe links) with a live preview; optional "ask every customer to accept again" for the privacy policy
 - Product CRUD + **customization-schema builder** (options + color/size values)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**

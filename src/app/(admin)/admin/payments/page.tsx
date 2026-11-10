@@ -40,9 +40,9 @@ export default async function AdminPaymentsPage() {
                     {p.orderNo}
                   </Link>
                 </Td>
-                <Td className="font-mono">{p.reference}</Td>
-                <Td>{formatPHP(p.amountCents)}</Td>
-                <Td className="text-muted-foreground">{p.submittedAt.toLocaleString("en-PH")}</Td>
+                <Td label="Reference" className="font-mono">{p.reference}</Td>
+                <Td label="Declared">{formatPHP(p.amountCents)}</Td>
+                <Td label="Submitted" className="text-muted-foreground">{p.submittedAt.toLocaleString("en-PH")}</Td>
                 <Td className="text-right">
                   <PaymentActions paymentId={p.paymentId} />
                 </Td>

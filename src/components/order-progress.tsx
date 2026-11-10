@@ -55,11 +55,11 @@ export function OrderProgress({ status }: { status: string }) {
 export function CheckoutSteps({ current }: { current: 1 | 2 | 3 | 4 }) {
   const steps = ["Cart", "Details", "Pay", "Done"];
   return (
-    <ol aria-label="Checkout steps" className="mb-6 flex items-center gap-2 text-sm">
+    <ol aria-label="Checkout steps" className="mb-6 flex flex-wrap items-center gap-x-1.5 gap-y-2 text-sm sm:gap-x-2">
       {steps.map((label, i) => {
         const n = i + 1;
         return (
-          <li key={label} aria-current={n === current ? "step" : undefined} className="flex items-center gap-2">
+          <li key={label} aria-current={n === current ? "step" : undefined} className="flex items-center gap-1.5 sm:gap-2">
             <span
               className={cn(
                 "flex size-6 items-center justify-center rounded-full text-xs font-bold",
@@ -70,8 +70,8 @@ export function CheckoutSteps({ current }: { current: 1 | 2 | 3 | 4 }) {
             >
               {n < current ? <Check className="size-3.5" aria-hidden /> : n}
             </span>
-            <span className={cn(n === current ? "font-semibold" : "text-muted-foreground")}>{label}</span>
-            {n < steps.length && <span aria-hidden className="mx-1 h-px w-6 bg-border sm:w-10" />}
+            <span className={cn(n === current ? "font-semibold" : "text-muted-foreground max-sm:sr-only")}>{label}</span>
+            {n < steps.length && <span aria-hidden className="h-px w-4 bg-border sm:mx-1 sm:w-10" />}
           </li>
         );
       })}

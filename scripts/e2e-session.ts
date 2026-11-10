@@ -18,7 +18,7 @@ async function main() {
   const { db } = await import("../src/db");
   const s = await import("../src/db/schema");
   const storage = await import("../src/lib/storage");
-  const { PRIVACY_VERSION } = await import("../src/lib/business");
+  const PRIVACY_VERSION = (await (await import("../src/lib/site-content-store")).loadLegal("privacy")).version;
 
   async function cleanup() {
     const uids = [IDS.customer, IDS.admin];

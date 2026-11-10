@@ -49,9 +49,9 @@ export default async function AdminReviewsPage() {
                   {r.product}
                   <span className="block text-xs font-normal text-muted-foreground">{r.author}</span>
                 </Td>
-                <Td>{r.rating}★</Td>
-                <Td className="max-w-md">{r.body ?? <span className="text-muted-foreground">No comment</span>}</Td>
-                <Td className="text-muted-foreground">{r.approved ? "Approved" : "Pending"}</Td>
+                <Td label="Rating">{r.rating}★</Td>
+                <Td label="Review" className="max-w-md">{r.body ?? <span className="text-muted-foreground">No comment</span>}</Td>
+                <Td label="Status" className="text-muted-foreground">{r.approved ? "Approved" : "Pending"}</Td>
                 <Td className="text-right">
                   <ReviewModeration reviewId={r.id} approved={r.approved} />
                 </Td>

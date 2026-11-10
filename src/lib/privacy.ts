@@ -11,7 +11,6 @@ import {
   sessions,
   users,
 } from "@/db/schema";
-import { PRIVACY_VERSION } from "./business";
 import { customerPrefix } from "./uploads";
 import { deletePrefix, isStorageConfigured } from "./storage";
 import type { Result } from "./order-service";
@@ -35,14 +34,18 @@ export async function getConsent(userId: string) {
   return u ?? null;
 }
 
-export function hasCurrentConsent(c: { consentAt: Date | null; consentVersion: string | null } | null): boolean {
-  return Boolean(c?.consentAt) && c?.consentVersion === PRIVACY_VERSION;
+/** `version` is the privacy policy version in force (owner-controlled, see getPrivacyVersion). */
+export function hasCurrentConsent(
+  c: { consentAt: Date | null; consentVersion: string | null } | null,
+  version: string,
+): boolean {
+  return Boolean(c?.consentAt) && c?.consentVersion === version;
 }
 
-export async function recordConsent(userId: string): Promise<void> {
+export async function recordConsent(userId: string, version: string): Promise<void> {
   await db
     .update(users)
-    .set({ consentAt: new Date(), consentVersion: PRIVACY_VERSION, updatedAt: new Date() })
+    .set({ consentAt: new Date(), consentVersion: version, updatedAt: new Date() })
     .where(eq(users.id, userId));
 }
 

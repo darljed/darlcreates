@@ -135,8 +135,8 @@ Keep these four in sync when conventions change.
 ## Business details on documents
 
 `src/lib/business.ts` holds the name / contact shown on the Order Acknowledgment. Override with
-`NEXT_PUBLIC_BUSINESS_NAME` and `NEXT_PUBLIC_BUSINESS_EMAIL`. Bump `PRIVACY_VERSION` there whenever
-the privacy policy changes in a way users must re-accept.
+`NEXT_PUBLIC_BUSINESS_NAME` and `NEXT_PUBLIC_BUSINESS_EMAIL`. The privacy policy and terms are edited in
+Admin → Legal pages; tick "Ask every customer to accept this policy again" when a change affects customers.
 
 ## Brand assets
 

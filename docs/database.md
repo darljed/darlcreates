@@ -19,7 +19,7 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 `verifications`.
 **Catalog**: `products`, `product_photos`, `product_options`,
 `product_option_values`, `reviews`, `review_photos`.
-**Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited landing page, one row `home`; shape validated in code (D-25).
+**Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited documents. Keys: `home` (landing page), `site` (store info + footer), `legal:privacy`, `legal:terms`. A missing or invalid row falls back to the built-in default; shapes are validated in code (D-25, D-28).
 **Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items`,
 `payments`, `shipments`, `order_status_history`.
 

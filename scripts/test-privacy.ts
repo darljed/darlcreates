@@ -21,7 +21,8 @@ async function main() {
   const svc = await import("../src/lib/order-service");
   const addrBook = await import("../src/lib/addresses");
   const storage = await import("../src/lib/storage");
-  const { PRIVACY_VERSION } = await import("../src/lib/business");
+  const { loadLegal } = await import("../src/lib/site-content-store");
+  const PRIVACY_VERSION = (await loadLegal("privacy")).version;
 
   const T = `TEST-PV-${Date.now()}`;
   const me = `${T}-me`, other = `${T}-other`, admin = `${T}-admin`;
@@ -40,14 +41,14 @@ async function main() {
 
     // ---- consent ----
     console.log("\nconsent");
-    assert("new user has no consent", !priv.hasCurrentConsent(await priv.getConsent(me)));
-    await priv.recordConsent(me);
+    assert("new user has no consent", !priv.hasCurrentConsent(await priv.getConsent(me), PRIVACY_VERSION));
+    await priv.recordConsent(me, PRIVACY_VERSION);
     const c1 = await priv.getConsent(me);
-    assert("consent recorded with timestamp + current version", priv.hasCurrentConsent(c1) && c1?.consentVersion === PRIVACY_VERSION);
+    assert("consent recorded with timestamp + current version", priv.hasCurrentConsent(c1, PRIVACY_VERSION) && c1?.consentVersion === PRIVACY_VERSION);
     await db.update(s.users).set({ consentVersion: "1999-01-01" }).where(eq(s.users.id, me));
-    assert("an OLD policy version is not current consent (re-ask after policy changes)", !priv.hasCurrentConsent(await priv.getConsent(me)));
-    await priv.recordConsent(me);
-    assert("re-accepting restores consent", priv.hasCurrentConsent(await priv.getConsent(me)));
+    assert("an OLD policy version is not current consent (re-ask after policy changes)", !priv.hasCurrentConsent(await priv.getConsent(me), PRIVACY_VERSION));
+    await priv.recordConsent(me, PRIVACY_VERSION);
+    assert("re-accepting restores consent", priv.hasCurrentConsent(await priv.getConsent(me), PRIVACY_VERSION));
 
     // ---- address book ----
     console.log("\naddress book");

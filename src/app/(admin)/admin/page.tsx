@@ -34,12 +34,12 @@ export default async function AdminDashboardPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Verified revenue" value={formatPHP(stats.revenueCents)} tone="primary" />
-        <Stat label="Awaiting payment" value={stats.awaitingPayment} href="/admin/orders?status=awaiting_payment" />
-        <Stat label="Paid orders" value={stats.paidOrders} href="/admin/orders?status=paid" hint="all-time, incl. shipped" />
-        <Stat label="In production" value={stats.inProduction} href="/admin/orders?status=in_production" />
-        <Stat label="Shipped" value={stats.shipped} href="/admin/orders?status=shipped" />
-        <Stat label="Delivered" value={stats.delivered} href="/admin/orders?status=delivered" />
+        <Stat label="Verified revenue" value={formatPHP(stats.revenueCents)} tone="primary" hint="excl. cancelled" />
+        <Stat label="Awaiting payment" value={stats.awaitingPayment} href="/admin/orders?status=awaiting_payment" hint="unpaid orders" />
+        <Stat label="Paid orders" value={stats.paidOrders} href="/admin/orders?status=paid" hint="incl. shipped" />
+        <Stat label="In production" value={stats.inProduction} href="/admin/orders?status=in_production" hint="being printed" />
+        <Stat label="Shipped" value={stats.shipped} href="/admin/orders?status=shipped" hint="on the way" />
+        <Stat label="Delivered" value={stats.delivered} href="/admin/orders?status=delivered" hint="completed" />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
@@ -65,10 +65,10 @@ export default async function AdminDashboardPage() {
               {recent.map((o) => (
                 <Tr key={o.id}>
                   <Td><Link href={`/admin/orders/${o.id}`} className="font-semibold hover:text-primary">{o.orderNo}</Link></Td>
-                  <Td className="text-muted-foreground">{o.customer}</Td>
-                  <Td className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
-                  <Td className="text-right tabular-nums">{formatPHP(o.totalCents)}</Td>
-                  <Td><OrderStatusBadge status={o.status} size="sm" /></Td>
+                  <Td label="Customer" className="text-muted-foreground">{o.customer}</Td>
+                  <Td label="Placed" className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
+                  <Td label="Total" className="text-right tabular-nums">{formatPHP(o.totalCents)}</Td>
+                  <Td label="Status"><OrderStatusBadge status={o.status} size="sm" /></Td>
                 </Tr>
               ))}
             </tbody>

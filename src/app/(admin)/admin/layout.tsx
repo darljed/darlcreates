@@ -23,7 +23,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       { href: "/admin/reviews", label: "Reviews", icon: "reviews", badge: counts.pendingReviews },
     ] },
     { label: "Catalog", items: [{ href: "/admin/products", label: "Products", icon: "products" }] },
-    { label: "Site", items: [{ href: "/admin/content", label: "Landing page", icon: "content" }] },
+    { label: "Site", items: [
+      { href: "/admin/content", label: "Landing page", icon: "content" },
+      { href: "/admin/store", label: "Store & footer", icon: "store" },
+      { href: "/admin/legal", label: "Legal pages", icon: "legal" },
+    ] },
   ];
 
   return (
@@ -31,7 +35,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <InsetShell
         density="compact"
         rootLabel="Admin"
-        labels={{ new: "New", payments: "Payments", content: "Landing page", acknowledgment: "Acknowledgment" }}
+        labels={{ new: "New", payments: "Payments", content: "Landing page", store: "Store & footer", legal: "Legal pages", acknowledgment: "Acknowledgment" }}
         brand={
           <Link href="/admin" className="flex items-center gap-2" aria-label="Admin home">
             <BrandLogo variant="icon" className="h-7" />

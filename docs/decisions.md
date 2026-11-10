@@ -184,7 +184,7 @@ question for the owner/accountant (G-43).
 
 ## D-23 — Consent is versioned and enforced in `requireUser`
 Every page and action that needs a signed-in customer goes through `requireUser`, which sends users
-without current consent to `/consent`. Changing `PRIVACY_VERSION` (src/lib/business.ts) re-asks everyone.
+without current consent to `/consent`. The version now lives in the privacy policy document (D-28); saving it with "ask again" ticked re-asks everyone.
 `/consent` itself uses `getCurrentUser` to avoid a redirect loop. The admin area is gated by `requireAdmin`
 only (the owner is the data controller).
 
@@ -219,3 +219,20 @@ unpublished products are skipped with a reason.
 BetterAuth rejects POSTs (e.g. sign-out) whose `Origin` isn't `baseURL` (`INVALID_ORIGIN`). `baseURL` is the Funnel
 host, so sign-out failed when browsing the dev server via `localhost`. `trustedOrigins` now lists localhost
 (ports 3000/3001) when `NODE_ENV !== "production"`; production trusts `baseURL` only.
+
+## D-28 — Footer, privacy policy and terms are owner-editable documents
+`site_content` keys `site`, `legal:privacy`, `legal:terms` (alongside `home`). They are separate documents on purpose:
+each admin page saves only its own, so two editors can never overwrite each other. Legal text is plain text in a
+tiny format parsed to React elements (never HTML): `## Heading`, `- ` bullets, `[text](url)` links that pass
+`isSafeHref`. A `## ` line is always its own heading even if text follows on the next line.
+**The privacy version moved from a code constant to the policy document.** It changes only when the owner ticks
+"Ask every customer to accept this policy again" (a fresh timestamp). The browser can never choose it, and a typo fix
+does not re-ask anyone. `requireUser` reads it through `getPrivacyVersion()` (cached, tag `site:legal:privacy`);
+`privacy.ts` stays framework-free by taking the version as an argument. The default Terms text is a draft written for
+this business; the owner or a lawyer must review both texts (T-09).
+
+## D-29 — Tables stack into cards on phones
+`DataTable` rows turn into labelled cards below 640 px (CSS in `globals.css`, `<Td label="…">` supplies the label) instead
+of scrolling sideways, so actions such as Verify / Reject are never off-screen. The header row stays for screen readers.
+Trade-off: `display: block` on table parts can drop table semantics in some screen readers on phones; revisit if the
+a11y audit (G-22) flags it. Everything else is checked with a scan for horizontal overflow at 320 and 375 px.

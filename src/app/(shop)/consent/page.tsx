@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/session";
 import { safeRedirect } from "@/lib/safe-redirect";
-import { PRIVACY_VERSION } from "@/lib/business";
+import { getLegal } from "@/lib/site-content";
 import { acceptConsentAction } from "./actions";
 
 export const metadata = { title: "Privacy consent" };
@@ -25,6 +25,7 @@ async function ConsentCard({ searchParams }: { searchParams: Promise<Record<stri
   const redirectTo = safeRedirect(typeof sp.redirect === "string" ? sp.redirect : "/");
   const user = await getCurrentUser();
   if (!user) redirect("/sign-in");
+  const policy = await getLegal("privacy");
   const showError = sp.error === "1";
 
   return (
@@ -44,7 +45,7 @@ async function ConsentCard({ searchParams }: { searchParams: Promise<Record<stri
             <span>
               I have read and agree to the{" "}
               <Link href="/privacy" target="_blank" className="font-semibold underline">Privacy Policy</Link>{" "}
-              <span className="text-muted-foreground">(version {PRIVACY_VERSION})</span>.
+              <span className="text-muted-foreground">({policy.effective || "current version"})</span>.
             </span>
           </label>
           {showError && <p role="alert" className="text-sm text-destructive">Please tick the box to continue.</p>}
