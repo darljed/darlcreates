@@ -79,3 +79,6 @@ directly. Don't run destructive git/DB ops without confirmation.
 `docs/roadmap-and-gaps.md` is the live gap tracker (IDs G-xx / T-xx / F-xx).
 Reference IDs in commits; move rows to Resolved when fixed. Setup/ops detail:
 `docs/setup.md`. Why-decisions: `docs/decisions.md`.
+
+## Session reads (Next 16)
+`getCurrentUser()` calls `await connection()` (session expiry uses the current time; forbidden during prerender). Call it only inside `<Suspense>` or a dynamic segment. See `docs/decisions.md` D-16.

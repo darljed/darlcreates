@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { signIn } from "@/lib/auth-client";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function SignInCard() {
   const params = useSearchParams();
@@ -20,8 +21,8 @@ export function SignInCard() {
   return (
     <Card className="w-full max-w-md border-2">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-3 inline-flex size-12 items-center justify-center rounded-xl bg-primary text-xl font-extrabold text-primary-foreground">
-          DC
+        <div className="mx-auto mb-3">
+          <BrandLogo variant="icon" className="mx-auto h-16" />
         </div>
         <CardTitle className="text-2xl">Welcome to Darl Creates</CardTitle>
         <p className="text-sm text-muted-foreground">

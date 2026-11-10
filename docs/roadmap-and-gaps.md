@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-09 (S3 + uploads)
+Last updated: 2026-11-10 (session fix, blue theme, logo)
 
 ---
 
@@ -56,7 +56,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-21 | 🟡 | Per-value STL/scale override for size options (column exists, unused) | FR-2.4 | ⬜ |
 | G-22 | 🟡 | Accessibility audit (contrast of accent-on-primary pairs, keyboard walk-through, 3D viewer a11y) | NFR-4 | ⬜ |
 | G-23 | 🟡 | SMTP not configured — emails only log to console | FR-8.2 | ⬜ |
-| G-24 | 🟡 | Real logo + brand palette not applied (Drive folder blocked by macOS TCC) | task 11.4 | ⬜ |
 | G-25 | 🟡 | Spec `tasks.md` checkboxes never updated | — | ✅ 2026-11-09 |
 
 ### Tech debt / small things
@@ -67,7 +66,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | T-02 | 🟡 | `generateOrderNo()` uses `Math.random()` (4 chars). Collisions are caught by the `UNIQUE` constraint but would surface as a 500. Use nanoid/retry. |
 | T-03 | 🟡 | `scripts/seed.ts` deletes sample products by slug; will fail once real orders reference them (`order_items` FK is `restrict`). Fine for dev, never run against prod. |
 | T-04 | 🟡 | `getProductById` is uncached by design (used in actions); catalog list/detail are cached. Watch for N+1 queries in `assembleProduct` / `listPublishedProducts` as catalog grows. |
-| T-05 | 🟡 | Interim palette uses `oklch` tokens; verify AA contrast programmatically once real brand colors land. |
+| T-05 | 🟡 | Primary pair verified (5.03:1 light, 9.4:1 dark). **Still unchecked:** the hero's lime "We'll print it." on the blue is 3.81:1 (passes only as large bold text); muted-foreground, badges, and the lime accent buttons have not been measured. Full audit = G-22. |
+| T-08 | 🟡 | Logo art is black-only; dark mode inverts it with CSS (`dark:invert`). A proper white/colored logo variant from the designer would look better, and the logo has no brand color of its own, so the blue primary was an owner choice, not derived. |
 | T-06 | 🟡 | `.env.example` GCash number was taken from the owner profile — **confirm it is the business GCash number** before showing customers. |
 | T-07 | 🟡 | `npm audit` reports 12 moderate vulnerabilities (transitive). Review before launch. |
 
@@ -117,3 +117,5 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-02 | 2026-11-09 | `addPhotoAction` / `deletePhotoAction` + photo grid in the product editor. |
 | G-03 | 2026-11-09 | Chose request-time signing (no CloudFront). Cached pages embed stable `/api/files/<key>` URLs; that route signs a fresh 5-min S3 URL per request, only for published products' files (or any `photos/`/`stl/` for admins). See decisions D-14. |
 | G-06 | 2026-11-09 | Bucket `darlcreates-uploads` (ap-south-1, acct 551892774595): all public access blocked, SSE-S3, BucketOwnerEnforced, CORS for localhost:3000/3001, abort-multipart lifecycle. IAM user `darlcreates-app` with an inline policy limited to this bucket; key stored in `.env.local`. Verified allowed on the bucket, AccessDenied on other buckets / list-buckets / IAM. |
+| G-24 | 2026-11-10 | Real logo applied (header, admin, sign-in, favicon/apple-icon) from `brand/source/`; theme primary changed from magenta to cyan-blue (`oklch(0.52 0.14 225)`, white-on-primary 5.03:1). Built by `scripts/build-brand-assets.py`. |
+| G-29 | 2026-11-10 | Dev-server `new Date()` blocking-route error: `getCurrentUser()` now calls `await connection()` first (decision D-16). Production build was unaffected; the dev check needs confirming on your side. |

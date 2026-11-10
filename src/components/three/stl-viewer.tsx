@@ -42,7 +42,7 @@ export type StlViewerProps = {
 };
 
 /** Interactive STL viewer. Falls back to a placeholder when no URL/model. */
-export default function StlViewer({ url, color = "#ff2d78", className }: StlViewerProps) {
+export default function StlViewer({ url, color = "#9ca3af", className }: StlViewerProps) {
   const reduced = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
   const autoRotate = !reduced;

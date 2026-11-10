@@ -207,7 +207,7 @@ function ValueEditor({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [label, setLabel] = useState("");
-  const [value, setValue] = useState(type === "color" ? "#ff2d78" : "");
+  const [value, setValue] = useState(type === "color" ? "#0077a5" : "");
   const [priceDelta, setPriceDelta] = useState("0");
 
   function add() {

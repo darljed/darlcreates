@@ -55,3 +55,6 @@ scoped to `darlcreates-uploads`.
 ## Tracking
 Gaps/next steps: `docs/roadmap-and-gaps.md` (G-/T-/F- IDs). Setup & ops:
 `docs/setup.md`. Decisions: `docs/decisions.md`.
+
+## Session reads
+`getCurrentUser()` (src/lib/session.ts) calls `await connection()` first, because the session check uses the current time and Cache Components forbids that during prerender. Callers must be inside `<Suspense>` or a dynamic segment (`instant = false`). Don't use `use cache: private` for it. See docs/decisions.md D-16.

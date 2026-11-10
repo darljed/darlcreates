@@ -3,19 +3,14 @@ import { ShoppingBag } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { UserMenu } from "./user-menu";
 import { Button } from "./ui/button";
+import { BrandLogo } from "./brand-logo";
 
 function HeaderShell({ children }: { children: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link
-          href="/"
-          className="flex items-center gap-2 font-extrabold tracking-tight"
-        >
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            DC
-          </span>
-          <span className="text-lg">Darl Creates</span>
+        <Link href="/" className="flex items-center" aria-label="Darl Creates home">
+          <BrandLogo variant="horizontal" className="h-9" priority />
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">{children}</nav>
       </div>

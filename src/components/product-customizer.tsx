@@ -48,7 +48,7 @@ export function ProductCustomizer({
         if (val) return val.value;
       }
     }
-    return "#ff2d78";
+    return "#9ca3af";
   }, [options, selection]);
 
   function setValue(optId: string, patch: ConfigSelection[string]) {

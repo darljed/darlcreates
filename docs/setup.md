@@ -124,6 +124,14 @@ Rules:
 
 Keep these four in sync when conventions change.
 
+## Brand assets
+
+- Originals: `brand/source/{stacked,icon,horizontal}.png` (black on transparent, 2000x2000).
+- Regenerate web logos + favicon/apple-icon: `python3 scripts/build-brand-assets.py` (needs Pillow).
+- Outputs: `public/brand/*`, `src/app/{icon.png,apple-icon.png,favicon.ico}`.
+- Use `<BrandLogo variant="horizontal|tagline|icon|stacked" className="h-9" />`.
+- Theme colors live in `src/app/globals.css` (`--primary` etc.).
+
 ## Known environment quirks
 
 - `shadcn add` emits `import { cn } from "cn"` — rewrite to `@/lib/utils` and do

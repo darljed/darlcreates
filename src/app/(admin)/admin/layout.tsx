@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { requireAdmin } from "@/lib/session";
 import { Toaster } from "@/components/ui/sonner";
+import { BrandLogo } from "@/components/brand-logo";
 
 // The whole /admin tree is per-request, RBAC-gated, and uncacheable.
 export const instant = false;
@@ -20,9 +21,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 border-r-2 border-border bg-sidebar p-4 md:block">
         <Link href="/" className="mb-6 flex items-center gap-2 font-extrabold">
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            DC
-          </span>
+          <BrandLogo variant="icon" className="h-9" />
           Admin
         </Link>
         <nav className="space-y-1">
