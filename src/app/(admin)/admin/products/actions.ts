@@ -11,8 +11,8 @@ import {
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { parsePesoInput } from "@/lib/money";
-import { deleteObject, headObject } from "@/lib/storage";
-import { KEY_PATTERNS, UPLOAD_RULES } from "@/lib/uploads";
+import { deleteObject, headObject, peekBytes } from "@/lib/storage";
+import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
 
 type Result = { ok: true; id?: string } | { ok: false; error: string };
@@ -202,34 +202,40 @@ async function slugOf(productId: string): Promise<string | undefined> {
 // File attachments (uploaded directly to S3 via /api/uploads/presign first)
 // ---------------------------------------------------------------------------
 
-const attachStlSchema = z.object({
+const attachModelSchema = z.object({
   productId: z.string().uuid(),
-  key: z.string().regex(KEY_PATTERNS.stl),
+  key: z.string().regex(KEY_PATTERNS.model),
 });
 
 /**
- * Attach an uploaded STL to a product. Verifies the object really exists and is
- * within the size limit (the client could lie). The previous STL is NOT deleted
- * from S3: existing orders reference it via order_items.stl_key_snapshot.
+ * Attach an uploaded 3D model (STL or 3MF) to a product. Verifies the object really
+ * exists and is within the size limit (the client could lie), and that a .3mf is a
+ * real ZIP. The previous model is NOT deleted from S3: existing orders reference it
+ * via order_items.stl_key_snapshot.
  */
-export async function attachStlAction(input: unknown): Promise<Result> {
+export async function attachModelAction(input: unknown): Promise<Result> {
   await requireAdmin();
-  const parsed = attachStlSchema.safeParse(input);
+  const parsed = attachModelSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid file key" };
+  const { productId, key } = parsed.data;
 
-  const size = await headObject(parsed.data.key);
+  const size = await headObject(key);
   if (size === null) return { ok: false, error: "Upload not found in storage" };
-  if (size > UPLOAD_RULES.stl.maxBytes) {
-    await deleteObject(parsed.data.key);
-    return { ok: false, error: "STL too large" };
+  if (size > UPLOAD_RULES.model.maxBytes) {
+    await deleteObject(key);
+    return { ok: false, error: "Model file too large" };
+  }
+  if (modelFormatOf(key) === "3mf" && !looksLikeZip(await peekBytes(key, 4))) {
+    await deleteObject(key);
+    return { ok: false, error: "That doesn't look like a valid 3MF file (not a ZIP archive)" };
   }
 
   await db
     .update(products)
-    .set({ stlKey: parsed.data.key, updatedAt: new Date() })
-    .where(eq(products.id, parsed.data.productId));
+    .set({ stlKey: key, updatedAt: new Date() })
+    .where(eq(products.id, productId));
 
-  invalidate(await slugOf(parsed.data.productId));
+  invalidate(await slugOf(productId));
   return { ok: true };
 }
 

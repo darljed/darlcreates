@@ -12,8 +12,17 @@ import {
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
+import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
 import { Box, RotateCcw } from "lucide-react";
-import { centerGeometry, frameModel, VIEWER_FOV_DEG } from "@/lib/viewer-framing";
+import {
+  centerGeometry,
+  DEFAULT_3MF_MATERIAL,
+  frameModel,
+  measureObject,
+  prepareMultiPart,
+  VIEWER_FOV_DEG,
+} from "@/lib/viewer-framing";
+import { modelFormatOf } from "@/lib/uploads";
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 function subscribeReducedMotion(cb: () => void) {
@@ -30,27 +39,23 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Loads the STL, centers it on its own bounding box, and frames the camera from
- * the model's size, so tiny / huge / off-origin models all start centered and
- * fully visible (slicers often export parts at the bed middle, e.g. 128,128).
- * Rotation never moves the mesh: auto-rotate orbits the CAMERA around the center.
+ * Shared stage: camera framed from the model's bounding radius, lights, and orbit
+ * controls. Works for tiny / huge / off-origin models (slicers often export parts at
+ * the bed middle, e.g. 128,128). Auto-rotate orbits the CAMERA around the origin, so
+ * the model itself never moves; children must already be centered on the origin.
  */
-function Scene({
-  url,
-  color,
+function Stage({
+  radius,
   autoRotate,
   onUserInteract,
+  children,
 }: {
-  url: string;
-  color: string;
+  radius: number;
   autoRotate: boolean;
   onUserInteract: () => void;
+  children: ReactNode;
 }) {
-  const raw = useLoader(STLLoader, url);
-  // useLoader caches the parsed geometry; clone before mutating (centering).
-  const { geometry, radius } = useMemo(() => centerGeometry(raw.clone()), [raw]);
   const framing = useMemo(() => frameModel(radius), [radius]);
-
   return (
     <>
       <PerspectiveCamera
@@ -63,10 +68,8 @@ function Scene({
       <ambientLight intensity={0.8} />
       <directionalLight position={[radius * 3, radius * 4, radius * 3]} intensity={1.1} />
       <directionalLight position={[-radius * 3, -radius * 2, -radius * 3]} intensity={0.4} />
-      {/* STL is Z-up; rotate exactly -90° about X so the model stands upright. */}
-      <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color={color} roughness={0.45} metalness={0.05} />
-      </mesh>
+      {/* STL and 3MF are both Z-up; rotate exactly -90° about X so the model stands upright. */}
+      <group rotation={[-Math.PI / 2, 0, 0]}>{children}</group>
       <OrbitControls
         makeDefault
         target={[0, 0, 0]}
@@ -83,6 +86,48 @@ function Scene({
   );
 }
 
+type SceneProps = {
+  url: string;
+  color: string;
+  autoRotate: boolean;
+  onUserInteract: () => void;
+};
+
+/** STL: one mesh, uses the customer's chosen color. */
+function StlScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
+  const raw = useLoader(STLLoader, url);
+  // useLoader caches the parsed geometry; clone before mutating (centering).
+  const { geometry, radius } = useMemo(() => centerGeometry(raw.clone()), [raw]);
+  return (
+    <Stage radius={radius} autoRotate={autoRotate} onUserInteract={onUserInteract}>
+      <mesh geometry={geometry}>
+        <meshStandardMaterial color={color} roughness={0.45} metalness={0.05} />
+      </mesh>
+    </Stage>
+  );
+}
+
+/**
+ * 3MF: may hold several parts with their own colors. Colors in the file are kept; the
+ * customer's chosen color is applied only to parts that have none.
+ */
+function ThreeMfScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
+  const loaded = useLoader(ThreeMFLoader, url);
+  const { object, center, radius } = useMemo(() => {
+    const object = prepareMultiPart(loaded, color, (m) => m.name === DEFAULT_3MF_MATERIAL);
+    const { center, radius } = measureObject(object);
+    return { object, center, radius };
+  }, [loaded, color]);
+  return (
+    <Stage radius={radius} autoRotate={autoRotate} onUserInteract={onUserInteract}>
+      {/* translate in model space so the model's own center sits on the origin */}
+      <group position={[-center.x, -center.y, -center.z]}>
+        <primitive object={object} />
+      </group>
+    </Stage>
+  );
+}
+
 export type StlViewerProps = {
   url: string | null;
   color?: string;
@@ -90,7 +135,7 @@ export type StlViewerProps = {
 };
 
 /**
- * Interactive STL viewer. `key={url}` remounts the inner viewer for a new model,
+ * Interactive 3D model viewer (STL or 3MF, chosen from the file extension). `key={url}` remounts the inner viewer for a new model,
  * which resets its state (failed / spinning) without effects.
  */
 export default function StlViewer({ url, color = "#9ca3af", className }: StlViewerProps) {
@@ -123,6 +168,14 @@ function Viewer({ url, color, className }: { url: string; color: string; classNa
 
   if (failed) return <Placeholder className={className} />;
 
+  // key={view} remounts the scene on "Reset view" => camera + controls return to the framed view.
+  const sceneProps = {
+    url,
+    color,
+    autoRotate: spinning && !reduced,
+    onUserInteract: () => setSpinning(false),
+  };
+
   return (
     <div className={`relative ${className ?? ""}`} onDoubleClick={reset}>
       <ErrorBoundary onError={() => setFailed(true)}>
@@ -132,13 +185,11 @@ function Viewer({ url, color, className }: { url: string; color: string; classNa
           aria-label="Interactive 3D model viewer"
         >
           <Suspense fallback={null}>
-            <Scene
-              key={view}
-              url={url}
-              color={color}
-              autoRotate={spinning && !reduced}
-              onUserInteract={() => setSpinning(false)}
-            />
+            {modelFormatOf(url) === "3mf" ? (
+              <ThreeMfScene key={view} {...sceneProps} />
+            ) : (
+              <StlScene key={view} {...sceneProps} />
+            )}
           </Suspense>
         </Canvas>
       </ErrorBoundary>

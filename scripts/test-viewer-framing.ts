@@ -5,9 +5,9 @@
  * Run: npx tsx scripts/test-viewer-framing.ts
  */
 import { readFileSync } from "node:fs";
-import { BoxGeometry, BufferGeometry, Euler, Matrix4, PerspectiveCamera, Vector3 } from "three";
+import { BoxGeometry, BufferGeometry, Color, Euler, Group, Matrix4, Mesh, MeshPhongMaterial, PerspectiveCamera, Vector3 } from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { centerGeometry, frameModel, VIEWER_FOV_DEG } from "../src/lib/viewer-framing";
+import { centerGeometry, DEFAULT_3MF_MATERIAL, frameModel, measureObject, prepareMultiPart, VIEWER_FOV_DEG } from "../src/lib/viewer-framing";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -64,6 +64,44 @@ check("Origin-centered small part (clicker cap 21 x 21 x 9)", () =>
 check("Tiny model (units in meters: 0.03)", () => new BoxGeometry(0.03, 0.07, 0.03).translate(0.1, 0.1, 0.02));
 check("Huge model (5000 units), far from origin", () => new BoxGeometry(4000, 5000, 3000).translate(-8000, 3000, 900));
 check("Very flat plate (100 x 100 x 0.4)", () => new BoxGeometry(100, 100, 0.4).translate(50, 50, 0.2));
+
+// ---- multi-part (3MF-like) models ----
+console.log("\nMulti-part model (base + name), off-origin, one colored part and one default part");
+{
+  const base = new Mesh(new BoxGeometry(60, 30, 10).translate(128, 128, 5), new MeshPhongMaterial({ color: 0x2255ff }));
+  const name = new Mesh(new BoxGeometry(40, 8, 3).translate(128, 128, 11.5), new MeshPhongMaterial({ name: DEFAULT_3MF_MATERIAL, color: 0xffffff }));
+  const loaded = new Group(); loaded.add(base, name);
+
+  const prepared = prepareMultiPart(loaded, "#ff8800", (m) => m.name === DEFAULT_3MF_MATERIAL);
+  const { center, radius } = measureObject(prepared);
+  assert("center is the middle of all parts (128,128,6.5: z spans 0..13)", Math.abs(center.x - 128) < 0.01 && Math.abs(center.y - 128) < 0.01 && Math.abs(center.z - 6.5) < 0.01, `center=${center.toArray()}`);
+  assert("radius encloses every part", radius >= Math.hypot(60, 30, 13) / 2 - 1e-6);
+
+  const mats = (g: Group, i: number) => ((g.children[i] as Mesh).material as MeshPhongMaterial);
+  const pm = prepared as Group;
+  assert("part WITH a color keeps it", mats(pm, 0).color.getHex() === 0x2255ff);
+  assert("part WITHOUT a color gets the customer's color", mats(pm, 1).color.getHex() === new Color("#ff8800").getHex());
+  assert("original (cached) object is not mutated", mats(loaded, 1).color.getHex() === 0xffffff && mats(loaded, 0).color.getHex() === 0x2255ff);
+  assert("materials are cloned, not shared", mats(pm, 0) !== mats(loaded, 0));
+
+  // centered after translating by -center, every point in view at several orbit angles
+  for (const angle of [0, 90, 180, 270]) {
+    const f = frameModel(radius);
+    const cam = new PerspectiveCamera(VIEWER_FOV_DEG, 1, f.near, f.far);
+    cam.position.copy(new Vector3(...f.position).applyAxisAngle(new Vector3(0, 1, 0), (angle * Math.PI) / 180));
+    cam.lookAt(0, 0, 0); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    const upright = new Matrix4().makeRotationFromEuler(new Euler(-Math.PI / 2, 0, 0));
+    let worst = 0;
+    for (const m of [base, name]) {
+      const pos = m.geometry.getAttribute("position"); const v = new Vector3();
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).sub(center).applyMatrix4(upright).project(cam);
+        worst = Math.max(worst, Math.abs(v.x), Math.abs(v.y));
+      }
+    }
+    assert(`multi-part fully in view at orbit ${angle}° (worst |NDC|=${worst.toFixed(2)})`, worst <= 1);
+  }
+}
 
 for (const file of process.argv.slice(2)) {
   const buf = readFileSync(file);

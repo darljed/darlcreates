@@ -1,4 +1,4 @@
-import { Box3, Vector3, type BufferGeometry } from "three";
+import { Box3, Vector3, type BufferGeometry, type Material, type Object3D } from "three";
 
 /**
  * Framing math for the STL viewer. Pure (no React/WebGL) so it can be tested.
@@ -30,6 +30,50 @@ export function centerGeometry(geometry: BufferGeometry): {
     // Sphere centered on the (now origin-centered) box; radius is rotation-invariant.
     radius: Math.max(geometry.boundingSphere?.radius ?? 1, 1e-6),
   };
+}
+
+/**
+ * Center + radius for a multi-part model (e.g. a 3MF Group), in the model's own space.
+ * Radius is the box half-diagonal: a sphere around the box center that encloses it,
+ * so it stays valid at every orbit angle (slightly conservative vs. a tight sphere).
+ */
+export function measureObject(obj: Object3D): { center: Vector3; radius: number } {
+  obj.updateWorldMatrix(true, true);
+  const box = new Box3().setFromObject(obj);
+  const center = box.getCenter(new Vector3());
+  return { center, radius: Math.max(box.getSize(new Vector3()).length() / 2, 1e-6) };
+}
+
+/**
+ * three's 3MFLoader names the material of parts that had no color/material in the
+ * file `Loader.DEFAULT_MATERIAL_NAME` (= "__DEFAULT"). Mirrored here so this module
+ * stays free of loader imports.
+ */
+export const DEFAULT_3MF_MATERIAL = "__DEFAULT";
+
+/**
+ * Clone a loaded 3MF so the cached original is never mutated, and give parts that have
+ * NO color in the file the customer's chosen color. Parts with an explicit color/material
+ * keep it (that's the point of 3MF: e.g. base in one color, the name in another).
+ * `isDefault` decides whether a material counts as "no color in the file".
+ */
+export function prepareMultiPart(
+  loaded: Object3D,
+  color: string,
+  isDefault: (m: Material) => boolean,
+): Object3D {
+  const clone = loaded.clone(true);
+  clone.traverse((o) => {
+    const mesh = o as Object3D & { isMesh?: boolean; material?: Material | Material[] };
+    if (!mesh.isMesh || !mesh.material) return;
+    const swap = (m: Material) => {
+      const c = m.clone();
+      if (isDefault(m) && "color" in c) (c as Material & { color: { set(v: string): void } }).color.set(color);
+      return c;
+    };
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+  });
+  return clone;
 }
 
 export type Framing = {

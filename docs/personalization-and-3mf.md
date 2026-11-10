@@ -1,6 +1,6 @@
 # Personalizing existing products + 3MF support
 
-Status: **proposal, not built.** Raised 2026-11-10. Tracked as F-16 / F-17 in
+Status: **3MF upload + preview is built (2026-11-10, D-19).** Personalization (levels 1-3) is still a **proposal, not built.** Raised 2026-11-10. Tracked as F-16 / F-17 in
 [roadmap-and-gaps.md](./roadmap-and-gaps.md). Needs owner answers (bottom) first.
 
 Two different things, both distinct from Phase 2:

@@ -100,7 +100,7 @@ Rules:
 - Default encryption SSE-S3.
 - CORS: allow `PUT`/`GET`/`HEAD` from `http://localhost:3000` and the production
   origin, headers `*`, expose `ETag`.
-- Key prefixes used by the app: `stl/`, `photos/`, `customer/`, `proof/`, `reviews/`.
+- Key prefixes used by the app: `models/` (STL/3MF; `stl/` = older uploads), `photos/`, `customer/`, `proof/`, `reviews/`.
 - IAM policy for the app key: `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`
   on `arn:aws:s3:::darlcreates-uploads/*` and `s3:ListBucket` on the bucket —
   nothing else.

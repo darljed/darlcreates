@@ -31,7 +31,8 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
 - Shipping entry; **admin-only signed STL download** per order item
-- **File uploads**: STL (≤50 MB) and product photos (≤5 MB) go browser → S3 via presigned PUT; photo grid with delete
+- **File uploads**: 3D models (**STL or 3MF**, ≤50 MB) and product photos (≤5 MB) go browser → S3 via presigned PUT; photo grid with delete
+- **3MF**: multi-part, multi-color files preview in 3D; colors in the file are kept, uncolored parts take the customer's swatch
 - Review moderation (approve/hide)
 
 ## Known gaps / deferred

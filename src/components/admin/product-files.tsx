@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { validateUpload, type AdminUploadKind } from "@/lib/uploads";
 import {
   addPhotoAction,
-  attachStlAction,
+  attachModelAction,
   deletePhotoAction,
 } from "@/app/(admin)/admin/products/actions";
 
@@ -59,15 +59,15 @@ export function ProductFiles({
   const router = useRouter();
   const stlInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState<"stl" | "photo" | string | null>(null);
+  const [busy, setBusy] = useState<"model" | "photo" | string | null>(null);
 
-  async function onStl(file: File) {
-    setBusy("stl");
+  async function onModel(file: File) {
+    setBusy("model");
     try {
-      const key = await uploadToS3("stl", file);
-      const res = await attachStlAction({ productId, key });
+      const key = await uploadToS3("model", file);
+      const res = await attachModelAction({ productId, key });
       if (!res.ok) throw new Error(res.error);
-      toast.success("STL uploaded");
+      toast.success("3D model uploaded");
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
@@ -108,10 +108,10 @@ export function ProductFiles({
   return (
     <div className="space-y-6 rounded-xl border-2 border-border bg-card p-5">
       <div>
-        <h3 className="font-bold">3D model (STL)</h3>
+        <h3 className="font-bold">3D model (STL or 3MF)</h3>
         <p className="text-sm text-muted-foreground">
           The print-ready file shown in the 3D viewer and downloaded for printing.
-          Max 50 MB.
+          Max 50 MB. Use 3MF to keep multiple parts and colors; STL is a single plain mesh.
         </p>
         <div className="mt-3 flex items-center gap-3">
           <span className="inline-flex items-center gap-2 text-sm">
@@ -119,15 +119,15 @@ export function ProductFiles({
             {stlKey ? (
               <span className="font-mono text-xs">{stlKey.split("/").pop()}</span>
             ) : (
-              <span className="text-muted-foreground">No STL yet</span>
+              <span className="text-muted-foreground">No model yet</span>
             )}
           </span>
           <input
             ref={stlInput}
             type="file"
-            accept=".stl"
+            accept=".stl,.3mf"
             className="hidden"
-            onChange={(e) => e.target.files?.[0] && onStl(e.target.files[0])}
+            onChange={(e) => e.target.files?.[0] && onModel(e.target.files[0])}
           />
           <Button
             variant="outline"
@@ -135,12 +135,12 @@ export function ProductFiles({
             disabled={busy !== null}
             onClick={() => stlInput.current?.click()}
           >
-            {busy === "stl" ? (
+            {busy === "model" ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : (
               <Upload className="mr-2 size-4" />
             )}
-            {stlKey ? "Replace STL" : "Upload STL"}
+            {stlKey ? "Replace model" : "Upload model"}
           </Button>
         </div>
       </div>

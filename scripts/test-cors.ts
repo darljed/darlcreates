@@ -33,9 +33,9 @@ async function main() {
     process.exit(1);
   }
   for (const origin of ORIGINS) {
-    const key = s.buildKey("stl", `TEST-cors-${Date.now()}.stl`);
+    const key = s.buildKey("model", `TEST-cors-${Date.now()}.3mf`);
     try {
-      const url = await s.presignUpload(key, "model/stl", 60);
+      const url = await s.presignUpload(key, "model/3mf", 60);
       const pre = await fetch(url, {
         method: "OPTIONS",
         headers: {
@@ -50,7 +50,7 @@ async function main() {
       );
       const put = await fetch(url, {
         method: "PUT",
-        headers: { Origin: origin, "Content-Type": "model/stl" },
+        headers: { Origin: origin, "Content-Type": "model/3mf" },
         body: "solid x\nendsolid x\n",
       });
       assert(

@@ -36,7 +36,8 @@ function client(): S3Client {
 }
 
 const PREFIXES = {
-  stl: "stl",
+  // 3D models (STL / 3MF). Older uploads live under "stl/"; those keys stay valid.
+  model: "models",
   photo: "photos",
   customer: "customer",
   proof: "proof",
@@ -101,6 +102,14 @@ export async function headObject(key: string): Promise<number | null> {
     if (name === "NotFound" || name === "NoSuchKey") return null;
     throw err;
   }
+}
+
+/** First `n` bytes of an object (ranged GET). Used to sanity-check file signatures. */
+export async function peekBytes(key: string, n = 4): Promise<Uint8Array> {
+  const res = await client().send(
+    new GetObjectCommand({ Bucket: bucket, Key: key, Range: `bytes=0-${n - 1}` }),
+  );
+  return (await res.Body?.transformToByteArray()) ?? new Uint8Array();
 }
 
 export async function deleteObject(key: string): Promise<void> {

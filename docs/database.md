@@ -28,6 +28,12 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 `order_status` (awaiting_payment|paid|in_production|ready_to_ship|shipped|delivered|cancelled|refunded),
 `payment_status` (pending|verified|rejected).
 
+## Model files (STL / 3MF)
+`products.stl_key` and `order_items.stl_key_snapshot` hold the S3 key of the print-ready
+model. Despite the name they accept **STL or 3MF** (format is read from the extension).
+The column was not renamed to avoid a risky migration for no functional gain. Keys:
+`models/...` for new uploads, `stl/...` for earlier ones; both are valid.
+
 ## Customization schema
 `product_options.type` + `constraints` (jsonb):
 - text: `{ maxLen, pattern?, fonts? }`

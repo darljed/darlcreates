@@ -146,3 +146,14 @@ clip planes and zoom limits from the bounding radius, and orbits the *camera*
 10°: with perspective, the higher the camera looks down on an elongated part the
 lower its silhouette sits (measured 0.07 NDC offset at 0°, 0.11 at 10°, 0.22 at
 32°). Logic lives in `src/lib/viewer-framing.ts` (pure, tested).
+
+## D-19 — 3MF alongside STL (owner request)
+Owner wants to use 3MF in place of STL. Supported for upload and preview; STL still
+works. Choices: (1) new prefix `models/`, legacy `stl/` keys remain valid; (2) DB
+column `stl_key` keeps its name; (3) 3MF is checked for the ZIP signature server-side
+before attaching, content type is forced from the extension; (4) the viewer keeps
+colors that are in the file and only paints parts that have none with the customer's
+swatch, so multi-color files stay multi-color; (5) viewer framing is size-independent
+because 3MF and STL differ in units and origin. 3MF parsing needs a browser
+(`DOMParser`), so it is tested in a real browser, not in Node. Detail and the
+personalization plan: [personalization-and-3mf.md](./personalization-and-3mf.md).

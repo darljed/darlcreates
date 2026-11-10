@@ -5,7 +5,7 @@ import { buildKey, isStorageConfigured, presignUpload } from "@/lib/storage";
 import { storedContentType, validateUpload } from "@/lib/uploads";
 
 const bodySchema = z.object({
-  kind: z.enum(["stl", "photo"]),
+  kind: z.enum(["model", "photo"]),
   filename: z.string().min(1).max(200),
   contentType: z.string().max(100).default(""),
   size: z.number().int().positive(),
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   }
 
   const key = buildKey(kind, filename);
-  const type = storedContentType(kind, contentType);
+  const type = storedContentType(kind, filename, contentType);
   const url = await presignUpload(key, type, 300);
   return NextResponse.json({ url, key, contentType: type });
 }

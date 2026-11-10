@@ -11,8 +11,8 @@ prices and state transitions.
 |---|---|---|
 | `GET/POST /api/auth/[...all]` | public | BetterAuth (Google OAuth, session) |
 | `GET /admin/orders/[id]/stl/[itemId]` | admin | Redirects to a 120s signed S3 URL for the item's STL snapshot. 404 no STL, 503 storage not configured |
-| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `stl` (≤50 MB), `photo` (≤5 MB jpeg/png/webp) |
-| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/` keys; public only if the file belongs to a published product, else admin only. `customer/`,`proof/` never served here |
+| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp). Content type is forced from the extension (`model/stl` / `model/3mf`) |
+| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/` keys; public only if the file belongs to a published product, else admin only. `customer/`,`proof/` never served here |
 
 ## Server Actions
 
@@ -32,7 +32,7 @@ prices and state transitions.
 |---|---|---|
 | `createProductAction`, `updateProductAction` | `(admin)/admin/products/actions.ts` | Slug auto-generated; invalidates `products` + `product:<slug>` tags |
 | `addOptionAction`, `deleteOptionAction`, `addOptionValueAction` | same | No edit/reorder/value-delete yet (G-19) |
-| `attachStlAction`, `addPhotoAction`, `deletePhotoAction` | same | Take an S3 key from the presign flow; verify the object exists (HEAD) and size. Replacing an STL does **not** delete the old object (orders snapshot it) |
+| `attachModelAction`, `addPhotoAction`, `deletePhotoAction` | same | Take an S3 key from the presign flow; verify the object exists (HEAD) and size; a `.3mf` must start with the ZIP signature. Replacing a model does **not** delete the old object (orders snapshot it) |
 | `verifyPaymentAction`, `rejectPaymentAction` | `(admin)/admin/orders/actions.ts` | Records `verified_by`; admin can't verify their own order; sends email |
 | `transitionOrderAction` | same | Forward-only via `ORDER_TRANSITIONS`; appends history; "shipped" email |
 | `saveShipmentAction` | same | Upsert carrier / tracking |

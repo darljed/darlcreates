@@ -50,6 +50,13 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-27 | 🟡 | **Orphaned S3 objects** | A file uploaded but never attached (admin closes the tab mid-way) stays in the bucket; replaced STLs are kept on purpose (orders reference them). Add a periodic sweep of unreferenced `stl/`/`photos/` keys. |
 | G-28 | 🟡 | **App S3 key has no rotation plan** | `darlcreates-app` access key lives in `.env.local`. Store in Bitwarden; rotate periodically. |
 
+### Found while adding 3MF
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-35 | 🟠 | **3MF only verified with a synthetic file** | The test fixture is a minimal spec-compliant 3MF. Slicer exports (Bambu Studio "project" files, PrusaSlicer, Cura) add plates, component references and vendor extensions that three's `3MFLoader` may not fully render. If a real export shows a blank/partial preview, we need to either re-export as a plain 3MF or add handling. Upload one real file and check. |
+| G-36 | 🟡 | **Per-part color override** | A 3MF part with no color takes the customer's swatch; parts with colors never change. If a product needs the *customer* to recolor a colored part (e.g. the name), that needs part naming + a mapping on the product (ties into F-17). |
+
 ### Missing from the spec (planned, not built)
 
 | ID | Sev | Gap | Spec ref | Status |
@@ -116,7 +123,7 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Idea | Notes |
 |---|---|---|
-| F-16 | **3MF support** alongside STL | Upload + preview (three has `3MFLoader`; fflate present). Value: explicit mm units, multi-part files, per-part color/filament, slicer metadata. Best used for personalized-order output. See `docs/personalization-and-3mf.md`. |
+| F-16 | **3MF as personalized-order output** | Upload + preview of 3MF is done (see Resolved F-16a). Still open: *generating* a 3MF per personalized order (base + name as separate parts). Depends on F-17. |
 | F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
 
 ## D. Resolved
@@ -135,4 +142,5 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-32 | 2026-11-10 | Admin STL upload failed in the browser (nothing reached S3): bucket CORS allowed only `localhost:3000/3001`, so the PUT was blocked from `127.0.0.1` / the Tailscale hostname. Added those origins; new `scripts/test-cors.ts`; the upload UI now explains a CORS failure instead of "Failed to fetch". |
 | G-33 | 2026-11-10 | STL preview unusable for off-origin files (Outdoor Phone Stand exported at the bed middle, center 128,128,15, ~182 mm from origin). Auto-rotate spun the mesh around its own origin, so the model swung off-screen, and zoom limits were fixed numbers. Rebuilt viewer: geometry centered on its bounding box, camera/clip/zoom derived from model size, auto-rotate orbits the camera and stops on touch, pan enabled, Reset view button + double-click. Default elevation 10° (centering degrades with elevation; measured). Tests: `scripts/test-viewer-framing.ts` (synthetic + real files), verified in a real browser (drag/zoom/reset). |
 | G-34 | 2026-11-10 | `/products/[slug]` threw the dev "Instant" error for any product created after build (`await params` outside Suspense). `params` now read inside a Suspense-wrapped component with a skeleton. `scripts/test-instant.ts` now covers every page, not just admin. Also T-01 (viewer tidy-up) and a plain `<a>` -> `<Link>`. |
+| F-16a | 2026-11-10 | **3MF upload + preview.** Admin can upload `.stl` or `.3mf` (max 50 MB). New uploads go under `models/` (old `stl/` keys still valid; DB column stays `stl_key`). 3MF is verified to be a real ZIP (first-bytes check) before attaching. Viewer loads 3MF with three's `3MFLoader`, keeps colors embedded in the file and applies the customer's swatch only to parts with no color. Tested: `test-uploads.ts`, `test-viewer-framing.ts` (multi-part), and a real-browser render of a generated two-part 3MF (`scripts/fixtures/base-plus-name.3mf`). **Not yet tested with a real slicer-exported 3MF.** |
 
