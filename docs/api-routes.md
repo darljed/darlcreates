@@ -11,8 +11,8 @@ prices and state transitions.
 |---|---|---|
 | `GET/POST /api/auth/[...all]` | public | BetterAuth (Google OAuth, session) |
 | `GET /admin/orders/[id]/stl/[itemId]` | admin | Redirects to a 120s signed S3 URL for the item's STL snapshot. 404 no STL, 503 storage not configured |
-| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp), `site` (landing-page hero image, same limits, admin only, key `site/…`), `customer` (same limits; **any signed-in user**, key `customer/<userId>/…`, 30 per hour). `model`/`photo` are admin-only. Content type is forced from the extension (`model/stl` / `model/3mf`) |
-| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/`,`site/` keys; public only if the file belongs to a published product (or is the current landing hero image), else admin only. `customer/`,`proof/` never served here |
+| `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp), `site` (landing-page hero image and brand logos, same limits, admin only, key `site/…`), `customer` (same limits; **any signed-in user**, key `customer/<userId>/…`, 30 per hour). `model`/`photo` are admin-only. Content type is forced from the extension (`model/stl` / `model/3mf`) |
+| `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/`,`site/` keys; public only if the file belongs to a published product (or is the current landing hero image / an uploaded logo), else admin only. `site/` files are streamed (not redirected) with `Cache-Control: public, max-age=31536000, immutable` + `nosniff`; an unsaved admin preview is `private, no-store`. `customer/`,`proof/` never served here |
 
 ## Server Actions
 
@@ -47,6 +47,7 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 | Action | Notes |
 |---|---|
 | `cancelOrderAction`, `reorderAction` (`(portal)/orders/actions.ts`) | `requireUser` + Zod, then `cancelOwnOrder` / `reorderToCart` (ownership enforced in the service) |
+| `saveBrandingAction`, `resetBrandingAction` (same file) | `requireAdmin`; every NEW logo is re-verified server-side (`branding-verify.ts`: exists, size, real PNG/JPEG/WebP bytes, pixel size and shape for its slot); stored size comes from the file; replaced/removed files are deleted; revalidates `site:brand` |
 | `saveSiteInfoAction`, `resetSiteInfoAction` (same file) | `requireAdmin`; Zod `siteInfoSchema`; revalidates tag `site:info` and the storefront layout |
 | `saveLegalAction`, `resetLegalAction` (same file) | `requireAdmin`; Zod; the browser can never set the version: only `askAgain` (privacy only) creates a new one; revalidates `site:legal:<slug>` |
 | `saveHomeContentAction`, `resetHomeContentAction` (`admin/content/actions.ts`) | `requireAdmin`; Zod `homeContentSchema`; verifies a new hero image (exists, size, magic bytes); revalidates tag `site:home` and `/` |
@@ -63,7 +64,7 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 
 Storefront: `/`, `/privacy`, `/terms`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
-Admin: `/admin`, `/admin/content`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
+Admin: `/admin`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
 `/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
@@ -73,6 +74,7 @@ Admin: `/admin`, `/admin/content`, `/admin/store`, `/admin/legal`, `/admin/produ
 | `products`, `product:<slug>` | `listPublishedProducts`, `getProductBySlug` | product / option actions |
 | `reviews:<productId>` | `getProductReviews` | review submit + moderate |
 | `site:home` | `getHomeContent` (landing page) | `saveHomeContentAction`, `resetHomeContentAction` |
+| `site:brand` | `getBranding` (logos, favicon, share image) | `saveBrandingAction`, `resetBrandingAction` |
 | `site:info` | `getSiteInfo` (footer) | `saveSiteInfoAction`, `resetSiteInfoAction` |
 | `site:legal:privacy`, `site:legal:terms` | `getLegal`, `getPrivacyVersion` | `saveLegalAction`, `resetLegalAction` |
 

@@ -132,3 +132,22 @@ export async function deletePrefix(prefix: string): Promise<number> {
 export async function deleteObject(key: string): Promise<void> {
   await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
+
+/** Stream an object's bytes (used for public brand images, which are served with a long cache). */
+export async function getObject(
+  key: string,
+): Promise<{ stream: ReadableStream<Uint8Array>; contentType: string; length: number | undefined } | null> {
+  try {
+    const res = await client().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    if (!res.Body) return null;
+    return {
+      stream: res.Body.transformToWebStream() as ReadableStream<Uint8Array>,
+      contentType: res.ContentType ?? "application/octet-stream",
+      length: res.ContentLength,
+    };
+  } catch (err) {
+    const name = (err as { name?: string }).name;
+    if (name === "NoSuchKey" || name === "NotFound") return null;
+    throw err;
+  }
+}

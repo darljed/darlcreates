@@ -236,3 +236,19 @@ this business; the owner or a lawyer must review both texts (T-09).
 of scrolling sideways, so actions such as Verify / Reject are never off-screen. The header row stays for screen readers.
 Trade-off: `display: block` on table parts can drop table semantics in some screen readers on phones; revisit if the
 a11y audit (G-22) flags it. Everything else is checked with a scan for horizontal overflow at 320 and 375 px.
+
+## D-30 — Logos are uploaded, verified on the server, and served with a long cache
+Six slots (`branding-schema.ts`): wide logo (navbar, footer, customer sidebar), dark-background logo, icon mark (admin
+sidebar, sign-in), favicon, phone home-screen icon, link-sharing (Open Graph) image. Each slot has a size/shape/type/size-limit rule
+(`checkLogo`). The browser checks first for instant feedback, but the server re-reads the file's real bytes
+(`image-size.ts` reads PNG/JPEG/WebP headers) and stores the dimensions it measured; a rejected upload is deleted from S3.
+**SVG is not accepted**: it can carry script and these files are served from our own domain. `BrandLogo` is an async server
+component using uploaded files (plain `<img>` with real width/height) or the built-in ones. The favicon/Apple/OG images are set in
+the root `generateMetadata`; the old file-convention icons moved to `public/brand/` because a file-based icon would override the
+uploaded one. `/api/files` streams `site/` files with `immutable` caching (names are unique per upload, so a replaced logo gets
+a new URL) instead of redirecting each visitor to S3.
+
+## D-31 — Legal editor keeps unsaved text, and the version stays server-side
+The legal workspace keeps both editors mounted so switching tabs never loses text, warns on leaving with unsaved changes, and
+compares against the last saved text (undoing an edit returns to "all changes saved"). Toolbar actions are pure functions in
+`legal-format.ts` (tested). The privacy version still can't be chosen by the browser (D-28).

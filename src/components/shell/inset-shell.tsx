@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BadgeDollarSign, ClipboardList, FileText, Home, LayoutDashboard, MapPin, Menu, Package,
-  PanelLeftClose, PanelLeftOpen, Receipt, Scale, ShoppingBag, Star, Store, User,
+  Image as ImageIcon, PanelLeftClose, PanelLeftOpen, Receipt, Scale, ShoppingBag, Star, Store, User,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   dashboard: LayoutDashboard, products: Package, orders: ClipboardList, payments: BadgeDollarSign,
   reviews: Star, content: FileText, store: Store, cart: ShoppingBag, account: User, address: MapPin,
-  receipt: Receipt, home: Home, legal: Scale,
+  receipt: Receipt, home: Home, legal: Scale, image: ImageIcon,
 } satisfies Record<string, LucideIcon>;
 export type IconName = keyof typeof ICONS;
 

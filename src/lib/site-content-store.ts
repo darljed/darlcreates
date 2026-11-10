@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { siteContent, users } from "@/db/schema";
+import { brandingSchema, DEFAULT_BRANDING, parseBranding, type Branding } from "./branding-schema";
 import {
   DEFAULT_HOME,
   DEFAULT_SITE_INFO,
@@ -24,6 +25,7 @@ import { z } from "zod";
  */
 export const HOME_KEY = "home";
 export const SITE_KEY = "site";
+export const BRAND_KEY = "brand";
 export const legalKey = (slug: LegalSlug) => `legal:${slug}`;
 
 async function loadRaw(key: string): Promise<unknown> {
@@ -121,4 +123,16 @@ export async function privacyAcceptance(version: string): Promise<{ accepted: nu
     .from(users)
     .where(and(eq(users.role, "customer"), isNull(users.deletedAt)));
   return { accepted: row?.accepted ?? 0, total: row?.total ?? 0 };
+}
+
+// ---- logos / branding ----
+export async function loadBranding(key = BRAND_KEY): Promise<Branding> {
+  const raw = await loadRaw(key);
+  return raw === undefined ? DEFAULT_BRANDING : parseBranding(raw);
+}
+
+export async function saveBranding(input: unknown, userId: string | null, key = BRAND_KEY): Promise<Branding> {
+  const data = brandingSchema.parse(input);
+  await upsert(key, data, userId);
+  return data;
 }

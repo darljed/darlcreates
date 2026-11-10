@@ -25,6 +25,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | `order-lifecycle` | snapshot immutability, append-only payments, DB one-pending-payment rule | DB |
 | `checkout` | **the real service functions**: order placement, server-owned amount, duplicate references, concurrent verify, cancelled orders, transitions | DB |
 | `content` | CMS: link/icon allowlists, limits, defaults, `site/` upload rules, store info + footer schema, legal text format (safe links, headings), privacy-version rules (normal edit keeps it, "ask again" renews it, browser cannot choose it), consent follows the version, round trips + corrupt-row fallback (isolated keys, never the live rows) | DB |
+| `branding` | image-size reader (PNG/JPEG/WebP, real brand files), per-slot size/shape/type rules, schema, "every slot is rendered by some page", store round trip, and the server verifier against real S3 objects (valid, wrong shape, text/SVG renamed .png, missing key) | DB + S3 |
 | `customer-orders` | customer cancel (unpaid only, blocked while a payment is pending), order list data, Buy again (recomputed price, archived product refused) | DB |
 | `customer-images` | customer upload security (ownership, magic bytes, smuggled keys) | DB + S3 |
 | `privacy` | consent versioning, address book, export, account deletion | DB + S3 |

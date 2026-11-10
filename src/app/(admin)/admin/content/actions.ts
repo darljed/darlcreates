@@ -4,14 +4,19 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/lib/session";
 import { z } from "zod";
 import { LEGAL_SLUGS, homeContentSchema, siteInfoSchema } from "@/lib/site-content-schema";
-import { HOME_TAG, SITE_TAG, legalTag } from "@/lib/site-content";
+import { BRAND_TAG, HOME_TAG, SITE_TAG, legalTag } from "@/lib/site-content";
+import { LOGO_SLOTS, brandingKeys, brandingSchema, type Branding } from "@/lib/branding-schema";
+import { verifyLogoUpload } from "@/lib/branding-verify";
 import {
   legalEditSchema,
+  BRAND_KEY,
   legalKey,
+  loadBranding,
   loadHomeContent,
   resetContent,
   resetHomeContent,
   saveHomeContent,
+  saveBranding,
   saveLegal,
   saveSiteInfo,
   SITE_KEY,
@@ -32,8 +37,9 @@ async function dropImage(key: string | null) {
   if (!key || !isStorageConfigured()) return;
   try {
     await deleteObject(key);
-  } catch {
-    /* orphaned object, ignored */
+  } catch (err) {
+    // An orphaned object is harmless, so never fail the save, but don't hide it either.
+    console.error(`[content] could not delete ${key}:`, (err as Error).message);
   }
 }
 
@@ -135,5 +141,53 @@ export async function resetLegalAction(input: unknown): Promise<Result> {
   revalidateTag(legalTag(parsed.data.slug), "max");
   revalidatePath(`/${parsed.data.slug}`);
   revalidatePath("/admin/legal");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Logos & branding
+// ---------------------------------------------------------------------------
+
+function invalidateBrand() {
+  revalidateTag(BRAND_TAG, "max");
+  revalidatePath("/", "layout"); // logo is in the header/footer of every page; icons are in <head>
+}
+
+/**
+ * The browser sends which file each slot should use; the server re-checks every NEW file (exists, real image,
+ * size, shape, type) and stores the dimensions it read itself. Files no longer referenced are deleted.
+ */
+export async function saveBrandingAction(input: unknown): Promise<Result> {
+  const admin = await requireAdmin();
+  const parsed = brandingSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  const before = await loadBranding();
+  const next: Branding = structuredClone(before);
+  for (const slot of LOGO_SLOTS) {
+    const want = parsed.data.logos[slot];
+    if (!want) next.logos[slot] = null;
+    else if (before.logos[slot]?.key === want.key) next.logos[slot] = before.logos[slot];
+    else {
+      const v = await verifyLogoUpload(slot, want.key);
+      if (!v.ok) return { ok: false, error: v.error };
+      next.logos[slot] = v.asset;
+    }
+  }
+
+  await saveBranding(next, admin.id);
+  const keep = new Set(brandingKeys(next));
+  for (const k of brandingKeys(before)) if (!keep.has(k)) await dropImage(k);
+  invalidateBrand();
+  return { ok: true };
+}
+
+/** Back to the built-in logos. */
+export async function resetBrandingAction(): Promise<Result> {
+  await requireAdmin();
+  const before = await loadBranding();
+  await resetContent(BRAND_KEY);
+  for (const k of brandingKeys(before)) await dropImage(k);
+  invalidateBrand();
   return { ok: true };
 }

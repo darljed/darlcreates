@@ -13,7 +13,7 @@ Outputs:
   public/brand/logo-horizontal.png       (light bg)
   public/brand/logo-horizontal-dark.png  (dark bg)
   public/brand/logo-icon.png             (icon only, any bg)
-  src/app/{icon.png,apple-icon.png,favicon.ico}  (white mark on brand blue)
+  public/brand/{icon.png,apple-icon.png} + public/favicon.ico  (white mark on brand blue)
 """
 from pathlib import Path
 
@@ -22,7 +22,8 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "brand" / "source"
 OUT = ROOT / "public" / "brand"
-APP = ROOT / "src" / "app"
+PUBLIC = ROOT / "public"
+BRAND = PUBLIC / "brand"  # not src/app: file-convention icons there would override the owner's uploaded favicon
 BRAND_BLUE = (0, 119, 165, 255)  # matches --primary (oklch 0.52 0.14 225) ~ #0077a5
 PAD = 8
 
@@ -91,9 +92,9 @@ def main():
         im.save(OUT / name, optimize=True)
         print(f"{name}: {im.size}")
 
-    white_mark_on_blue(icon, 512, radius_frac=0.22).save(APP / "icon.png", optimize=True)
-    white_mark_on_blue(icon, 180).save(APP / "apple-icon.png", optimize=True)
-    white_mark_on_blue(icon, 256, radius_frac=0.18).save(APP / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
+    white_mark_on_blue(icon, 512, radius_frac=0.22).save(BRAND / "icon.png", optimize=True)
+    white_mark_on_blue(icon, 180).save(BRAND / "apple-icon.png", optimize=True)
+    white_mark_on_blue(icon, 256, radius_frac=0.18).save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
     print("icon.png, apple-icon.png, favicon.ico written")
 
 

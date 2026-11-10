@@ -143,10 +143,11 @@ Admin → Legal pages; tick "Ask every customer to accept this policy again" whe
 - Originals: `brand/source/wordmark-black.png` and `wordmark-white.png` (icon + wordmark,
   transparent, 2000x2000). Older black-only set is not used.
 - Regenerate web logos + favicon/apple-icon: `python3 scripts/build-brand-assets.py` (needs Pillow).
-- Outputs: `public/brand/{logo-horizontal,logo-horizontal-dark,logo-icon}.png`,
-  `src/app/{icon.png,apple-icon.png,favicon.ico}`.
-- Use `<BrandLogo variant="horizontal|icon" className="h-9" />`. Horizontal swaps
-  black/white wordmark by theme (`dark:` class).
+- Built-in files live in `public/brand/` (`logo-horizontal`, `logo-horizontal-dark`, `logo-icon`, `icon`, `apple-icon`)
+  and `public/favicon.ico`. They are the fallback; the owner overrides them in **Admin → Logos & branding** (D-30).
+  `build-brand-assets.py` writes there too (not `src/app/`: file-convention icons would override uploaded ones).
+- Use `<BrandLogo variant="horizontal|icon" className="h-9" />` (an async server component: it reads the
+  uploaded logos, so don't use it inside a client component; pass it in as a prop like `SignInCard` does).
 - Theme colors live in `src/app/globals.css` (`--primary` etc.).
 
 ## Known environment quirks

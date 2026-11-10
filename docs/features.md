@@ -36,7 +36,8 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
   status counts, needs-attention, top products, recent orders)
 - **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA band
 - **Store & footer** (`/admin/store`): store name, tagline, about, email, phone (tap to call), address, hours, explore links, social links, bottom line
-- **Legal pages** (`/admin/legal`): edit the Privacy Policy and Terms and Conditions in a tiny text format (headings, bullets, safe links) with a live preview; optional "ask every customer to accept again" for the privacy policy
+- **Legal pages** (`/admin/legal`): a tabbed workspace (Privacy / Terms, each with Write and Preview tabs; preview at desktop or phone width). Formatting toolbar (heading, bullets, link dialog that rejects unsafe URLs), word count, clickable section outline, unsaved-changes dot + guard, Discard, Ctrl/Cmd+S, "last saved by", how many customers accepted the current privacy version, and a confirm dialog before "ask every customer to accept again"
+- **Logos & branding** (`/admin/branding`): six upload slots, each showing where it is used, the exact size, allowed file types and a live preview: wide logo, dark-background logo, icon-only mark, browser-tab icon, phone home-screen icon, link-sharing image. Files are checked in the browser and again on the server; the page shows a preview of the tab, navbar and shared link; "Use built-in logos" restores the originals
 - Product CRUD + **customization-schema builder** (options + color/size values)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
