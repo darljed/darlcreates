@@ -5,47 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Box, ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { validateUpload, type AdminUploadKind } from "@/lib/uploads";
+import { uploadToS3 } from "@/lib/upload-client";
 import {
   addPhotoAction,
   attachModelAction,
   deletePhotoAction,
 } from "@/app/(admin)/admin/products/actions";
-
-/** Presign -> PUT straight to S3 -> return the object key. */
-async function uploadToS3(kind: AdminUploadKind, file: File): Promise<string> {
-  const problem = validateUpload(kind, file.name, file.type, file.size);
-  if (problem) throw new Error(problem);
-
-  const res = await fetch("/api/uploads/presign", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      kind,
-      filename: file.name,
-      contentType: file.type,
-      size: file.size,
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Could not start upload");
-
-  let put: Response;
-  try {
-    put = await fetch(data.url, {
-      method: "PUT",
-      headers: { "Content-Type": data.contentType },
-      body: file,
-    });
-  } catch {
-    // A CORS-blocked PUT never gets a response; the browser throws a bare TypeError.
-    throw new Error(
-      `Couldn't reach storage from ${window.location.origin}. The bucket's CORS rules probably don't list this address (see docs/setup.md).`,
-    );
-  }
-  if (!put.ok) throw new Error(`Upload to storage failed (${put.status})`);
-  return data.key as string;
-}
 
 export function ProductFiles({
   productId,
@@ -106,7 +71,7 @@ export function ProductFiles({
   }
 
   return (
-    <div className="space-y-6 rounded-xl border-2 border-border bg-card p-5">
+    <div className="space-y-6 rounded-lg border bg-card p-4">
       <div>
         <h3 className="font-bold">3D model (STL or 3MF)</h3>
         <p className="text-sm text-muted-foreground">
@@ -186,7 +151,7 @@ export function ProductFiles({
             type="button"
             disabled={busy !== null}
             onClick={() => photoInput.current?.click()}
-            className="flex size-24 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+            className="flex size-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
           >
             {busy === "photo" ? (
               <Loader2 className="size-5 animate-spin" />

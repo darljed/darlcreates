@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
 import { ProductForm } from "@/components/admin/product-form";
 import { SchemaBuilder } from "@/components/admin/schema-builder";
 import { ProductFiles } from "@/components/admin/product-files";
 import { fileUrl } from "@/lib/storage";
+import { PageHeader } from "@/components/shell/ui";
 
 export const metadata = { title: "Edit product · Admin" };
 
@@ -20,15 +20,9 @@ export default async function EditProductPage({
   if (!product) notFound();
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="max-w-3xl space-y-5">
       <div>
-        <Link
-          href="/admin/products"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Products
-        </Link>
-        <h1 className="mb-6 mt-2 text-3xl font-extrabold">{product.name}</h1>
+        <PageHeader title={product.name} />
         <ProductForm
           initial={{
             id: product.id,
@@ -42,7 +36,7 @@ export default async function EditProductPage({
       </div>
 
       <div>
-        <h2 className="mb-4 text-2xl font-extrabold">Files</h2>
+        <h2 className="mb-2 text-sm font-bold">Files</h2>
         <ProductFiles
           productId={product.id}
           stlKey={product.stlKey}
@@ -55,7 +49,7 @@ export default async function EditProductPage({
       </div>
 
       <div>
-        <h2 className="mb-4 text-2xl font-extrabold">Customization options</h2>
+        <h2 className="mb-2 text-sm font-bold">Customization options</h2>
         <SchemaBuilder productId={product.id} options={product.options} />
       </div>
     </div>

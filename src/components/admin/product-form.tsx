@@ -60,7 +60,7 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border-2 border-border bg-card p-5">
+    <div className="space-y-4 rounded-lg border bg-card p-4">
       <div className="space-y-1.5">
         <Label htmlFor="name">Name</Label>
         <Input

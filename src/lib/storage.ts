@@ -41,6 +41,7 @@ const PREFIXES = {
   // 3D models (STL / 3MF). Older uploads live under "stl/"; those keys stay valid.
   model: "models",
   photo: "photos",
+  site: "site",
   customer: "customer",
   proof: "proof",
   review: "reviews",
@@ -83,15 +84,7 @@ export async function readUrl(
   );
 }
 
-/**
- * Stable, never-expiring URL for a public catalog file (product photo / STL).
- * Pure string — safe to embed in cached/prerendered pages. The route at
- * /api/files/[...key] signs a fresh short-lived S3 URL per request (gap G-03).
- */
-export function fileUrl(key: string | null | undefined): string | null {
-  if (!key) return null;
-  return `/api/files/${key.split("/").map(encodeURIComponent).join("/")}`;
-}
+export { fileUrl } from "./storage-url";
 
 /** Size in bytes of an object, or null if it doesn't exist. */
 export async function headObject(key: string): Promise<number | null> {

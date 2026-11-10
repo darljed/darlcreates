@@ -5,6 +5,7 @@ import { getOrderByIdAdmin, ORDER_TRANSITIONS, type OrderStatus } from "@/lib/or
 import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { OrderAdminControls } from "@/components/admin/order-admin-controls";
+import { PageHeader, Panel } from "@/components/shell/ui";
 
 export const metadata = { title: "Order · Admin" };
 
@@ -23,30 +24,27 @@ export default async function AdminOrderDetailPage({
   const nextStatuses = ORDER_TRANSITIONS[order.status as OrderStatus] ?? [];
 
   return (
-    <div className="max-w-4xl">
-      <Link
-        href="/admin/orders"
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Orders
-      </Link>
-      <div className="mb-6 mt-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold md:text-3xl">{order.orderNo}</h1>
-        <div className="flex items-center gap-3">
-          <Link href={`/admin/orders/${order.id}/acknowledgment`} className="text-sm font-semibold underline">Order Acknowledgment</Link>
-          <OrderStatusBadge status={order.status} />
-        </div>
-      </div>
+    <div className="max-w-5xl">
+      <PageHeader
+        title={order.orderNo}
+        actions={
+          <>
+            <Link href={`/admin/orders/${order.id}/acknowledgment`} className="text-xs font-semibold underline">
+              Order Acknowledgment
+            </Link>
+            <OrderStatusBadge status={order.status} />
+          </>
+        }
+      />
 
-      <div className="grid gap-8 md:grid-cols-[1fr_300px]">
-        <div className="space-y-6">
-          <section>
-            <h2 className="mb-3 font-bold">Items &amp; print files</h2>
-            <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-[1fr_300px]">
+        <div className="space-y-4">
+          <Panel title="Items &amp; print files" bodyClassName="space-y-2">
+            <div className="space-y-2">
               {order.items.map((it) => (
                 <div
                   key={it.id}
-                  className="rounded-xl border-2 border-border bg-card p-4"
+                  className="rounded-md border p-3"
                 >
                   <div className="flex justify-between">
                     <h3 className="font-bold">
@@ -67,7 +65,7 @@ export default async function AdminOrderDetailPage({
                     {it.stlKey ? (
                       <a
                         href={`/admin/orders/${order.id}/stl/${it.id}`}
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                        className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                       >
                         <Download className="size-4" /> Download STL
                       </a>
@@ -87,11 +85,10 @@ export default async function AdminOrderDetailPage({
                 </div>
               ))}
             </div>
-          </section>
+          </Panel>
 
-          <section className="rounded-xl border-2 border-border bg-card p-4">
-            <h2 className="font-bold">Ship to</h2>
-            <p className="mt-1 text-sm">
+          <Panel title="Ship to">
+            <p className="text-sm">
               {addr.recipient} · {addr.phone}
               <br />
               {addr.line1} {addr.line2}
@@ -100,12 +97,11 @@ export default async function AdminOrderDetailPage({
                 .filter(Boolean)
                 .join(", ")}
             </p>
-          </section>
+          </Panel>
 
           {order.latestPayment && (
-            <section className="rounded-xl border-2 border-border bg-card p-4 text-sm">
-              <h2 className="font-bold">Latest payment</h2>
-              <p className="mt-1">
+            <Panel title="Latest payment">
+              <p className="text-sm">
                 GCash ref{" "}
                 <span className="font-mono">{order.latestPayment.reference}</span>{" "}
                 · {formatPHP(order.latestPayment.amountCents)} ·{" "}
@@ -113,12 +109,12 @@ export default async function AdminOrderDetailPage({
                   {order.latestPayment.status}
                 </span>
               </p>
-            </section>
+            </Panel>
           )}
         </div>
 
-        <aside className="h-fit space-y-6">
-          <div className="rounded-xl border-2 border-border bg-muted/40 p-4 text-sm">
+        <aside className="h-fit space-y-4">
+          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
             <Row label="Subtotal" value={formatPHP(order.subtotalCents)} />
             <Row label="Shipping" value={formatPHP(order.shippingCents)} />
             <div className="mt-2 flex justify-between border-t pt-2 font-extrabold">

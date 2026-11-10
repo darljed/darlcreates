@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { reviews, products, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { ReviewModeration } from "@/components/admin/review-moderation";
+import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
 export const metadata = { title: "Reviews · Admin" };
 
@@ -27,32 +28,37 @@ export default async function AdminReviewsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-3xl font-extrabold">Reviews</h1>
+      <PageHeader title="Reviews" description="Approve a review to show it on the product page." />
       {rows.length === 0 ? (
-        <p className="text-muted-foreground">No reviews yet.</p>
+        <EmptyState>No reviews yet.</EmptyState>
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              className="flex flex-wrap items-start justify-between gap-4 rounded-xl border-2 border-border bg-card p-4"
-            >
-              <div>
-                <p className="font-bold">
-                  {r.product}{" "}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    · {r.rating}★ · {r.author}
-                  </span>
-                </p>
-                {r.body && <p className="mt-1 text-sm">{r.body}</p>}
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {r.approved ? "Approved (visible)" : "Pending"}
-                </p>
-              </div>
-              <ReviewModeration reviewId={r.id} approved={r.approved} />
-            </div>
-          ))}
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Product</Th>
+              <Th>Rating</Th>
+              <Th>Review</Th>
+              <Th>Status</Th>
+              <Th className="text-right">Action</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <Tr key={r.id}>
+                <Td className="font-semibold">
+                  {r.product}
+                  <span className="block text-xs font-normal text-muted-foreground">{r.author}</span>
+                </Td>
+                <Td>{r.rating}★</Td>
+                <Td className="max-w-md">{r.body ?? <span className="text-muted-foreground">No comment</span>}</Td>
+                <Td className="text-muted-foreground">{r.approved ? "Approved" : "Pending"}</Td>
+                <Td className="text-right">
+                  <ReviewModeration reviewId={r.id} approved={r.approved} />
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { adminListOrders } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
+import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
 export const metadata = { title: "Orders · Admin" };
 
@@ -19,69 +20,61 @@ const FILTERS = [
   { key: "delivered", label: "Delivered" },
 ];
 
-export default async function AdminOrdersPage({
-  searchParams,
-}: PageProps<"/admin/orders">) {
+export default async function AdminOrdersPage({ searchParams }: PageProps<"/admin/orders">) {
   const sp = await searchParams;
   const status = typeof sp.status === "string" ? sp.status : "";
   const orders = await adminListOrders(status || undefined);
 
   return (
     <div>
-      <h1 className="mb-6 text-3xl font-extrabold">Orders</h1>
+      <PageHeader title="Orders" />
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <nav aria-label="Filter by status" className="mb-3 flex flex-wrap gap-1.5">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
             href={f.key ? `/admin/orders?status=${f.key}` : "/admin/orders"}
-            className={`rounded-full border-2 px-3 py-1 text-sm font-medium ${
+            aria-current={status === f.key ? "page" : undefined}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
               status === f.key
                 ? "border-primary bg-primary text-primary-foreground"
-                : "border-border hover:border-primary"
+                : "border-border bg-card hover:border-primary"
             }`}
           >
             {f.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {orders.length === 0 ? (
-        <p className="text-muted-foreground">No orders.</p>
+        <EmptyState>No orders.</EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-xl border-2 border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="p-3 font-semibold">Order</th>
-                <th className="p-3 font-semibold">Placed</th>
-                <th className="p-3 font-semibold">Total</th>
-                <th className="p-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-t">
-                  <td className="p-3">
-                    <Link
-                      href={`/admin/orders/${o.id}`}
-                      className="font-semibold hover:text-primary"
-                    >
-                      {o.orderNo}
-                    </Link>
-                  </td>
-                  <td className="p-3 text-muted-foreground">
-                    {o.placedAt.toLocaleDateString("en-PH")}
-                  </td>
-                  <td className="p-3">{formatPHP(o.totalCents)}</td>
-                  <td className="p-3">
-                    <OrderStatusBadge status={o.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Order</Th>
+              <Th>Placed</Th>
+              <Th>Total</Th>
+              <Th>Status</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((o) => (
+              <Tr key={o.id}>
+                <Td>
+                  <Link href={`/admin/orders/${o.id}`} className="font-semibold hover:text-primary">
+                    {o.orderNo}
+                  </Link>
+                </Td>
+                <Td className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
+                <Td>{formatPHP(o.totalCents)}</Td>
+                <Td>
+                  <OrderStatusBadge status={o.status} size="sm" />
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
     </div>
   );

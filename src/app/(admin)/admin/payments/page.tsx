@@ -2,6 +2,7 @@ import Link from "next/link";
 import { adminPendingPayments } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
 import { PaymentActions } from "@/components/admin/payment-actions";
+import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
 export const metadata = { title: "Payments · Admin" };
 
@@ -14,41 +15,42 @@ export default async function AdminPaymentsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-3xl font-extrabold">Payment verification</h1>
+      <PageHeader
+        title="Payment verification"
+        description="Check each reference against your GCash history before approving. Approving moves the order to “paid”."
+      />
       {pending.length === 0 ? (
-        <p className="text-muted-foreground">No payments awaiting verification.</p>
+        <EmptyState>No payments awaiting verification.</EmptyState>
       ) : (
-        <div className="space-y-4">
-          {pending.map((p) => (
-            <div
-              key={p.paymentId}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border-2 border-border bg-card p-4"
-            >
-              <div>
-                <Link
-                  href={`/admin/orders/${p.orderId}`}
-                  className="font-bold hover:text-primary"
-                >
-                  {p.orderNo}
-                </Link>
-                <p className="text-sm text-muted-foreground">
-                  Ref{" "}
-                  <span className="font-mono text-foreground">
-                    {p.reference}
-                  </span>{" "}
-                  · declared {formatPHP(p.amountCents)} ·{" "}
-                  {p.submittedAt.toLocaleString("en-PH")}
-                </p>
-              </div>
-              <PaymentActions paymentId={p.paymentId} />
-            </div>
-          ))}
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Order</Th>
+              <Th>Reference</Th>
+              <Th>Declared</Th>
+              <Th>Submitted</Th>
+              <Th className="text-right">Action</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {pending.map((p) => (
+              <Tr key={p.paymentId}>
+                <Td>
+                  <Link href={`/admin/orders/${p.orderId}`} className="font-semibold hover:text-primary">
+                    {p.orderNo}
+                  </Link>
+                </Td>
+                <Td className="font-mono">{p.reference}</Td>
+                <Td>{formatPHP(p.amountCents)}</Td>
+                <Td className="text-muted-foreground">{p.submittedAt.toLocaleString("en-PH")}</Td>
+                <Td className="text-right">
+                  <PaymentActions paymentId={p.paymentId} />
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
-      <p className="mt-6 text-xs text-muted-foreground">
-        Verify a reference against your GCash transaction history before
-        approving. Approving advances the order to “paid”.
-      </p>
     </div>
   );
 }

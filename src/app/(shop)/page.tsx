@@ -1,115 +1,154 @@
-import Link from "next/link";
-import { ArrowRight, Boxes, Palette, Rocket, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ProductCard } from "@/components/product-card";
+import { CmsLink, ICONS } from "@/components/cms";
+import { getHomeContent } from "@/lib/site-content";
+import { listPublishedProducts } from "@/lib/catalog";
+import { fileUrl } from "@/lib/storage";
 
-export default function Home() {
+/** Landing page. Every block of copy comes from Admin → Landing page (defaults in site-content-schema). */
+export default async function Home() {
+  const c = await getHomeContent();
+  const products = c.featured.enabled ? (await listPublishedProducts()).slice(0, c.featured.limit) : [];
+  const heroImage = fileUrl(c.hero.imageKey);
+
   return (
     <main className="flex-1">
-      {/* HERO — bold saturated block, oversized display type */}
+      {c.announcement.enabled && c.announcement.text && (
+        <div className="bg-accent px-6 py-2 text-center text-sm font-semibold text-accent-foreground">
+          {c.announcement.href ? (
+            <CmsLink href={c.announcement.href} className="hover:underline">
+              {c.announcement.text}
+            </CmsLink>
+          ) : (
+            c.announcement.text
+          )}
+        </div>
+      )}
+
+      {/* HERO */}
       <section className="relative overflow-hidden bg-primary text-primary-foreground">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent/40 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-secondary/40 blur-3xl"
-        />
-        <div className="relative mx-auto max-w-6xl px-6 py-24 md:py-32">
-          <Badge className="mb-6 bg-accent text-accent-foreground hover:bg-accent/90">
-            <Sparkles className="mr-1 size-3.5" /> Designed & printed in the PH
-          </Badge>
-          <h1 className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl">
-            Make it yours.
-            <br />
-            <span className="text-accent">We&apos;ll print it.</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-lg/relaxed text-primary-foreground/90">
-            Phone stands, keychains, clickers and more. Spin them in 3D, pick
-            your colors and text, and get a one-of-a-kind print made just for
-            you.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Button
-              asChild
-              size="lg"
-              className="bg-accent text-accent-foreground hover:bg-accent/90 transition-transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Link href="/products">
-                Shop the catalog <ArrowRight className="ml-1 size-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
-            >
-              <Link href="#how">How it works</Link>
-            </Button>
+        <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-accent/40 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-secondary/40 blur-3xl" />
+        <div className={`relative mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 md:py-28 ${heroImage ? "md:grid-cols-[1.2fr_1fr]" : ""}`}>
+          <div>
+            {c.hero.badge && (
+              <Badge className="mb-6 bg-accent text-accent-foreground hover:bg-accent/90">
+                <Sparkles className="mr-1 size-3.5" /> {c.hero.badge}
+              </Badge>
+            )}
+            <h1 className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl">
+              {c.hero.titleLine1}
+              {c.hero.titleLine2 && (
+                <>
+                  <br />
+                  <span className="text-accent">{c.hero.titleLine2}</span>
+                </>
+              )}
+            </h1>
+            {c.hero.subtext && <p className="mt-6 max-w-xl text-lg/relaxed text-primary-foreground/90">{c.hero.subtext}</p>}
+            <div className="mt-10 flex flex-wrap gap-4">
+              <Button
+                asChild
+                size="lg"
+                className="bg-accent text-accent-foreground transition-transform hover:-translate-y-0.5 hover:bg-accent/90 active:translate-y-0"
+              >
+                <CmsLink href={c.hero.primary.href}>
+                  {c.hero.primary.label} <ArrowRight className="ml-1 size-4" />
+                </CmsLink>
+              </Button>
+              {c.hero.secondary.label && c.hero.secondary.href && (
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
+                >
+                  <CmsLink href={c.hero.secondary.href}>{c.hero.secondary.label}</CmsLink>
+                </Button>
+              )}
+            </div>
           </div>
+          {heroImage && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heroImage}
+              alt={c.hero.imageAlt}
+              className="aspect-square w-full rounded-2xl border-4 border-primary-foreground/20 object-cover shadow-2xl"
+            />
+          )}
         </div>
       </section>
 
-      {/* VALUE PROPS */}
-      <section id="how" className="mx-auto max-w-6xl px-6 py-20">
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              icon: Boxes,
-              title: "See it in 3D",
-              body: "Rotate and zoom the real print-ready model before you buy. No surprises.",
-            },
-            {
-              icon: Palette,
-              title: "Customize it",
-              body: "Choose colors, add your name or text, pick a size. Price updates live.",
-            },
-            {
-              icon: Rocket,
-              title: "Fast turnaround",
-              body: "Pay via GCash, we verify, print, and ship. Track every step.",
-            },
-          ].map(({ icon: Icon, title, body }) => (
-            <div
-              key={title}
-              className="group rounded-xl border-2 border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg"
-            >
-              <div className="mb-4 inline-flex rounded-lg bg-accent p-3 text-accent-foreground">
-                <Icon className="size-6" />
-              </div>
-              <h3 className="text-xl font-bold">{title}</h3>
-              <p className="mt-2 text-muted-foreground">{body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* HIGHLIGHTS */}
+      {c.highlights.length > 0 && (
+        <section id="how" className="mx-auto max-w-6xl px-6 py-16">
+          <div className="grid gap-6 md:grid-cols-3">
+            {c.highlights.map(({ icon, title, body }, i) => {
+              const Icon = ICONS[icon];
+              return (
+                <div
+                  key={`${title}-${i}`}
+                  className="group rounded-xl border-2 border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-primary hover:shadow-lg"
+                >
+                  <div className="mb-4 inline-flex rounded-lg bg-accent p-3 text-accent-foreground">
+                    <Icon className="size-6" aria-hidden />
+                  </div>
+                  <h3 className="text-xl font-bold">{title}</h3>
+                  {body && <p className="mt-2 text-muted-foreground">{body}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* FEATURED PRODUCTS */}
+      {products.length > 0 && (
+        <section className="mx-auto max-w-6xl px-6 pb-16">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <h2 className="text-3xl font-extrabold">{c.featured.title}</h2>
+            <CmsLink href="/products" className="text-sm font-semibold text-primary hover:underline">
+              View all
+            </CmsLink>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} imageUrl={fileUrl(p.photoKey)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* FAQ */}
+      {c.faq.length > 0 && (
+        <section className="mx-auto max-w-3xl px-6 pb-16">
+          <h2 className="mb-4 text-3xl font-extrabold">Questions</h2>
+          <div className="divide-y rounded-lg border bg-card">
+            {c.faq.map((f, i) => (
+              <details key={`${f.q}-${i}`} className="group px-4 py-3">
+                <summary className="cursor-pointer list-none font-semibold marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {f.q}
+                </summary>
+                <p className="mt-2 whitespace-pre-line text-muted-foreground">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* CTA band */}
       <section className="bg-secondary text-secondary-foreground">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-16 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-3xl font-extrabold md:text-4xl">
-            Ready to design yours?
-          </h2>
-          <Button
-            asChild
-            size="lg"
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Link href="/products">
-              Browse products <ArrowRight className="ml-1 size-4" />
-            </Link>
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-6 py-14 md:flex-row md:items-center md:justify-between">
+          <h2 className="text-3xl font-extrabold md:text-4xl">{c.cta.title}</h2>
+          <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <CmsLink href={c.cta.href}>
+              {c.cta.label} <ArrowRight className="ml-1 size-4" />
+            </CmsLink>
           </Button>
         </div>
       </section>
-
-      <footer className="border-t border-border py-10">
-        <div className="mx-auto max-w-6xl px-6 text-sm text-muted-foreground">
-          © 2026 Darl Creates · Custom 3D-printed goods ·
-          Made in the Philippines
-        </div>
-      </footer>
     </main>
   );
 }

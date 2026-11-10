@@ -15,6 +15,13 @@
       "when": 1794292641329,
       "tag": "0001_guards_consent",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794299510335,
+      "tag": "0002_site_content",
+      "breakpoints": true
     }
   ]
 }

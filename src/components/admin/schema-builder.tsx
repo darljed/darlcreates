@@ -82,7 +82,7 @@ export function SchemaBuilder({
           </p>
         )}
         {options.map((opt) => (
-          <div key={opt.id} className="rounded-xl border-2 border-border bg-card p-4">
+          <div key={opt.id} className="rounded-lg border bg-card p-4">
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-bold">
@@ -125,7 +125,7 @@ export function SchemaBuilder({
         ))}
       </div>
 
-      <div className="rounded-xl border-2 border-dashed border-border p-4">
+      <div className="rounded-lg border border-dashed border-border p-4">
         <h3 className="mb-3 font-bold">Add option</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">

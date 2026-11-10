@@ -5,7 +5,7 @@ import { buildKey, isStorageConfigured, presignUpload } from "@/lib/storage";
 import { ADMIN_ONLY_KINDS, storedContentType, validateUpload } from "@/lib/uploads";
 
 const bodySchema = z.object({
-  kind: z.enum(["model", "photo", "customer"]),
+  kind: z.enum(["model", "photo", "site", "customer"]),
   filename: z.string().min(1).max(200),
   contentType: z.string().max(100).default(""),
   size: z.number().int().positive(),

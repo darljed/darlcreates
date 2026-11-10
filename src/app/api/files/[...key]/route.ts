@@ -7,7 +7,7 @@ import { isStorageConfigured, readUrl } from "@/lib/storage";
  * Stable URL for catalog files. Resolves a fresh short-lived signed S3 URL on
  * every request, so cached pages never hold an expired link (gap G-03).
  * Public only for photos/STL of PUBLISHED products; admins can read any
- * photos/, stl/ or models/ object (e.g. drafts). customer/ and proof/ are never served here.
+ * photos/, stl/, models/ or site/ object (e.g. drafts). customer/ and proof/ are never served here.
  */
 export async function GET(
   _req: Request,
@@ -21,7 +21,7 @@ export async function GET(
     return new NextResponse(null, { status: 404 });
   }
 
-  if (!/^(photos|stl|models)\/[A-Za-z0-9._-]+$/.test(key)) {
+  if (!/^(photos|stl|models|site)\/[A-Za-z0-9._-]+$/.test(key)) {
     return new NextResponse(null, { status: 404 });
   }
   if (!isStorageConfigured()) {

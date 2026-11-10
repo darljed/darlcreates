@@ -18,6 +18,12 @@ export const UPLOAD_RULES = {
     types: ["image/jpeg", "image/png", "image/webp"],
     maxBytes: 5 * 1024 * 1024,
   },
+  // Landing-page hero image (admin only, publicly served from the site/ prefix).
+  site: {
+    exts: [".jpg", ".jpeg", ".png", ".webp"],
+    types: ["image/jpeg", "image/png", "image/webp"],
+    maxBytes: 5 * 1024 * 1024,
+  },
   // Customer-supplied artwork for personalization. Any signed-in user may upload one.
   customer: {
     exts: [".jpg", ".jpeg", ".png", ".webp"],
@@ -29,7 +35,7 @@ export const UPLOAD_RULES = {
 export type RuleKind = keyof typeof UPLOAD_RULES;
 export type AdminUploadKind = RuleKind; // existing imports
 /** Kinds only an admin may upload. */
-export const ADMIN_ONLY_KINDS: readonly RuleKind[] = ["model", "photo"];
+export const ADMIN_ONLY_KINDS: readonly RuleKind[] = ["model", "photo", "site"];
 export type ModelFormat = "stl" | "3mf";
 
 /** "stl" | "3mf" from a filename, key or URL (query/hash ignored). Defaults to stl. */
@@ -54,7 +60,7 @@ export function validateUpload(
   if (size > rule.maxBytes) {
     return `File too large (max ${Math.round(rule.maxBytes / 1024 / 1024)} MB)`;
   }
-  if ((kind === "photo" || kind === "customer") && !UPLOAD_RULES[kind].types.some((t) => t === contentType)) {
+  if ((kind === "photo" || kind === "customer" || kind === "site") && !UPLOAD_RULES[kind].types.some((t) => t === contentType)) {
     return "Image must be JPEG, PNG or WebP";
   }
   return null;
@@ -77,6 +83,7 @@ export function storedContentType(kind: AdminUploadKind, filename: string, clien
 export const KEY_PATTERNS = {
   model: /^(stl|models)\/[A-Za-z0-9._-]+$/,
   photo: /^photos\/[A-Za-z0-9._-]+$/,
+  site: /^site\/[A-Za-z0-9._-]+$/,
   /** customer/<userId>/<file>: the owner's id is part of the key. */
   customer: /^customer\/[A-Za-z0-9_-]+\/[A-Za-z0-9._-]+$/,
 } as const;

@@ -3,6 +3,7 @@ import { Plus, Box } from "lucide-react";
 import { adminListProducts } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
+import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
 export const metadata = { title: "Products · Admin" };
 
@@ -21,65 +22,56 @@ export default async function AdminProductsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold">Products</h1>
-        <Button asChild className="bg-primary text-primary-foreground">
-          <Link href="/admin/products/new">
-            <Plus className="mr-1 size-4" /> New product
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Products"
+        actions={
+          <Button asChild size="sm" className="bg-primary text-primary-foreground">
+            <Link href="/admin/products/new">
+              <Plus className="mr-1 size-4" /> New product
+            </Link>
+          </Button>
+        }
+      />
 
       {products.length === 0 ? (
-        <p className="text-muted-foreground">No products yet.</p>
+        <EmptyState>No products yet.</EmptyState>
       ) : (
-        <div className="overflow-hidden rounded-xl border-2 border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="p-3 font-semibold">Name</th>
-                <th className="p-3 font-semibold">Category</th>
-                <th className="p-3 font-semibold">Base price</th>
-                <th className="p-3 font-semibold">STL</th>
-                <th className="p-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="p-3">
-                    <Link
-                      href={`/admin/products/${p.id}`}
-                      className="font-semibold hover:text-primary"
-                    >
-                      {p.name}
-                    </Link>
-                  </td>
-                  <td className="p-3 capitalize text-muted-foreground">
-                    {p.category}
-                  </td>
-                  <td className="p-3">{formatPHP(p.basePriceCents)}</td>
-                  <td className="p-3">
-                    {p.stlKey ? (
-                      <Box className="size-4 text-primary" />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">none</span>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        STATUS_STYLE[p.status] ?? ""
-                      }`}
-                    >
-                      {p.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Name</Th>
+              <Th>Category</Th>
+              <Th>Base price</Th>
+              <Th>3D model</Th>
+              <Th>Status</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p) => (
+              <Tr key={p.id}>
+                <Td>
+                  <Link href={`/admin/products/${p.id}`} className="font-semibold hover:text-primary">
+                    {p.name}
+                  </Link>
+                </Td>
+                <Td className="capitalize text-muted-foreground">{p.category}</Td>
+                <Td>{formatPHP(p.basePriceCents)}</Td>
+                <Td>
+                  {p.stlKey ? (
+                    <Box className="size-4 text-primary" aria-label="Has 3D model" />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">none</span>
+                  )}
+                </Td>
+                <Td>
+                  <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${STATUS_STYLE[p.status] ?? ""}`}>
+                    {p.status}
+                  </span>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
     </div>
   );

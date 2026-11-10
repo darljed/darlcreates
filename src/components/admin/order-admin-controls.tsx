@@ -65,7 +65,7 @@ export function OrderAdminControls({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border-2 border-border bg-card p-4">
+      <div className="rounded-lg border bg-card p-4">
         <h2 className="mb-3 font-bold">Update status</h2>
         {nextStatuses.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -93,7 +93,7 @@ export function OrderAdminControls({
         )}
       </div>
 
-      <div className="rounded-xl border-2 border-border bg-card p-4">
+      <div className="rounded-lg border bg-card p-4">
         <h2 className="mb-3 font-bold">Shipping</h2>
         <div className="space-y-2">
           <div className="space-y-1">
