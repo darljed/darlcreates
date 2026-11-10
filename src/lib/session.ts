@@ -28,6 +28,7 @@ export async function requireUser(where = "/") {
   if (!user) redirect(`/sign-in?redirect=${encodeURIComponent(safeRedirect(where))}`);
   const c = await getConsent(user.id);
   if (c?.deletedAt) redirect("/sign-in");
+  if (c?.blockedAt) redirect("/sign-in?error=blocked");
   if (!hasCurrentConsent(c, await getPrivacyVersion())) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
   return user;
 }

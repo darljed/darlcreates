@@ -118,6 +118,7 @@ async function main() {
       : [];
     const modelKeys = (await db.select({ k: s.products.stlKey }).from(s.products).where(like(s.products.slug, "demo-%"))).map((x) => x.k).filter((k): k is string => Boolean(k));
     if (users.length) {
+      await db.delete(s.adminAudit).where(inArray(s.adminAudit.targetUserId, users)); // admin actions taken on demo users
       await db.delete(s.reviews).where(inArray(s.reviews.userId, users));
       await db.delete(s.orders).where(inArray(s.orders.userId, users)); // cascades items, payments, shipments, history
       await db.delete(s.carts).where(inArray(s.carts.userId, users));

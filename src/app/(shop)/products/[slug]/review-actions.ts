@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidateTag, revalidatePath } from "next/cache";
+import { revalidateTag, revalidatePath, updateTag } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { reviews, orders, orderItems, products } from "@/db/schema";
@@ -83,10 +83,10 @@ export async function moderateReviewAction(input: unknown): Promise<Result> {
       .where(eq(products.id, r.productId))
       .limit(1);
     if (p) {
-      revalidateTag(`product:${p.slug}`, "max");
+      updateTag(`product:${p.slug}`);
       revalidatePath(`/products/${p.slug}`);
     }
-    revalidateTag(`reviews:${r.productId}`, "max");
+    updateTag(`reviews:${r.productId}`);
   }
   revalidatePath("/admin/reviews");
   return { ok: true };

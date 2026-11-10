@@ -13,11 +13,12 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
   time; later catalog/address edits do not mutate them.
 - **Reserved columns**: `orders.or_number`, `orders.vat_cents` exist but nothing reads or writes them yet.
 
-## Tables (19)
+## Tables (20)
 **Auth**: `users` (+ `role` customer|admin), `sessions`, `accounts`,
 `verifications`.
 **Catalog**: `products`, `product_photos`, `product_options`,
 `product_option_values`, `reviews`, `review_photos`.
+**Admin**: `admin_audit` (append-only log of admin actions on user accounts: `actor_id`, `target_user_id`, `action`, `detail` jsonb; no foreign keys on purpose, so the trail outlives a user row). `users` also has `blocked_at`, `blocked_reason` (private) and `admin_note` (private).
 **Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited documents. Keys: `home` (landing page), `site` (store info + footer), `brand` (uploaded logos), `legal:privacy`, `legal:terms`. A missing or invalid row falls back to the built-in default; shapes are validated in code (D-25, D-28).
 **Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items`,
 `payments`, `shipments`, `order_status_history`.

@@ -27,6 +27,7 @@ export async function POST(req: Request) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid tags" }, { status: 400 });
 
-  for (const tag of parsed.data.tags) revalidateTag(tag, "max");
+  // not a Server Action, so updateTag is unavailable: { expire: 0 } makes the next request wait for fresh data
+  for (const tag of parsed.data.tags) revalidateTag(tag, { expire: 0 });
   return NextResponse.json({ ok: true, revalidated: parsed.data.tags.length });
 }

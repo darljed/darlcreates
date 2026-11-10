@@ -27,6 +27,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Customer area** (inset sidebar): orders table (Pay now / Track / Buy again), order page with progress bar, copy buttons for GCash number + amount, cancel an unpaid order, review prompt after delivery
 - Cart badge in the header, "Go to cart" toast, checkout steps, and customizer choices kept across the sign-in redirect
 - **Footer** on every storefront page: store details, contact info, links, social links, Privacy Policy and Terms and Conditions (`/privacy`, `/terms`), all editable by the owner (see Admin)
+- Branded 404 pages in every area (storefront, customer area, admin), and a loading animation in the 3D viewer until the model has rendered
 - Phone-friendly: admin and customer tables stack into labelled cards on small screens; checked for sideways overflow at 320 and 375 px
 - Email notifications (order placed / payment verified / rejected / shipped),
   SMTP when configured, console in dev
@@ -35,6 +36,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
   status counts, needs-attention, top products, recent orders)
 - **Orders list**: customer and items columns, search (order no., name, email), status chips with counts, 25 per page; **Reviews** can be filtered (needs approval first); **Products** list shows a photo thumbnail
+- **Users** (`/admin/users`): search and filter (active / blocked / admins / deleted) with order counts and spend. A user's page lets you fix their name, email and private note, edit or delete saved addresses, see where they are signed in and end any session, **block** them (reason kept private, sessions ended at once, sign-in refused), sign them out everywhere, ask them to re-accept the privacy policy, and delete the account. Every change is in an activity log. Sign-in is Google only, so "reset password" is: sign out everywhere (they sign in with Google again)
 - **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA band
 - **Store & footer** (`/admin/store`): store name, tagline, about, email, phone (tap to call), address, hours, explore links, social links, bottom line
 - **Legal pages** (`/admin/legal`): a tabbed workspace (Privacy / Terms, each with Write and Preview tabs; preview at desktop or phone width). Formatting toolbar (heading, bullets, link dialog that rejects unsafe URLs), word count, clickable section outline, unsaved-changes dot + guard, Discard, Ctrl/Cmd+S, "last saved by", how many customers accepted the current privacy version, and a confirm dialog before "ask every customer to accept again"

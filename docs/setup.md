@@ -132,6 +132,11 @@ Rules:
 
 Keep these four in sync when conventions change.
 
+## Refreshing the running app's cache from scripts
+`seed-demo.ts` and `e2e-session.ts` change products directly in the database. To make the running site drop its cached copies
+at once, set `REVALIDATE_SECRET` in `.env.local` (any long random string) and restart the app; the scripts then call
+`POST /api/revalidate`. Without it the site can keep showing a deleted product for up to an hour. Never expose the value.
+
 ## Business details on documents
 
 `src/lib/business.ts` holds the name / contact shown on the Order Acknowledgment. Override with

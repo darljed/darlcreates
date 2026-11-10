@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { products, productPhotos, orders, payments, orderItems, users } from "@/db/schema";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { REVENUE_ORDER_FILTER } from "./order-service";
+import { likeTerm } from "./like";
 
 export async function adminListProducts() {
   return db
@@ -46,9 +47,6 @@ export async function adminPendingPayments(): Promise<PendingPayment[]> {
     .orderBy(desc(payments.submittedAt));
   return rows;
 }
-
-/** Escape LIKE wildcards so a search for "50%" or "a_b" matches literally. */
-const likeTerm = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 export type AdminOrderRow = {
   id: string;

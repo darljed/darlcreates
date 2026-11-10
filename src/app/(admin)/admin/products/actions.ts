@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -26,8 +26,8 @@ function slugify(s: string): string {
 }
 
 function invalidate(slug?: string) {
-  revalidateTag("products", "max");
-  if (slug) revalidateTag(`product:${slug}`, "max");
+  updateTag("products");
+  if (slug) updateTag(`product:${slug}`);
   revalidatePath("/products");
   revalidatePath("/admin/products");
 }

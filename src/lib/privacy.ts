@@ -27,7 +27,7 @@ export const IN_PROGRESS_STATUSES = ["awaiting_payment", "paid", "in_production"
 
 export async function getConsent(userId: string) {
   const [u] = await db
-    .select({ consentAt: users.consentAt, consentVersion: users.consentVersion, deletedAt: users.deletedAt })
+    .select({ consentAt: users.consentAt, consentVersion: users.consentVersion, deletedAt: users.deletedAt, blockedAt: users.blockedAt })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

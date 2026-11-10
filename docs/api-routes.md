@@ -52,6 +52,22 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 | `saveLegalAction`, `resetLegalAction` (same file) | `requireAdmin`; Zod; the browser can never set the version: only `askAgain` (privacy only) creates a new one; revalidates `site:legal:<slug>` |
 | `saveHomeContentAction`, `resetHomeContentAction` (`admin/content/actions.ts`) | `requireAdmin`; Zod `homeContentSchema`; verifies a new hero image (exists, size, magic bytes); revalidates tag `site:home` and `/` |
 
+## Users (admin)
+| Action (`admin/users/actions.ts`) | Notes |
+|---|---|
+| `blockUserAction` / `unblockUserAction` | `requireAdmin`; reason required (3+ chars, private); ends all sessions in the same transaction; refuses yourself, admins and deleted accounts |
+| `endAllSessionsAction`, `endSessionAction` | The "reset" for a Google-only app; allowed on other admins, not yourself |
+| `requireReconsentAction` | Clears the user's consent, so they see `/consent` next visit |
+| `updateUserProfileAction` | name / email (lower-cased, unique) / private note; audit entry records each field from → to |
+| `updateUserAddressAction`, `deleteUserAddressAction` | Scoped to that user's own address ids |
+| `deleteUserAccountAction` | Requires typing DELETE; same rules as self-service deletion (refused while an order is in progress) |
+
+Logic is in `lib/user-admin.ts` (framework-free). Sign-in is refused for blocked users by a BetterAuth `databaseHooks.session.create.before` hook, and `requireUser` double-checks. A failed sign-in returns to `/sign-in?error=…`.
+
+| Route | Notes |
+|---|---|
+| `POST /api/revalidate` | For scripts only. Header `x-revalidate-secret`; disabled (404) unless `REVALIDATE_SECRET` is set; allow-listed tag patterns; expires immediately |
+
 ## Account & privacy
 | Route / action | Notes |
 |---|---|
@@ -64,7 +80,7 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 
 Storefront: `/`, `/privacy`, `/terms`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
-Admin: `/admin`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
+Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
 `/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
@@ -78,6 +94,6 @@ Admin: `/admin`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/le
 | `site:info` | `getSiteInfo` (footer) | `saveSiteInfoAction`, `resetSiteInfoAction` |
 | `site:legal:privacy`, `site:legal:terms` | `getLegal`, `getPrivacyVersion` | `saveLegalAction`, `resetLegalAction` |
 
-`revalidateTag(tag, "max")` — Next 16 requires the second argument.
+Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
 Last updated: 2026-11-10

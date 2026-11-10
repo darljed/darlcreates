@@ -50,6 +50,8 @@ export function generateOrderNo(now: Date = new Date()): string {
 
 export type OrderDetail = {
   id: string;
+  /** The customer who placed it (for the admin to jump to their account). */
+  userId: string;
   orderNo: string;
   status: OrderStatus;
   subtotalCents: number;
@@ -125,6 +127,7 @@ async function assembleOrderDetail(
 
   return {
     id: order.id,
+    userId: order.userId,
     orderNo: order.orderNo,
     status: order.status,
     subtotalCents: order.subtotalCents,

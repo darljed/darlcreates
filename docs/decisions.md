@@ -257,3 +257,16 @@ compares against the last saved text (undoing an edit returns to "all changes sa
 `clear` is exact and never touches real data. It writes through the same tables the app uses (not through the service layer) so it can backdate
 timestamps; `test-data-integrity.ts` is the guard that the backdated data still obeys the app's rules (it caught the seed putting two history rows
 on the same instant). The demo products are published on purpose, to review the real storefront; remove them before launch.
+
+## D-33 — User management for a Google-only app
+There are no passwords, so "reset password" is: **sign out everywhere** (the next sign-in is a fresh Google sign-in), plus block/unblock and re-consent.
+Blocking is enforced in two places: a BetterAuth `session.create.before` hook (no session can ever be created for a blocked user) and `requireUser`;
+blocking also deletes existing sessions in the same transaction. The block reason is private and the user only sees a generic "can't sign in right now".
+Admins can't be blocked or deleted from the UI and you can't act on yourself (so the owner can never lock themselves out). Editing an email changes what *we* hold; the
+Google link is by account id, so they still sign in normally. Every action writes `admin_audit` in the same transaction as the change. We deliberately did not add
+"sign in as this user" (impersonation): it would let an admin act as a customer unseen. Role changes (making someone an admin) are not in the UI either.
+
+## D-34 — Removing things must expire the cache immediately
+`revalidateTag(tag, "max")` is stale-while-revalidate: the next visitor still gets the old page. For a removed or unpublished product that means a link that 404s.
+Admin Server Actions now use `updateTag` (immediate), and the scripts endpoint uses `{ expire: 0 }`. Next's built-in 404 page also forces its own black/white
+colours (and a dark variant) over the site theme, so every route group has a `not-found.tsx` built from the site's tokens, and `color-scheme: light` is set until a real dark theme exists (G-30).

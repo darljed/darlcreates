@@ -6,6 +6,9 @@ import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { OrderAdminControls } from "@/components/admin/order-admin-controls";
 import { PageHeader, Panel } from "@/components/shell/ui";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const metadata = { title: "Order · Admin" };
 
@@ -20,6 +23,7 @@ export default async function AdminOrderDetailPage({
   const order = await getOrderByIdAdmin(id);
   if (!order) notFound();
 
+  const [customer] = await db.select({ name: users.name, email: users.email }).from(users).where(eq(users.id, order.userId)).limit(1);
   const addr = order.shipAddress as Record<string, string>;
   const nextStatuses = ORDER_TRANSITIONS[order.status as OrderStatus] ?? [];
 
@@ -85,6 +89,15 @@ export default async function AdminOrderDetailPage({
                 </div>
               ))}
             </div>
+          </Panel>
+
+          <Panel title="Customer">
+            <p className="text-sm">
+              <Link href={`/admin/users/${order.userId}`} className="font-semibold hover:text-primary hover:underline">
+                {customer?.name ?? "Unknown customer"}
+              </Link>
+              {customer && <span className="text-muted-foreground"> · {customer.email}</span>}
+            </p>
           </Panel>
 
           <Panel title="Ship to">

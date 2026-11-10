@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * BetterAuth server instance. Google OAuth only (per project decision).
@@ -43,6 +44,19 @@ export const auth = betterAuth({
       },
     },
   },
+  // A blocked account can never get a new session, however it signs in. (Blocking also deletes existing sessions.)
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const [u] = await db.select({ blockedAt: schema.users.blockedAt }).from(schema.users).where(eq(schema.users.id, session.userId)).limit(1);
+          if (u?.blockedAt) return false;
+        },
+      },
+    },
+  },
+  // A failed Google sign-in comes back to our own page (with ?error=…) instead of BetterAuth's bare error page.
+  onAPIError: { errorURL: "/sign-in" },
   plugins: [nextCookies()],
 });
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireAdmin } from "@/lib/session";
 import { z } from "zod";
 import { LEGAL_SLUGS, homeContentSchema, siteInfoSchema } from "@/lib/site-content-schema";
@@ -27,7 +27,7 @@ import { UPLOAD_RULES, sniffImageType } from "@/lib/uploads";
 type Result = { ok: true } | { ok: false; error: string };
 
 function invalidate() {
-  revalidateTag(HOME_TAG, "max");
+  updateTag(HOME_TAG);
   revalidatePath("/");
   revalidatePath("/admin/content");
 }
@@ -98,7 +98,7 @@ export async function saveSiteInfoAction(input: unknown): Promise<Result> {
   const parsed = siteInfoSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   await saveSiteInfo(parsed.data, admin.id);
-  revalidateTag(SITE_TAG, "max");
+  updateTag(SITE_TAG);
   revalidatePath("/", "layout"); // the footer is on every storefront page
   return { ok: true };
 }
@@ -106,7 +106,7 @@ export async function saveSiteInfoAction(input: unknown): Promise<Result> {
 export async function resetSiteInfoAction(): Promise<Result> {
   await requireAdmin();
   await resetContent(SITE_KEY);
-  revalidateTag(SITE_TAG, "max");
+  updateTag(SITE_TAG);
   revalidatePath("/", "layout");
   return { ok: true };
 }
@@ -127,7 +127,7 @@ export async function saveLegalAction(input: unknown): Promise<Result> {
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   const { slug, askAgain, ...edit } = parsed.data;
   await saveLegal(slug, edit, admin.id, slug === "privacy" && askAgain);
-  revalidateTag(legalTag(slug), "max");
+  updateTag(legalTag(slug));
   revalidatePath(`/${slug}`);
   revalidatePath("/admin/legal");
   return { ok: true };
@@ -138,7 +138,7 @@ export async function resetLegalAction(input: unknown): Promise<Result> {
   const parsed = z.object({ slug: z.enum(LEGAL_SLUGS) }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request" };
   await resetContent(legalKey(parsed.data.slug));
-  revalidateTag(legalTag(parsed.data.slug), "max");
+  updateTag(legalTag(parsed.data.slug));
   revalidatePath(`/${parsed.data.slug}`);
   revalidatePath("/admin/legal");
   return { ok: true };
@@ -149,7 +149,7 @@ export async function resetLegalAction(input: unknown): Promise<Result> {
 // ---------------------------------------------------------------------------
 
 function invalidateBrand() {
-  revalidateTag(BRAND_TAG, "max");
+  updateTag(BRAND_TAG);
   revalidatePath("/", "layout"); // logo is in the header/footer of every page; icons are in <head>
 }
 

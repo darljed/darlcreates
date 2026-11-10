@@ -4,6 +4,7 @@ import {
   timestamp,
   boolean,
   pgEnum,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["customer", "admin"]);
@@ -27,6 +28,11 @@ export const users = pgTable("users", {
   consentVersion: text("consent_version"),
   // Set when the user deletes their account (PII is anonymized; order records are kept).
   deletedAt: timestamp("deleted_at"),
+  // Set by an admin: the user cannot sign in and their sessions are ended. Reason is internal, never shown to them.
+  blockedAt: timestamp("blocked_at"),
+  blockedReason: text("blocked_reason"),
+  // Private notes for admins about this customer (never shown to the customer).
+  adminNote: text("admin_note").notNull().default(""),
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),
@@ -73,4 +79,17 @@ export const verifications = pgTable("verifications", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").$defaultFn(() => new Date()),
   updatedAt: timestamp("updated_at").$defaultFn(() => new Date()),
+});
+
+/**
+ * Append-only record of what an admin did to a user account (block, edit, sign out, delete…).
+ * Deliberately no foreign keys: the trail must survive even if a user row is ever removed.
+ */
+export const adminAudit = pgTable("admin_audit", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id").notNull(),
+  targetUserId: text("target_user_id").notNull(),
+  action: text("action").notNull(),
+  detail: jsonb("detail").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

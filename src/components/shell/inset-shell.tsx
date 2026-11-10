@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BadgeDollarSign, ClipboardList, FileText, Home, LayoutDashboard, MapPin, Menu, Package,
-  Image as ImageIcon, PanelLeftClose, PanelLeftOpen, Receipt, Scale, ShoppingBag, Star, Store, User,
+  Image as ImageIcon, PanelLeftClose, Users, PanelLeftOpen, Receipt, Scale, ShoppingBag, Star, Store, User,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 const ICONS = {
   dashboard: LayoutDashboard, products: Package, orders: ClipboardList, payments: BadgeDollarSign,
   reviews: Star, content: FileText, store: Store, cart: ShoppingBag, account: User, address: MapPin,
-  receipt: Receipt, home: Home, legal: Scale, image: ImageIcon,
+  receipt: Receipt, home: Home, legal: Scale, image: ImageIcon, users: Users,
 } satisfies Record<string, LucideIcon>;
 export type IconName = keyof typeof ICONS;
 
@@ -43,7 +43,7 @@ function crumbs(pathname: string, rootLabel: string, labels: Record<string, stri
       out.push({ href: acc, label: rootLabel });
       return;
     }
-    const known = labels[seg];
+    const known = labels[seg] ?? (parts[i - 1] === "users" ? "Details" : undefined); // /admin/users/<id>: ids are not readable
     const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}|^DC-\d{8}-/i.test(seg) || seg.length > 24;
     out.push({ href: acc, label: known ?? (/^DC-/.test(seg) ? seg : looksLikeId ? "Details" : seg.replace(/-/g, " ")) });
   });

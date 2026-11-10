@@ -135,6 +135,18 @@ async function main() {
   const offenders = srcFiles.filter((f) => BANNED.test(readFileSync(f, "utf8")));
   assert(`no source file mentions it (${srcFiles.length} files scanned)`, offenders.length === 0, offenders.join(", "));
 
+  console.log("\nrevalidate endpoint + cache semantics");
+  const route = readFileSync("src/app/api/revalidate/route.ts", "utf8");
+  assert("the endpoint is disabled without a secret (404)", /if \(!secret\) return new NextResponse\(null, \{ status: 404 \}\)/.test(route));
+  assert("the secret is compared in constant time", route.includes("timingSafeEqual"));
+  assert("tags are allow-listed by pattern", /const TAG = \/\^\(products\|product:/.test(route));
+  assert("scripts expire immediately ({ expire: 0 }), not stale-while-revalidate", route.includes("{ expire: 0 }"));
+  for (const f of ["src/app/(admin)/admin/products/actions.ts", "src/app/(admin)/admin/content/actions.ts"])
+    assert(`${f} expires cache immediately (updateTag), never serves a removed item stale`, readFileSync(f, "utf8").includes("updateTag(") && !/revalidateTag\(/.test(readFileSync(f, "utf8")));
+  const notFounds = ["src/app/not-found.tsx", "src/app/(shop)/not-found.tsx", "src/app/(portal)/not-found.tsx", "src/app/(admin)/admin/not-found.tsx"];
+  assert("every route group has a branded not-found page", notFounds.every((f) => { try { return readFileSync(f, "utf8").includes("NotFoundView"); } catch { return false; } }));
+  assert("the page forces the light colour scheme (no dark-mode recolouring)", readFileSync("src/app/globals.css", "utf8").includes("color-scheme: light"));
+
   console.log("\nrendering never uses raw HTML");
   for (const f of ["src/app/(shop)/page.tsx", "src/components/cms.tsx", "src/components/site-footer.tsx", "src/components/legal-body.tsx", "src/components/admin/content-editor.tsx", "src/components/admin/store-editor.tsx", "src/components/admin/legal-editor.tsx", "src/components/admin/legal-workspace.tsx"])
     assert(`${f} has no dangerouslySetInnerHTML`, !readFileSync(f, "utf8").includes("dangerouslySetInnerHTML"));

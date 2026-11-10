@@ -11,6 +11,13 @@ import { safeRedirect } from "@/lib/safe-redirect";
 export function SignInCard({ logo }: { logo: React.ReactNode }) {
   const params = useSearchParams();
   const redirect = safeRedirect(params.get("redirect"));
+  const errorCode = params.get("error");
+  // We never say WHY an account is blocked; just that it can't sign in right now.
+  const errorMessage = !errorCode
+    ? null
+    : errorCode === "blocked" || errorCode === "unable_to_create_session"
+      ? "This account can't sign in right now. If you think this is a mistake, please contact us."
+      : "We couldn't complete the sign-in. Please try again.";
   const [loading, setLoading] = useState(false);
 
   async function onGoogle() {
@@ -30,6 +37,11 @@ export function SignInCard({ logo }: { logo: React.ReactNode }) {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {errorMessage && (
+          <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {errorMessage}
+          </p>
+        )}
         <Button
           onClick={onGoogle}
           disabled={loading}
@@ -46,6 +58,10 @@ export function SignInCard({ logo }: { logo: React.ReactNode }) {
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}
+          <a href="/terms" className="underline">
+            Terms
+          </a>{" "}
+          and{" "}
           <a href="/privacy" className="underline">
             Privacy Policy
           </a>
