@@ -1,68 +1,80 @@
 import Link from "next/link";
-import { adminDashboard } from "@/lib/admin";
+import { AlertCircle } from "lucide-react";
+import { RevenueChart } from "@/components/admin/revenue-chart";
+import { OrderStatusBadge } from "@/components/order-status-badge";
+import { DataTable, EmptyState, PageHeader, Panel, Stat, Td, Th, Tr } from "@/components/shell/ui";
+import { adminBadgeCounts } from "@/lib/admin-counts";
+import { adminDashboard, adminRecentOrders, adminRevenueSeries } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
 
 export const metadata = { title: "Admin Dashboard" };
-
 // Admin pages are per-request and RBAC-gated; they may block on navigation.
 // (A layout's `instant = false` does not cover its child pages.)
 export const instant = false;
 
 export default async function AdminDashboardPage() {
-  const stats = await adminDashboard();
-
-  const cards = [
-    { label: "Verified revenue", value: formatPHP(stats.revenueCents), accent: true },
-    { label: "Awaiting payment", value: String(stats.awaitingPayment), href: "/admin/payments" },
-    { label: "Paid orders", value: String(stats.paidOrders), href: "/admin/orders" },
-    { label: "In production", value: String(stats.inProduction) },
-    { label: "Shipped", value: String(stats.shipped) },
-    { label: "Delivered", value: String(stats.delivered) },
-  ];
+  const [stats, series, recent, counts] = await Promise.all([
+    adminDashboard(), adminRevenueSeries(30), adminRecentOrders(8), adminBadgeCounts(),
+  ]);
+  const attention = [
+    counts.pendingPayments && { href: "/admin/payments", text: `${counts.pendingPayments} payment${counts.pendingPayments > 1 ? "s" : ""} to verify` },
+    counts.pendingReviews && { href: "/admin/reviews", text: `${counts.pendingReviews} review${counts.pendingReviews > 1 ? "s" : ""} to approve` },
+    stats.paidOrders - stats.inProduction - stats.shipped - stats.delivered > 0 && { href: "/admin/orders?status=paid", text: "Paid orders waiting to start production" },
+  ].filter(Boolean) as { href: string; text: string }[];
 
   return (
-    <div>
-      <h1 className="mb-6 text-3xl font-extrabold">Dashboard</h1>
+    <div className="space-y-4">
+      <PageHeader title="Dashboard" description="Verified payments only. Cancelled and refunded orders are excluded." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((c) => {
-          const inner = (
-            <div
-              className={`rounded-xl border-2 p-5 ${
-                c.accent
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card"
-              }`}
-            >
-              <p className="text-sm opacity-80">{c.label}</p>
-              <p className="mt-1 text-3xl font-extrabold">{c.value}</p>
-            </div>
-          );
-          return c.href ? (
-            <Link key={c.label} href={c.href} className="block transition-transform hover:-translate-y-0.5">
-              {inner}
-            </Link>
+      {attention.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border border-accent bg-accent/30 px-3 py-2 text-sm" role="status">
+          <span className="inline-flex items-center gap-1.5 font-semibold"><AlertCircle className="size-4" aria-hidden /> Needs attention</span>
+          {attention.map((a) => <Link key={a.href} href={a.href} className="underline underline-offset-2 hover:text-primary">{a.text}</Link>)}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Verified revenue" value={formatPHP(stats.revenueCents)} tone="primary" />
+        <Stat label="Awaiting payment" value={stats.awaitingPayment} href="/admin/orders?status=awaiting_payment" />
+        <Stat label="Paid orders" value={stats.paidOrders} href="/admin/orders?status=paid" hint="all-time, incl. shipped" />
+        <Stat label="In production" value={stats.inProduction} href="/admin/orders?status=in_production" />
+        <Stat label="Shipped" value={stats.shipped} href="/admin/orders?status=shipped" />
+        <Stat label="Delivered" value={stats.delivered} href="/admin/orders?status=delivered" />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Panel title="Revenue, last 30 days" className="lg:col-span-2"><RevenueChart points={series} /></Panel>
+        <Panel title="Top products" flush>
+          {stats.topProducts.length === 0 ? (
+            <p className="p-3 text-sm text-muted-foreground">No orders yet.</p>
           ) : (
-            <div key={c.label}>{inner}</div>
-          );
-        })}
+            <ul className="divide-y text-[13px]">
+              {stats.topProducts.map((p) => (
+                <li key={p.name} className="flex justify-between gap-2 px-3 py-1.5"><span className="truncate">{p.name}</span><span className="font-bold">{p.qty}</span></li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
 
-      <div className="mt-8 rounded-xl border-2 border-border bg-card p-5">
-        <h2 className="mb-3 font-bold">Top products</h2>
-        {stats.topProducts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No orders yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {stats.topProducts.map((p) => (
-              <li key={p.name} className="flex justify-between text-sm">
-                <span>{p.name}</span>
-                <span className="font-bold">{p.qty} sold</span>
-              </li>
-            ))}
-          </ul>
+      <Panel title="Recent orders" actions={<Link href="/admin/orders" className="text-xs font-semibold underline">All orders</Link>} flush>
+        {recent.length === 0 ? <EmptyState>No orders yet.</EmptyState> : (
+          <DataTable className="border-0">
+            <thead><tr><Th>Order</Th><Th>Customer</Th><Th>Placed</Th><Th className="text-right">Total</Th><Th>Status</Th></tr></thead>
+            <tbody>
+              {recent.map((o) => (
+                <Tr key={o.id}>
+                  <Td><Link href={`/admin/orders/${o.id}`} className="font-semibold hover:text-primary">{o.orderNo}</Link></Td>
+                  <Td className="text-muted-foreground">{o.customer}</Td>
+                  <Td className="text-muted-foreground">{o.placedAt.toLocaleDateString("en-PH")}</Td>
+                  <Td className="text-right tabular-nums">{formatPHP(o.totalCents)}</Td>
+                  <Td><OrderStatusBadge status={o.status} size="sm" /></Td>
+                </Tr>
+              ))}
+            </tbody>
+          </DataTable>
         )}
-      </div>
+      </Panel>
     </div>
   );
 }

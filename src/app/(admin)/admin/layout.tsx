@@ -1,79 +1,55 @@
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  BadgeDollarSign,
-  Star,
-} from "lucide-react";
-import { requireAdmin } from "@/lib/session";
-import { Toaster } from "@/components/ui/sonner";
+import { ExternalLink } from "lucide-react";
+import { InsetShell, type NavGroup } from "@/components/shell/inset-shell";
 import { BrandLogo } from "@/components/brand-logo";
+import { Toaster } from "@/components/ui/sonner";
+import { adminBadgeCounts } from "@/lib/admin-counts";
+import { requireAdmin } from "@/lib/session";
 
 // The whole /admin tree is per-request, RBAC-gated, and uncacheable.
 export const instant = false;
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // Server-side RBAC gate for the entire /admin tree.
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const counts = await adminBadgeCounts();
+
+  const groups: NavGroup[] = [
+    { items: [{ href: "/admin", label: "Dashboard", icon: "dashboard", exact: true }] },
+    { label: "Sales", items: [
+      { href: "/admin/orders", label: "Orders", icon: "orders" },
+      { href: "/admin/payments", label: "Payments", icon: "payments", badge: counts.pendingPayments },
+      { href: "/admin/reviews", label: "Reviews", icon: "reviews", badge: counts.pendingReviews },
+    ] },
+    { label: "Catalog", items: [{ href: "/admin/products", label: "Products", icon: "products" }] },
+    { label: "Site", items: [{ href: "/admin/content", label: "Landing page", icon: "content" }] },
+  ];
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 border-r-2 border-border bg-sidebar p-4 md:block">
-        <Link href="/" className="mb-6 flex items-center gap-2 font-extrabold">
-          <BrandLogo variant="icon" className="h-9" />
-          Admin
-        </Link>
-        <nav className="space-y-1">
-          <NavLink href="/admin" icon={LayoutDashboard}>
-            Dashboard
-          </NavLink>
-          <NavLink href="/admin/products" icon={Package}>
-            Products
-          </NavLink>
-          <NavLink href="/admin/orders" icon={ClipboardList}>
-            Orders
-          </NavLink>
-          <NavLink href="/admin/payments" icon={BadgeDollarSign}>
-            Payments
-          </NavLink>
-          <NavLink href="/admin/reviews" icon={Star}>
-            Reviews
-          </NavLink>
-        </nav>
-      </aside>
-      <main className="flex-1 bg-background">
-        <div className="border-b-2 border-border p-3 md:hidden">
-          <nav className="flex gap-3 overflow-x-auto text-sm font-medium">
-            <Link href="/admin">Dashboard</Link>
-            <Link href="/admin/products">Products</Link>
-            <Link href="/admin/orders">Orders</Link>
-            <Link href="/admin/payments">Payments</Link>
-            <Link href="/admin/reviews">Reviews</Link>
-          </nav>
-        </div>
-        <div className="mx-auto max-w-6xl p-6">{children}</div>
-      </main>
+    <>
+      <InsetShell
+        density="compact"
+        rootLabel="Admin"
+        labels={{ new: "New", payments: "Payments", content: "Landing page", acknowledgment: "Acknowledgment" }}
+        brand={
+          <Link href="/admin" className="flex items-center gap-2" aria-label="Admin home">
+            <BrandLogo variant="icon" className="h-7" />
+            <span className="text-sm font-extrabold tracking-tight">Admin</span>
+          </Link>
+        }
+        groups={groups}
+        sidebarFooter={
+          <div className="space-y-1 px-1 text-xs">
+            <Link href="/" target="_blank" className="flex items-center gap-1.5 rounded-md px-1 py-1 font-medium text-sidebar-foreground/80 hover:bg-background/60">
+              <ExternalLink className="size-3.5" aria-hidden /> View storefront
+            </Link>
+            <p className="truncate px-1 text-muted-foreground" title={admin.email}>{admin.name}</p>
+          </div>
+        }
+      >
+        {children}
+      </InsetShell>
       <Toaster richColors position="top-center" />
-    </div>
-  );
-}
-
-function NavLink({
-  href,
-  icon: Icon,
-  children,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-2 rounded-lg px-3 py-2 font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-    >
-      <Icon className="size-4" /> {children}
-    </Link>
+    </>
   );
 }

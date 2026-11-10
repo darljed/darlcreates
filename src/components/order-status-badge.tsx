@@ -22,11 +22,12 @@ const STYLES: Record<string, string> = {
   refunded: "bg-muted text-muted-foreground",
 };
 
-export function OrderStatusBadge({ status }: { status: string }) {
+export function OrderStatusBadge({ status, size = "md" }: { status: string; size?: "sm" | "md" }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-3 py-1 text-sm font-bold",
+        "inline-flex whitespace-nowrap rounded-full font-bold",
+        size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-sm",
         STYLES[status] ?? "bg-muted text-muted-foreground",
       )}
     >
