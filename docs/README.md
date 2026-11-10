@@ -1,15 +1,23 @@
 # Darl Creates — Docs
 
-Living documentation. Keep these in sync with code in the same unit of work as
-any change (per the project workflow).
+Living documentation. Update it in the same unit of work as any code change.
 
 | Doc | Covers |
 |---|---|
+| [roadmap-and-gaps.md](./roadmap-and-gaps.md) | **Start here for "what's left".** Gap tracker (IDs G-xx/T-xx), agreed next steps, future ideas (F-xx) |
+| [setup.md](./setup.md) | Running locally, env vars, Google OAuth, database, **AWS profile rules**, planned S3 setup, git, quirks |
+| [decisions.md](./decisions.md) | Decision log — why things are the way they are |
 | [architecture.md](./architecture.md) | System overview, surfaces, data flow |
 | [database.md](./database.md) | Schema, tables, money/ledger rules |
-| [features.md](./features.md) | User-visible features by area |
+| [features.md](./features.md) | What is built, by area |
 | [api-routes.md](./api-routes.md) | Route handlers + Server Actions |
-| [backlog.md](./backlog.md) | Planned / deferred work (incl. Phase 2) |
+| [phase-2-generators.md](./phase-2-generators.md) | Plan + open questions for in-browser STL generators |
+| [backlog.md](./backlog.md) | Pointer to the roadmap |
 
-Source of truth for scope/design: `.kiro/specs/darl-creates-ecommerce/`.
-Cross-agent rules: [`../AGENTS.md`](../AGENTS.md).
+Scope source of truth: `.kiro/specs/darl-creates-ecommerce/` (requirements,
+design, tasks). Cross-agent rules: [`../AGENTS.md`](../AGENTS.md).
+
+When you fix a gap: move its row to **Resolved** in `roadmap-and-gaps.md`, update
+the relevant doc, and bump `Last updated`.
+
+Last updated: 2026-11-09

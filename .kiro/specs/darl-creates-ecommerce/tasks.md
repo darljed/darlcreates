@@ -1,85 +1,86 @@
 # Tasks — Darl Creates E-Commerce
 
-Phase 1 implementation plan. Each task is a small, verifiable unit. Follow the
-development workflow: branch → build → self-review + gate → test script →
-browser E2E → PR → docs. Never merge without permission.
+Status as of 2026-11-09. `[x]` done · `[~]` partial (see note / gap ID in
+`docs/roadmap-and-gaps.md`) · `[ ]` not started.
+
+Workflow per task: branch → build → self-review + gate → test script → browser
+E2E → PR → docs. Never merge without permission.
 
 ## 0. Foundation
-- [ ] 0.1 Scaffold Next.js (App Router, TS) + Tailwind + shadcn/ui.
-- [ ] 0.2 Add Drizzle + drizzle-kit; configure Postgres connection (env-driven).
-- [ ] 0.3 Add BetterAuth with Google provider + Drizzle adapter; session + role.
-- [ ] 0.4 Apply Vibrant Pop theme tokens (interim palette) in globals.css; base
-      layout, header/footer, typography scale.
-- [ ] 0.5 `lib/money.ts` (centavos ↔ ₱), `lib/auth` guards (`requireUser`,
-      `requireAdmin`), Zod base setup.
-- [ ] 0.6 Multi-agent steering (.kiro/steering, CLAUDE.md, AGENTS.md) + docs/ skeleton.
+- [x] 0.1 Scaffold Next.js (App Router, TS) + Tailwind + shadcn/ui.
+- [x] 0.2 Drizzle + drizzle-kit; env-driven Postgres connection.
+- [x] 0.3 BetterAuth + Google provider + Drizzle adapter; session + role.
+- [x] 0.4 Vibrant Pop theme tokens, base layout, header.
+- [x] 0.5 `lib/money.ts`, auth guards, Zod.
+- [x] 0.6 Multi-agent steering (.kiro/steering, CLAUDE.md, AGENTS.md) + docs/.
 
 ## 1. Data model & migrations
-- [ ] 1.1 Drizzle schema: users/auth, addresses, products, product_photos,
-      product_options, product_option_values.
-- [ ] 1.2 Drizzle schema: carts, cart_items, orders, order_items, payments,
-      shipments, order_status_history, reviews, review_photos + enums.
-- [ ] 1.3 Generate + run initial migration against `darlcreates` DB.
-- [ ] 1.4 Seed script: one admin user + sample products with customization schemas.
+- [x] 1.1 Schema: users/auth, addresses, products, photos, options, values.
+- [x] 1.2 Schema: carts, orders, payments, shipments, history, reviews + enums.
+- [x] 1.3 Migration generated and applied to live `darlcreates` DB.
+- [~] 1.4 Seed: 3 sample products with schemas done; admin via `make-admin.ts`.
 
 ## 2. Storage & uploads
-- [ ] 2.1 S3 client + presigned PUT route (scoped prefix/type/size).
-- [ ] 2.2 Server-side post-upload validation (image type/size/dimensions).
-- [ ] 2.3 Signed read URLs / CloudFront for STL + photos.
+- [~] 2.1 S3 client + key builder + presign helper exist; **no presign route** (G-01); bucket not created (G-06).
+- [ ] 2.2 Server-side post-upload validation (G-09).
+- [~] 2.3 Signed read URLs done; CloudFront/expiry strategy open (G-03).
 
 ## 3. Admin — catalog
-- [ ] 3.1 Admin RBAC layout + nav.
-- [ ] 3.2 Product CRUD (create/edit/publish/archive) with photo + STL upload.
-- [ ] 3.3 Customization-schema builder (options + values, reorder, constraints).
-- [ ] 3.4 Test script: product + schema persistence; price computation.
+- [x] 3.1 Admin RBAC layout + nav.
+- [~] 3.2 Product CRUD done; **STL/photo upload missing** (G-01, G-02).
+- [~] 3.3 Schema builder: add/delete option + add value; no edit/reorder (G-19).
+- [~] 3.4 Pricing self-check done; no persistence test of schema builder.
 
 ## 4. Storefront — browse & 3D
-- [ ] 4.1 Catalog listing (category filter, search) + product cards (Vibrant Pop).
-- [ ] 4.2 Product detail: photo gallery + lazy STL 3D viewer (reduced-motion,
-      fallback, non-blocking).
-- [ ] 4.3 Customizer UI: render options from schema; live price; Zod validation.
-- [ ] 4.4 Test script: config validation + authoritative price snapshot.
+- [~] 4.1 Listing done; no search/category filter (G-20).
+- [~] 4.2 Detail + lazy STL viewer + fallback done; not yet tested with a real STL (G-14).
+- [~] 4.3 Customizer + live price done; image option is a placeholder (G-09).
+- [x] 4.4 Pricing validation script.
 
 ## 5. Cart & checkout
-- [ ] 5.1 Cart (add configured item w/ snapshot, qty edit, remove).
-- [ ] 5.2 Checkout: address capture + shipping fee; order placement
-      (`awaiting_payment`) with immutable snapshots.
-- [ ] 5.3 Test script: order totals + snapshot immutability.
+- [x] 5.1 Cart (add/qty/remove, snapshots).
+- [~] 5.2 Checkout + transactional order placement done; flat shipping duplicated (G-08); no address book (G-16).
+- [~] 5.3 Lifecycle script covers snapshots; doesn't call real actions (G-15).
 
 ## 6. Payments — GCash manual
-- [ ] 6.1 Post-order GCash instructions page + reference/proof submission.
-- [ ] 6.2 Admin payment verification queue (verify/reject + reason, SoD).
-- [ ] 6.3 Transition order on verify (→paid) / reject; append history; email.
-- [ ] 6.4 Test script: verify/reject transitions + append-only payments.
+- [~] 6.1 Instructions + reference submission done; amount client-supplied (G-07); proof upload missing (G-01).
+- [x] 6.2 Admin verification queue (verify/reject + reason, SoD).
+- [x] 6.3 Order transitions on verify, append history, email (console until SMTP, G-23).
+- [~] 6.4 Append-only/verify rules covered by lifecycle script (G-15).
 
 ## 7. Order management & fulfilment (admin)
-- [ ] 7.1 Orders table + filters; order detail (snapshot, STL download, image).
-- [ ] 7.2 Status transitions with append-only history + guards.
-- [ ] 7.3 Shipping entry (carrier, tracking, status).
-- [ ] 7.4 Test script: lifecycle transitions + history integrity.
+- [x] 7.1 Orders table + status filter; detail with snapshot + STL download route.
+- [x] 7.2 Forward-only transitions + append-only history.
+- [x] 7.3 Shipping entry.
+- [~] 7.4 Transition rules tested in lifecycle script (G-15).
 
 ## 8. Order tracking & notifications (customer)
-- [ ] 8.1 Customer order history + live status/tracking page.
-- [ ] 8.2 Email notifications on key transitions.
+- [x] 8.1 Order history + status timeline + tracking.
+- [~] 8.2 Emails implemented; SMTP not configured (G-23).
 
 ## 9. Reviews
-- [ ] 9.1 Review eligibility (delivered orders) + submit (rating/text/photos).
-- [ ] 9.2 Admin moderation (approve/hide).
-- [ ] 9.3 Product page: approved reviews + aggregate rating.
-- [ ] 9.4 Test script: eligibility + moderation.
+- [x] 9.1 Delivered-order gating + star rating + text.
+- [x] 9.2 Admin moderation.
+- [x] 9.3 Approved reviews + aggregate on product page.
+- [ ] 9.4 Test script for eligibility/moderation. Photos & reviewer name missing (G-17).
 
 ## 10. Sales dashboard
-- [ ] 10.1 Revenue (verified-paid only), order counts, top products, time-series.
-- [ ] 10.2 Test script: revenue aggregation from ledger.
+- [~] 10.1 Verified revenue, status counts, top products; no time-series (G-18).
+- [ ] 10.2 Test script for revenue aggregation (partially in lifecycle script).
 
 ## 11. Compliance & polish
-- [ ] 11.1 Privacy policy + DPA consent at signup + data-deletion path.
-- [ ] 11.2 Non-BIR order acknowledgment document (OR/VAT schema-ready, off).
-- [ ] 11.3 Accessibility pass (contrast, keyboard, focus, reduced-motion, alt).
-- [ ] 11.4 Swap in real Darl Creates logo palette/assets.
-- [ ] 11.5 Responsive/perf pass (lazy 3D, CWV).
+- [~] 11.1 Privacy page done; consent capture + self-serve deletion missing (G-10).
+- [ ] 11.2 Non-BIR Order Acknowledgment document (G-11).
+- [ ] 11.3 Accessibility pass (G-22).
+- [ ] 11.4 Real logo palette/assets (G-24).
+- [ ] 11.5 Responsive/perf pass; **browser E2E not yet run** (G-14).
+
+## 12. Release readiness (added 2026-11-09)
+- [ ] 12.1 Create S3 bucket (profile `darljed`), CORS, scoped IAM key (G-06).
+- [ ] 12.2 Google OAuth creds (G-05, owner).
+- [ ] 12.3 Production hosting + reachable DB (G-04).
+- [ ] 12.4 Rotate DB password into Bitwarden (G-13).
+- [ ] 12.5 `npm audit` review (T-07).
 
 ## Phase 2 (deferred — separate spec)
-- [ ] In-browser STL generators (clicker / name keychain / ref magnet):
-      parametric geometry → print-ready STL (min wall thickness, solid rings,
-      overhang checks) → admin download before printing (not auto-fulfilled).
+- [ ] In-browser STL generators. See `docs/phase-2-generators.md`.

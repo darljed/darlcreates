@@ -34,8 +34,13 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Review moderation (approve/hide)
 
 ## Known gaps / deferred
-- Direct S3 upload UI (STL/photos/images) — keys are pasted for now; presign
-  route + storage lib exist, bucket not yet created.
-- Google OAuth creds not set yet (needed to exercise auth/admin in the browser).
-- Real Darl Creates logo palette (interim Vibrant Pop tokens).
-- **Phase 2**: in-browser STL generators (separate spec).
+Full, tracked list with IDs: [roadmap-and-gaps.md](./roadmap-and-gaps.md). Headlines:
+- **No upload path** (G-01/G-02): the storage lib exists but there is no presign
+  route and no upload UI; STL keys are pasted and product photos can't be added.
+- Bucket `darlcreates-uploads` not created; Google OAuth creds not set (G-05/G-06).
+- Authenticated customer flow, admin flow and the 3D viewer with a real STL have
+  not been browser-tested (G-14).
+- Image customization option is a placeholder (G-09).
+- Payment amount is client-supplied (G-07); shipping fee duplicated (G-08).
+- Interim palette, no real logo (G-24).
+- **Phase 2**: in-browser STL generators ([plan](./phase-2-generators.md)).

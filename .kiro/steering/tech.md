@@ -45,3 +45,13 @@
 ## Verification gate (before declaring any task done)
 1. `npm run build` (0 errors) 2. `npm run typecheck` 3. relevant `scripts/test-*.ts`
 4. for data writes, check DB consistency (no orphans/dupes).
+
+## AWS — right account (critical)
+Use AWS profile **`darljed`** (account `551892774595`, djam.devteam@gmail.com)
+only. Never `default` / `pmpc-preprod` / `pmpc-prod` (PMPC account). Always pass
+`--profile darljed` and confirm identity before writes. App S3 key = dedicated,
+scoped to `darlcreates-uploads`.
+
+## Tracking
+Gaps/next steps: `docs/roadmap-and-gaps.md` (G-/T-/F- IDs). Setup & ops:
+`docs/setup.md`. Decisions: `docs/decisions.md`.

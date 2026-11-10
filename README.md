@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Darl Creates
 
-## Getting Started
+E-commerce for a Philippine 3D-printing shop. Customers browse ready-to-print
+products, spin them in 3D, customize them (color / size / text / image), pay via
+**GCash with manual reference verification**, and track their order. The owner
+runs the catalog, customization options, payment verification, fulfilment,
+shipping and sales from an admin panel.
 
-First, run the development server:
+> **Status:** Phase 1 MVP built and committed on `develop` (storefront + admin).
+> Not yet browser-tested with real auth/uploads. See
+> [docs/roadmap-and-gaps.md](docs/roadmap-and-gaps.md) for exactly what's missing.
+> **Phase 2** (in-browser STL generators) is planned, not started.
+
+## Stack
+
+Next.js 16 (App Router, Cache Components) · React 19 · TypeScript · Tailwind v4 ·
+shadcn/ui · Drizzle ORM · PostgreSQL · BetterAuth (Google) · react-three-fiber ·
+AWS S3 · Zod. Design direction: **Vibrant Pop**.
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # then fill in values (see docs/setup.md)
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Needs Tailscale up (database is on the agent-server). Full setup, env table,
+Google OAuth, AWS profile rules and the S3 plan: **[docs/setup.md](docs/setup.md)**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verify
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build && npm run typecheck
+npx tsx scripts/test-money.ts
+npx tsx scripts/test-pricing.ts
+npx tsx scripts/test-order-lifecycle.ts
+```
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+| Doc | What's in it |
+|---|---|
+| [docs/README.md](docs/README.md) | Index |
+| [docs/roadmap-and-gaps.md](docs/roadmap-and-gaps.md) | **Gap tracker, next steps, future ideas** |
+| [docs/setup.md](docs/setup.md) | Run, env, DB, AWS profile, S3 plan |
+| [docs/decisions.md](docs/decisions.md) | Why things are the way they are |
+| [docs/architecture.md](docs/architecture.md) | System design |
+| [docs/database.md](docs/database.md) | Schema + ledger rules |
+| [docs/features.md](docs/features.md) | What's built |
+| [docs/api-routes.md](docs/api-routes.md) | Routes & Server Actions |
+| [docs/phase-2-generators.md](docs/phase-2-generators.md) | STL generator plan |
+| [.kiro/specs/darl-creates-ecommerce/](.kiro/specs/darl-creates-ecommerce/) | Requirements, design, tasks |
+| [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) | Rules for AI agents |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Hard rules (short version)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Money is integer centavos · payments and status history are append-only · order
+items snapshot config + price · prices are recomputed server-side · admin is
+gated server-side on every route and action · not BIR-registered, so
+"Order Acknowledgment" not "Official Receipt" · use AWS profile **`darljed`**
+only (never the PMPC profiles).

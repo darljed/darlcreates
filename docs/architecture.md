@@ -30,7 +30,15 @@ Email (SMTP/SES) order notifications
 - **Cache Components**: public catalog cached (`use cache` + `cacheLife`); cart,
   orders, admin are dynamic (read `cookies()`/`headers()`/`await params`).
 
-## Status
-Foundation scaffolded: Next 16 + shadcn (Vibrant Pop theme) + Drizzle schema
-(18 tables, migration generated) + BetterAuth (Google) + money/RBAC libs +
-landing page. DB creation on the agent-server pending Tailscale connectivity.
+## Status (2026-11-09)
+Phase 1 MVP built: storefront + admin, DB live on the agent-server (18 tables
+migrated, 3 sample products seeded). Not yet done: file uploads, S3 bucket,
+Google creds, browser E2E, production hosting. See
+[roadmap-and-gaps.md](./roadmap-and-gaps.md).
+
+## Open architectural risks
+- **Signed S3 URLs inside cached pages** expire before the cache does (G-03).
+- **Production DB reachability** — Tailscale-only DB vs. a hosted app; and
+  `next build` queries the DB via `generateStaticParams` (G-04).
+- Server Actions hold business logic directly, which makes them hard to test
+  without a request context (G-15) — extract service functions.

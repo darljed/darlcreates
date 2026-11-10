@@ -65,3 +65,17 @@ directly. Don't run destructive git/DB ops without confirmation.
 ## Commands
 `npm run dev|build|start|lint|typecheck` · `npm run db:generate|db:migrate|db:push|db:studio`
 · tests: `npx tsx scripts/test-<feature>.ts`.
+
+## AWS — use the right account (critical)
+- Darl Creates uses AWS profile **`darljed`** = account `551892774595`
+  (djam.devteam@gmail.com). **Never** use `default`, `pmpc-preprod`, `pmpc-prod`
+  (PMPC account `535066803233`).
+- Always pass `--profile darljed`; confirm with
+  `aws sts get-caller-identity --profile darljed` before any write.
+- App S3 credentials in `.env.local` must be a dedicated key scoped to
+  `darlcreates-uploads` only. Region `ap-south-1`.
+
+## Where the work is tracked
+`docs/roadmap-and-gaps.md` is the live gap tracker (IDs G-xx / T-xx / F-xx).
+Reference IDs in commits; move rows to Resolved when fixed. Setup/ops detail:
+`docs/setup.md`. Why-decisions: `docs/decisions.md`.

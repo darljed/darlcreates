@@ -23,3 +23,8 @@ everything below just points there so all agents stay in sync.
 ## Gate before "done"
 `npm run build` (0 errors) · `npm run typecheck` · `npx tsx scripts/test-*.ts` ·
 DB consistency for writes. Branch off `develop`; never merge without permission.
+
+## AWS + tracking
+- AWS: profile **`darljed`** only (account `551892774595`). Never `default` /
+  `pmpc-*` (PMPC account). Verify with `aws sts get-caller-identity --profile darljed`.
+- Gaps and next steps are tracked in `docs/roadmap-and-gaps.md` (G-/T-/F- IDs).
