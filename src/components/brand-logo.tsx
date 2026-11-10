@@ -2,16 +2,20 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 /**
- * Darl Creates logo. Source art is black on transparent, so `dark:invert`
- * turns it white on dark backgrounds. Size it with a height class
- * (e.g. className="h-9"); width follows the aspect ratio.
- * Files are built by scripts/build-brand-assets.py from brand/source/.
+ * Darl Creates logo. Size it with a height class (e.g. className="h-9");
+ * width follows the aspect ratio. Files are built by
+ * scripts/build-brand-assets.py from brand/source/.
+ *
+ * - "horizontal": icon + wordmark. Two files: black wordmark (light theme) and
+ *   white wordmark (dark theme), swapped with CSS (`dark:` needs the `.dark`
+ *   class — see gap G-30, nothing sets it yet so light always shows).
+ * - "icon": icon only. Black with white fills + outline, so it reads on any
+ *   background; no swap needed.
  */
-const VARIANTS = {
-  horizontal: { src: "/brand/logo-horizontal.png", w: 900, h: 361 },
-  tagline: { src: "/brand/logo-horizontal-tagline.png", w: 1000, h: 397 },
-  icon: { src: "/brand/logo-icon.png", w: 512, h: 629 },
-  stacked: { src: "/brand/logo-stacked.png", w: 900, h: 785 },
+const ASSETS = {
+  horizontalLight: { src: "/brand/logo-horizontal.png", w: 1000, h: 234 },
+  horizontalDark: { src: "/brand/logo-horizontal-dark.png", w: 1000, h: 234 },
+  icon: { src: "/brand/logo-icon.png", w: 512, h: 633 },
 } as const;
 
 export function BrandLogo({
@@ -19,19 +23,44 @@ export function BrandLogo({
   className,
   priority = false,
 }: {
-  variant?: keyof typeof VARIANTS;
+  variant?: "horizontal" | "icon";
   className?: string;
   priority?: boolean;
 }) {
-  const v = VARIANTS[variant];
+  if (variant === "icon") {
+    const a = ASSETS.icon;
+    return (
+      <Image
+        src={a.src}
+        alt="Darl Creates"
+        width={a.w}
+        height={a.h}
+        priority={priority}
+        className={cn("w-auto", className)}
+      />
+    );
+  }
+
+  const light = ASSETS.horizontalLight;
+  const dark = ASSETS.horizontalDark;
   return (
-    <Image
-      src={v.src}
-      alt="Darl Creates"
-      width={v.w}
-      height={v.h}
-      priority={priority}
-      className={cn("w-auto dark:invert", className)}
-    />
+    <>
+      <Image
+        src={light.src}
+        alt="Darl Creates"
+        width={light.w}
+        height={light.h}
+        priority={priority}
+        className={cn("w-auto dark:hidden", className)}
+      />
+      <Image
+        src={dark.src}
+        alt=""
+        aria-hidden
+        width={dark.w}
+        height={dark.h}
+        className={cn("hidden w-auto dark:block", className)}
+      />
+    </>
   );
 }

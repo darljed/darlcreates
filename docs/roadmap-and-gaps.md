@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-10 (session fix, blue theme, logo)
+Last updated: 2026-11-10 (new logo pair)
 
 ---
 
@@ -35,6 +35,12 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-13 | 🟠 | **Seeded DB password was shown in chat/terminal output** | The `darlcreates` DB role password was generated in-session and echoed. Rotate it and store in Bitwarden. | ⬜ |
 | G-14 | 🟠 | **No real UI/browser testing yet** | Build, typecheck and 3 scripts pass, and unauthenticated pages were curl-checked. The authenticated customer flow, admin flow and 3D viewer with a real STL have **not** been exercised in a browser. Planned right after G-05/G-06. | ⬜ next |
 | G-15 | 🟠 | **Tests don't call the real Server Actions** | `scripts/test-order-lifecycle.ts` re-creates the DB steps by hand; it validates the schema/rules, not `placeOrderAction` / `verifyPaymentAction` themselves. Refactor logic into callable service functions and test those. | ⬜ |
+
+### Found while choosing the logo
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-30 | 🟡 | **Dark mode does not exist** | `next-themes` is installed and `.dark` tokens are defined in `globals.css`, but nothing sets the `.dark` class (no ThemeProvider, no toggle, no `prefers-color-scheme` handling), so every `dark:` style is inert. The white-wordmark logo is wired and ready. Decide: ship light-only (delete the dark tokens) or add a ThemeProvider + toggle. |
 
 ### Found while building uploads
 
@@ -67,7 +73,6 @@ Verified against the code on 2026-11-09 (not from memory).
 | T-03 | 🟡 | `scripts/seed.ts` deletes sample products by slug; will fail once real orders reference them (`order_items` FK is `restrict`). Fine for dev, never run against prod. |
 | T-04 | 🟡 | `getProductById` is uncached by design (used in actions); catalog list/detail are cached. Watch for N+1 queries in `assembleProduct` / `listPublishedProducts` as catalog grows. |
 | T-05 | 🟡 | Primary pair verified (5.03:1 light, 9.4:1 dark). **Still unchecked:** the hero's lime "We'll print it." on the blue is 3.81:1 (passes only as large bold text); muted-foreground, badges, and the lime accent buttons have not been measured. Full audit = G-22. |
-| T-08 | 🟡 | Logo art is black-only; dark mode inverts it with CSS (`dark:invert`). A proper white/colored logo variant from the designer would look better, and the logo has no brand color of its own, so the blue primary was an owner choice, not derived. |
 | T-06 | 🟡 | `.env.example` GCash number was taken from the owner profile — **confirm it is the business GCash number** before showing customers. |
 | T-07 | 🟡 | `npm audit` reports 12 moderate vulnerabilities (transitive). Review before launch. |
 
@@ -119,3 +124,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-06 | 2026-11-09 | Bucket `darlcreates-uploads` (ap-south-1, acct 551892774595): all public access blocked, SSE-S3, BucketOwnerEnforced, CORS for localhost:3000/3001, abort-multipart lifecycle. IAM user `darlcreates-app` with an inline policy limited to this bucket; key stored in `.env.local`. Verified allowed on the bucket, AccessDenied on other buckets / list-buckets / IAM. |
 | G-24 | 2026-11-10 | Real logo applied (header, admin, sign-in, favicon/apple-icon) from `brand/source/`; theme primary changed from magenta to cyan-blue (`oklch(0.52 0.14 225)`, white-on-primary 5.03:1). Built by `scripts/build-brand-assets.py`. |
 | G-29 | 2026-11-10 | Dev-server `new Date()` blocking-route error: `getCurrentUser()` now calls `await connection()` first (decision D-16). Production build was unaffected; the dev check needs confirming on your side. |
+| T-08 | 2026-11-10 | Designer supplied black and white wordmark logos; wired via `BrandLogo` (replaces the CSS-invert workaround). |

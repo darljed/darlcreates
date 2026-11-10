@@ -126,10 +126,13 @@ Keep these four in sync when conventions change.
 
 ## Brand assets
 
-- Originals: `brand/source/{stacked,icon,horizontal}.png` (black on transparent, 2000x2000).
+- Originals: `brand/source/wordmark-black.png` and `wordmark-white.png` (icon + wordmark,
+  transparent, 2000x2000). Older black-only set is not used.
 - Regenerate web logos + favicon/apple-icon: `python3 scripts/build-brand-assets.py` (needs Pillow).
-- Outputs: `public/brand/*`, `src/app/{icon.png,apple-icon.png,favicon.ico}`.
-- Use `<BrandLogo variant="horizontal|tagline|icon|stacked" className="h-9" />`.
+- Outputs: `public/brand/{logo-horizontal,logo-horizontal-dark,logo-icon}.png`,
+  `src/app/{icon.png,apple-icon.png,favicon.ico}`.
+- Use `<BrandLogo variant="horizontal|icon" className="h-9" />`. Horizontal swaps
+  black/white wordmark by theme (`dark:` class).
 - Theme colors live in `src/app/globals.css` (`--primary` etc.).
 
 ## Known environment quirks
