@@ -19,7 +19,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail / fix | Status |
 |---|---|---|---|---|
-| G-04 | 🔴 | **Production cannot reach the database** | DB is on the agent-server, Tailscale-only (`100.90.200.13`). A Vercel/Amplify deploy cannot connect. Also `next build` queries the DB (`generateStaticParams`), so CI/Vercel builds fail without access. Fix: choose prod DB (RDS / Supabase / exposed pooler), and decide whether build-time DB access is acceptable. | ⬜ |
 | G-05 | 🔴 | **Google OAuth credentials not set** | `.env.local` has empty `GOOGLE_CLIENT_ID/SECRET`; nobody can sign in. Owner is adding these. Redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google`. | 🚧 creds set; sign-in not yet verified |
 
 ### Correctness / security — fix before launch
@@ -62,7 +61,6 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail |
 |---|---|---|---|
-| G-43 | 🟠 | **Retention policy needs a human decision** | We keep order + payment rows (amounts, GCash reference, status) indefinitely after account deletion, with the delivery address redacted. That is a reasonable default for sales records, but the PH retention period and what a "no BIR registration" seller must keep are questions for your accountant. Also decide whether to purge very old orders. |
 | G-44 | 🟡 | **Deleted accounts block re-registration with the same Google account?** | Deletion removes the linked Google `accounts` row, so signing in again creates a *new* user (fresh consent). Intended, but untested end to end because it needs a real Google login. |
 | G-45 | 🟡 | **Export is JSON only, no admin-side "export for a customer"** | Customers self-serve. If someone emails a request instead, there is no admin button yet. |
 
@@ -165,4 +163,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-46 | 2026-11-10 | **Unlinked form labels in the admin** (10 label/input pairs: shipping carrier + tracking, product status, schema builder). Screen readers would not announce them and clicking the label didn't focus the field. Found by the browser E2E (`getByLabel` failed). Fixed with `useId` + `htmlFor`/`id`; `scripts/test-a11y-labels.ts` now guards it. |
 | G-47 | 2026-11-10 | Order Acknowledgment's title was a styled paragraph and the business name was the page's only `<h1>`. The document title is now the `<h1>`; test asserts exactly one. |
 | G-48 | 2026-11-10 | Full test cycle executed (see `docs/testing.md`): authenticated browser E2E for the customer journey (customize + real image upload -> cart -> checkout -> order -> GCash reference), admin (verify -> production -> shipping -> delivered), review gating, consent gate, account export + deletion, access control. |
+| G-43 | 2026-11-10 | Retention choice (keep anonymized order + payment rows after account deletion) **approved by owner**. |
+| G-11b | 2026-11-10 | Order Acknowledgment wording **approved by owner**. |
+| G-04 | 2026-11-10 | Hosting: owner serves the app publicly via **Tailscale Funnel** (works, incl. Google sign-in). Caveat: it must run a production build (`npm run build && npm run start`), not `next dev`. Database stays on the agent-server (reachable from this Mac). |
 
