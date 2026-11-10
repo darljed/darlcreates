@@ -25,14 +25,13 @@ files, Zod at trust boundaries. Chosen by the owner except where noted; BetterAu
 and Drizzle were explicit picks.
 
 ## D-04 — Manual GCash verification
-The owner is **not BIR-registered** and takes payment via GCash with manual
-reference-number checking. The system therefore:
+The owner takes payment via GCash with manual reference-number checking. The system therefore:
 - shows GCash instructions + exact amount, collects a reference number
 - queues it for the owner to verify against their GCash history
 - records the verifier (`verified_by`) — separation of duties
 - keeps payments **append-only** (re-submission = new row)
-- issues a non-VAT **"Order Acknowledgment"**, never an "Official Receipt"
-- keeps `or_number` / `vat_cents` columns ready but unused until BIR registration
+- gives the customer a printable **"Order Acknowledgment"** (what was ordered, amounts, delivery address)
+- keeps `or_number` / `vat_cents` columns reserved but unused
 
 ## D-05 — Money is integer centavos
 All amounts are integers (`*_cents`); one module (`src/lib/money.ts`) formats and

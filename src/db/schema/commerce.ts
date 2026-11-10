@@ -73,7 +73,7 @@ export const cartItems = pgTable("cart_items", {
 /**
  * An order. Financial fields are integer centavos. `shipAddress` and item
  * snapshots are immutable so later catalog/address edits never mutate history.
- * BIR-ready but feature-off: `orNumber` + `vatCents` present, unused for now.
+ * `orNumber` and `vatCents` are reserved columns that nothing reads or writes yet.
  */
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),

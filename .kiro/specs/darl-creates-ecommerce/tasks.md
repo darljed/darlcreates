@@ -70,7 +70,7 @@ E2E → PR → docs. Never merge without permission.
 
 ## 11. Compliance & polish
 - [~] 11.1 Privacy page done; consent capture + self-serve deletion missing (G-10).
-- [ ] 11.2 Non-BIR Order Acknowledgment document (G-11).
+- [x] 11.2 Order Acknowledgment document (G-11).
 - [ ] 11.3 Accessibility pass (G-22).
 - [x] 11.4 Real logo + blue theme (G-24, D-17).
 - [ ] 11.5 Responsive/perf pass; **browser E2E not yet run** (G-14).

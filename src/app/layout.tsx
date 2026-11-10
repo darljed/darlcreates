@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const og = logos.og;
   const description =
     store.about ||
-    "Phone stands, keychains, clickers and more: browse in 3D, make it yours, and we print it. Designed and printed in the Philippines.";
+    "Your 3D printing partner. Pick a design, make it yours, and we print it layer by layer in the Philippines.";
   return {
     metadataBase: new URL(process.env.BETTER_AUTH_URL ?? "http://localhost:3000"),
     title: {

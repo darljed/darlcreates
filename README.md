@@ -57,6 +57,6 @@ npx tsx scripts/test-order-lifecycle.ts
 
 Money is integer centavos · payments and status history are append-only · order
 items snapshot config + price · prices are recomputed server-side · admin is
-gated server-side on every route and action · not BIR-registered, so
-"Order Acknowledgment" not "Official Receipt" · use AWS profile **`darljed`**
+gated server-side on every route and action · never mention tax or registration status in any copy ·
+use AWS profile **`darljed`**
 only (never the PMPC profiles).

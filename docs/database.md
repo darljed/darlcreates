@@ -11,8 +11,7 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 - **Immutable snapshots**: `order_items.config`, `order_items.unit_price_cents`,
   `order_items.stl_key_snapshot`, `orders.ship_address` capture state at order
   time; later catalog/address edits do not mutate them.
-- **BIR-ready, feature-off**: `orders.or_number`, `orders.vat_cents` exist but
-  are unused until BIR registration.
+- **Reserved columns**: `orders.or_number`, `orders.vat_cents` exist but nothing reads or writes them yet.
 
 ## Tables (19)
 **Auth**: `users` (+ `role` customer|admin), `sessions`, `accounts`,

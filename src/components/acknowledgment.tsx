@@ -2,10 +2,7 @@ import { BUSINESS } from "@/lib/business";
 import { formatPHP } from "@/lib/money";
 import type { OrderDetail } from "@/lib/orders";
 
-/**
- * Order Acknowledgment: a plain sales record for the customer. The business is not BIR-registered,
- * so this is deliberately NOT an Official Receipt or tax invoice and says so. VAT is shown as 0.
- */
+/** Order Acknowledgment: a printable confirmation of what the customer ordered, the amounts and where it ships. */
 export function Acknowledgment({ order, buyerName, buyerEmail }: { order: OrderDetail; buyerName: string; buyerEmail: string }) {
   const a = order.shipAddress as Record<string, string>;
   const redacted = a?.redacted === "true" || (a as unknown as { redacted?: boolean })?.redacted === true;
@@ -65,7 +62,6 @@ export function Acknowledgment({ order, buyerName, buyerEmail }: { order: OrderD
         <tfoot className="text-sm">
           <tr><td colSpan={3} className="pt-3 text-right">Subtotal</td><td className="whitespace-nowrap pt-3 pl-2 text-right">{money(order.subtotalCents)}</td></tr>
           <tr><td colSpan={3} className="text-right">Shipping</td><td className="whitespace-nowrap pl-2 text-right">{money(order.shippingCents)}</td></tr>
-          <tr><td colSpan={3} className="text-right">VAT</td><td className="whitespace-nowrap pl-2 text-right">{money(0)}</td></tr>
           <tr className="font-extrabold"><td colSpan={3} className="border-t-2 border-black pt-2 text-right">Total</td><td className="whitespace-nowrap border-t-2 border-black pt-2 pl-2 text-right">{money(order.totalCents)}</td></tr>
         </tfoot>
       </table>
@@ -85,10 +81,7 @@ export function Acknowledgment({ order, buyerName, buyerEmail }: { order: OrderD
       </section>
 
       <footer className="mt-6 border-t pt-3 text-xs">
-        <p>
-          This Order Acknowledgment confirms that we received your order and is a sales record only. It is not an
-          official receipt or a tax invoice, and no VAT has been charged. Items are made to order.
-        </p>
+        <p>This confirms that we received your order. Items are made to order.</p>
         <p className="mt-1">Questions? {BUSINESS.contactEmail}</p>
       </footer>
     </article>

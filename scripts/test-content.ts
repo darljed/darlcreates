@@ -5,7 +5,7 @@
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { eq } from "drizzle-orm";
 
 let failures = 0;
@@ -119,6 +119,21 @@ async function main() {
   const metaStore = await import("../src/lib/site-content-store");
   assert("acceptance counts are sane", await (async () => { const a = await metaStore.privacyAcceptance("no-such-version"); return a.accepted === 0 && a.total >= 0; })());
   assert("meta is null for a never-saved document", (await metaStore.loadMeta(`TEST-never-${Date.now()}`)) === null);
+
+  console.log("\nno talk of the store's tax / registration status anywhere");
+  const BANNED = /\bBIR\b|not (yet )?registered|official receipt|tax invoice|non-?VAT|business permit|\bTIN\b/i;
+  for (const slug of ["privacy", "terms"] as const)
+    assert(`default ${slug} text has none`, !BANNED.test(DEFAULT_LEGAL[slug].body), DEFAULT_LEGAL[slug].body.match(BANNED)?.[0]);
+  const srcFiles: string[] = [];
+  (function walk(dir: string) {
+    for (const f of readdirSync(dir)) {
+      const full = `${dir}/${f}`;
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.(tsx?|css|md)$/.test(f)) srcFiles.push(full);
+    }
+  })("src");
+  const offenders = srcFiles.filter((f) => BANNED.test(readFileSync(f, "utf8")));
+  assert(`no source file mentions it (${srcFiles.length} files scanned)`, offenders.length === 0, offenders.join(", "));
 
   console.log("\nrendering never uses raw HTML");
   for (const f of ["src/app/(shop)/page.tsx", "src/components/cms.tsx", "src/components/site-footer.tsx", "src/components/legal-body.tsx", "src/components/admin/content-editor.tsx", "src/components/admin/store-editor.tsx", "src/components/admin/legal-editor.tsx", "src/components/admin/legal-workspace.tsx"])

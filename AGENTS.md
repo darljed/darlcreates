@@ -46,8 +46,7 @@ AWS S3 (`darlcreates-uploads`, ap-south-1) · Zod v4.
   financial/audit rows.
 - **Immutable snapshots** on cart/order items (config + price at the time).
 - **Manual GCash** verification with **separation of duties** (`verifiedBy`).
-- **Not BIR-registered**: "Order Acknowledgment" (non-VAT), never "Official
-  Receipt"; schema BIR-ready (`orNumber`, `vatCents`) but off.
+- **Never mention tax or business-registration status anywhere** (site copy, legal pages, documents, emails, comments, docs). The owner does not want it discussed. The customer document is simply the "Order Acknowledgment".
 - **RA 10173**: consent at signup, privacy policy, deletion path.
 - **RBAC server-side** on every `/admin` route + admin action
   (`src/lib/session.ts`).

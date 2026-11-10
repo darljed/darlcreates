@@ -22,7 +22,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Order tracking: status timeline, shipment/tracking, order history
 - Reviews: delivered-order-gated submit + star rating (moderated before shown)
 - Privacy: consent step (versioned), **My account** (saved addresses, download my data, delete account), privacy policy (RA 10173)
-- **Order Acknowledgment**: printable non-VAT sales record per order (customer + admin)
+- **Order Acknowledgment**: printable order confirmation per order (customer + admin)
 - **Address book**: saved addresses at checkout, managed in My account
 - **Customer area** (inset sidebar): orders table (Pay now / Track / Buy again), order page with progress bar, copy buttons for GCash number + amount, cancel an unpaid order, review prompt after delivery
 - Cart badge in the header, "Go to cart" toast, checkout steps, and customizer choices kept across the sign-in redirect

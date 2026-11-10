@@ -73,7 +73,7 @@ Tables (centavos = `integer`/`bigint`, ids = uuid/text):
   chosen options), image_key (nullable S3), unit_price_cents (computed snapshot).
 - **orders** — id, order_no (human ref), user_id→users, status (order_status),
   subtotal_cents, shipping_cents, total_cents, ship_address (jsonb snapshot),
-  placed_at. BIR-ready (feature-off): or_number (nullable), vat_cents (default 0).
+  placed_at. Reserved, unused: or_number (nullable), vat_cents (default 0).
 - **order_items** — id, order_id→orders, product_id, name_snapshot, qty,
   config (jsonb snapshot), image_key, unit_price_cents, stl_key_snapshot.
 - **payments** — id, order_id→orders, method (`gcash`), gcash_reference,

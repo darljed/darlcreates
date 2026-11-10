@@ -66,7 +66,7 @@ export const DEFAULT_HOME: HomeContent = {
     titleLine1: "Make it yours.",
     titleLine2: "We'll print it.",
     subtext:
-      "Phone stands, keychains, clickers and more. Spin them in 3D, pick your colors and text, and get a one-of-a-kind print made just for you.",
+      "Your 3D printing partner for everyday finds and one-of-a-kind ideas. Spin them in 3D, pick your colors and text, and we print it just for you.",
     primary: { label: "Shop the catalog", href: "/products" },
     secondary: { label: "How it works", href: "#how" },
     imageKey: null,
@@ -119,8 +119,9 @@ export type SiteInfo = z.infer<typeof siteInfoSchema>;
 export const DEFAULT_SITE_INFO: SiteInfo = {
   store: {
     name: "Darl Creates",
-    tagline: "Custom 3D-printed goods",
-    about: "Phone stands, keychains, clickers and more, designed and printed to order in the Philippines.",
+    tagline: "Your 3D printing partner",
+    about:
+      "From a sketch in your head to a thing in your hand. Pick a design, make it yours, and we print it layer by layer, right here in the Philippines.",
     email: "darljedmatundan@gmail.com",
     phone: "",
     address: "Philippines",
@@ -183,7 +184,7 @@ Your name and email (from Google sign-in), shipping address and mobile number fo
 To process and deliver your orders, verify GCash payments, send you order updates, and provide customer support. We do not sell your data.
 
 ## Payments
-We are not yet BIR-registered. We issue an Order Acknowledgment (a non-VAT sales record), not an Official Receipt. GCash payments are verified manually against the reference number you provide.
+GCash payments are verified manually against the reference number you provide. We start production once your payment is confirmed.
 
 ## Your rights
 You can download a copy of your data and delete your account yourself from your Account page. Deleting removes your name, email, saved addresses, reviews and uploaded images and signs you out; order and payment records are kept for our business records but are no longer linked to your personal details. Orders still in progress must be completed or cancelled first.
@@ -191,7 +192,7 @@ You can download a copy of your data and delete your account yourself from your 
 For anything else, email [darljedmatundan@gmail.com](mailto:darljedmatundan@gmail.com) and we will act on your request.
 
 ## Retention and security
-We keep order records for legitimate business and tax purposes and protect your data with access controls and encryption in transit.`,
+We keep order records for legitimate business record-keeping and protect your data with access controls and encryption in transit.`,
   },
   terms: {
     title: "Terms and Conditions",
@@ -217,8 +218,8 @@ If your item arrives damaged, defective or not as ordered, contact us promptly w
 ## Images and text you provide
 When you upload an image or enter text to personalize an item, you confirm that you have the right to use it. We may refuse or cancel an order with content that is unlawful, infringing or offensive, and will refund any payment already made for it.
 
-## Receipts
-We are not yet BIR-registered. We issue an Order Acknowledgment (a non-VAT sales record) and not an Official Receipt.
+## Order confirmation
+Every order has an Order Acknowledgment on your order page. It lists what you ordered, the amounts and the delivery address, and you can print it or save it as a PDF.
 
 ## Your data
 How we handle your personal information is explained in our [Privacy Policy](/privacy).

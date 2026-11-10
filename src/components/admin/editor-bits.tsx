@@ -1,16 +1,35 @@
 "use client";
 
+import { cloneElement, isValidElement, useId } from "react";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Label wraps its control, so every input has an accessible name without id plumbing. */
+/**
+ * A labelled form control. Every field has the same shape (a label row, then the control), and the optional hint
+ * lives on the label row, right-aligned and truncated (full text on hover and for screen readers). Because the hint
+ * never adds a row, fields in the same row line up whether or not they have one.
+ * The control must be a single element (Input, Textarea, <select>…): it receives the id and aria-describedby.
+ */
 export function Field({ label, hint, children, className }: { label: string; hint?: string; children: React.ReactNode; className?: string }) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const control = isValidElement<{ id?: string; "aria-describedby"?: string }>(children)
+    ? cloneElement(children, { id: children.props.id ?? id, "aria-describedby": hint ? hintId : children.props["aria-describedby"] })
+    : children;
   return (
-    <label className={`grid content-start gap-1 text-xs font-medium ${className ?? ""}`}>
-      <span>{label}</span>
-      {children}
-      {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
-    </label>
+    <div className={`grid content-start gap-1 text-xs font-medium ${className ?? ""}`}>
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <label htmlFor={isValidElement<{ id?: string }>(children) ? (children.props.id ?? id) : undefined} className="shrink-0">
+          {label}
+        </label>
+        {hint && (
+          <span id={hintId} title={hint} className="min-w-0 truncate text-[11px] font-normal text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
+      {control}
+    </div>
   );
 }
 

@@ -27,8 +27,7 @@ sales analytics.
   price at the time; later catalog edits never mutate historical orders.
 - **Manual GCash**: the system makes the owner's manual verification fast and
   auditable. No payment-gateway automation (yet).
-- **Not BIR-registered**: issue a non-VAT "Order Acknowledgment", NOT an
-  "Official Receipt". Schema is BIR-ready (`orNumber`, `vatCents`) but feature-off.
+- **Never mention tax or business-registration status anywhere** (site copy, legal pages, documents, emails, comments, docs). The owner does not want it discussed. The customer document is simply the "Order Acknowledgment".
 - **Separation of duties**: payment verifier is recorded (`verifiedBy`), distinct
   from the paying customer.
 - **Data Privacy Act (RA 10173)**: consent at signup, privacy policy, deletion path.

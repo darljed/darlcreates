@@ -69,7 +69,7 @@ export async function exportUserData(userId: string) {
 
   return {
     exportedAt: new Date().toISOString(),
-    note: "Personal data held by Darl Creates. Order and payment records are retained for business and tax purposes.",
+    note: "Personal data held by Darl Creates. Order and payment records are retained for business record-keeping.",
     profile: user,
     addresses: addrs.map((a) => ({
       label: a.label, recipient: a.recipient, phone: a.phone, line1: a.line1, line2: a.line2,

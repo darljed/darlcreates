@@ -1,6 +1,6 @@
 /**
- * The Order Acknowledgment must never read as an official receipt / tax invoice, shows VAT as 0,
- * and reflects the real order numbers. Static render (no browser). Run: npx tsx scripts/test-acknowledgment.ts
+ * The Order Acknowledgment shows the real order numbers and amounts, and never mentions the store's tax or
+ * registration status (the owner doesn't want that discussed anywhere on the site). Static render (no browser). Run: npx tsx scripts/test-acknowledgment.ts
  */
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
@@ -30,17 +30,15 @@ assert("shows the order number", text.includes("DC-20261110-ABC234"));
 assert("shows item, qty, color option", text.includes("Outdoor Phone Stand") && text.includes("Color: Green"));
 assert("line amount = 2 x ₱125.00 = ₱250.00", text.includes("₱250.00"));
 assert("subtotal / shipping / total correct", text.includes("₱250.00") && text.includes("₱80.00") && text.includes("₱330.00"));
-assert("VAT shown as ₱0.00", /VAT\s*₱0\.00/.test(text));
 assert("shows the buyer and delivery address", text.includes("Ana Cruz") && text.includes("12 Mabini St") && text.includes("San Pablo"));
 assert("verified payment: 'Paid and verified' + reference", text.includes("Paid and verified") && text.includes("GC1234567890"));
 
-console.log("\nlegal wording (not a tax document)");
-assert("never titled or headed 'Official Receipt'", !/<h1[^>]*>[^<]*official receipt/i.test(h) && !/uppercase[^>]*>[^<]*official receipt/i.test(h));
+console.log("\nwording");
 assert("the document title is the page's <h1>", /<h1[^>]*>Order Acknowledgment<\/h1>/.test(h));
 assert("exactly one <h1>", (h.match(/<h1[ >]/g) ?? []).length === 1);
-assert("states it is NOT an official receipt or tax invoice", /not an official receipt or a tax invoice/i.test(text));
-assert("states no VAT was charged", /no VAT has been charged/i.test(text));
-assert("does not claim a TIN / BIR registration / OR number", !/\bTIN\b|BIR (registered|permit|reg)|OR No|series no/i.test(text));
+assert("never mentions registration, receipts, invoices, VAT or TIN", !/\bBIR\b|registered|receipt|invoice|\bVAT\b|\bTIN\b|tax/i.test(text), text.match(/\bBIR\b|registered|receipt|invoice|\bVAT\b|\bTIN\b|tax/i)?.[0]);
+assert("has no VAT row (a table row just for it)", !/VAT/i.test(h));
+assert("says what it is: a confirmation of the order", /confirms that we received your order/i.test(text));
 
 console.log("\nstates");
 assert("awaiting payment is not shown as paid", (() => { const t = html({ ...base, status: "awaiting_payment", latestPayment: null }).replace(/<[^>]+>/g, " "); return t.includes("Awaiting payment") && !t.includes("Paid and verified"); })());

@@ -18,7 +18,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | `money`, `pricing` | centavos math; price + option validation | nothing |
 | `instant` | every page that awaits data/params has `instant=false` or `<Suspense>` (dev-overlay rule the build does NOT catch) | nothing |
 | `a11y-labels` | every form `<Label>` is linked to its control | nothing |
-| `acknowledgment` | document content + the "not an official receipt" wording + escaping | nothing |
+| `acknowledgment` | document content + amounts + escaping, and that it never mentions registration/receipt/VAT wording | nothing |
 | `product-filter` | shop search / category logic | nothing |
 | `viewer-framing` | 3D viewer centering/framing on synthetic + real STL/3MF-like models | nothing (optional real STL paths as args) |
 | `uploads`, `cors` | upload rules, ZIP/magic-byte checks, presigned PUT round trip, CORS from every dev origin | S3 |
@@ -46,7 +46,7 @@ browser context (`secure: true`, domain `localhost`). Keep scripts and cookie fi
 What the 2026-11-10 run verified in a real browser:
 - customer: customize (color + text + **real image upload to S3**), live price, cart thumbnail, checkout (inline validation, saved address), order page, GCash reference accept/refuse
 - admin: payment queue, verify, in production -> ready to ship -> shipped -> delivered, shipping form, customer-image preview, acknowledgment
-- customer after delivery: tracking, timeline, Order Acknowledgment (VAT 0, not-a-tax-document wording), review (held for approval, one per product)
+- customer after delivery: tracking, timeline, Order Acknowledgment, review (held for approval, one per product)
 - privacy: consent gate on `/account`, `/orders`, redirect preserved, hostile `redirect=` neutralized, export (200 JSON, no-store, 401 signed-out), deletion refused while an order is open then allowed, session revoked afterwards
 - access control: customer bounced from all admin pages; admin-only upload kinds 403; other users' orders 404; `customer/`, `proof/`, path traversal 404
 

@@ -14,7 +14,7 @@ everything below just points there so all agents stay in sync.
 - `payments` and `order_status_history` are append-only.
 - Cart/order items store immutable config + price snapshots.
 - Manual GCash verification; separation of duties (`verifiedBy`).
-- Not BIR-registered → "Order Acknowledgment" (non-VAT), never "Official Receipt".
+- **Never mention tax or business-registration status anywhere** (site copy, legal pages, documents, emails, comments, docs). The owner does not want it discussed. The customer document is simply the "Order Acknowledgment".
 - RBAC server-side on every `/admin` route and admin Server Action.
 - Next.js 16 with Cache Components ON — read `node_modules/next/dist/docs/`
   before using unfamiliar APIs; `params`/`searchParams` are Promises.

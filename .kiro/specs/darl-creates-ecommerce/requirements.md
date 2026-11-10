@@ -90,9 +90,8 @@
   the action is recorded with who/when (separation of duties / auditability).
 - **FR-6.5** Verifying a payment advances the order to `paid`; rejecting returns
   it to `awaiting_payment` and notifies the customer.
-- **FR-6.6** Documents issued are **non-BIR**: an "Order Acknowledgment" /
-  non-VAT sales record. No "Official Receipt" wording. Schema is BIR-ready
-  (OR number + VAT fields present but disabled) for future registration.
+- **FR-6.6** The document issued to the customer is an "Order Acknowledgment": what was ordered, the
+  amounts and the delivery address. It never discusses tax or registration status.
 
 ### FR-7 Order Management & Fulfilment (Admin)
 - **FR-7.1** Admin sees all orders with filter by status.
@@ -153,7 +152,6 @@
 ## Out of Scope (initial build)
 - Phase 2 in-browser STL generators.
 - Automated payment gateways (Maya/GCash API) — manual only for now.
-- BIR Official Receipt issuance / VAT computation (schema-ready, feature-off).
 - Multi-currency (PHP only).
 - Multiple admins / granular admin permissions (single owner-admin for now).
 
