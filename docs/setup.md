@@ -145,6 +145,13 @@ Keep these four in sync when conventions change.
 
 ## Known environment quirks
 
+- **Products inserted by a script don't show up until the cache is invalidated.** The product
+  page caches (1h, tag `product:<slug>`) the result of the first request for a slug, including
+  "not found". Products created through the admin UI invalidate that cache automatically; a
+  script that inserts a row must not request the page before the insert finishes (and, if it
+  did, use a never-requested slug). Don't run create-then-browse in parallel.
+
+
 - `shadcn add` emits `import { cn } from "cn"` — rewrite to `@/lib/utils` and do
   not install the `cn` npm package (this broke the build once).
 - shadcn `init` hung once in this environment; components were configured by
