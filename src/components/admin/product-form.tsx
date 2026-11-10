@@ -98,14 +98,14 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Status</Label>
+          <Label htmlFor="product-status">Status</Label>
           <Select
             value={v.status}
             onValueChange={(status) =>
               setV({ ...v, status: status as typeof v.status })
             }
           >
-            <SelectTrigger>
+            <SelectTrigger id="product-status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

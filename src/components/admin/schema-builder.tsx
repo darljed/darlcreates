@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2 } from "lucide-react";
@@ -30,6 +30,7 @@ export function SchemaBuilder({
   options: ProductOptionInput[];
 }) {
   const router = useRouter();
+  const uid = useId();
   const [pending, startTransition] = useTransition();
 
   // New-option form
@@ -128,9 +129,9 @@ export function SchemaBuilder({
         <h3 className="mb-3 font-bold">Add option</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Type</Label>
+            <Label htmlFor={`${uid}-type`}>Type</Label>
             <Select value={type} onValueChange={(t) => setType(t as typeof type)}>
-              <SelectTrigger>
+              <SelectTrigger id={`${uid}-type`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -142,16 +143,18 @@ export function SchemaBuilder({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Label</Label>
+            <Label htmlFor={`${uid}-label`}>Label</Label>
             <Input
+              id={`${uid}-label`}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Color"
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Price delta (₱)</Label>
+            <Label htmlFor={`${uid}-delta`}>Price delta (₱)</Label>
             <Input
+              id={`${uid}-delta`}
               inputMode="decimal"
               value={priceDelta}
               onChange={(e) => setPriceDelta(e.target.value)}
@@ -159,8 +162,9 @@ export function SchemaBuilder({
           </div>
           {type === "text" && (
             <div className="space-y-1.5">
-              <Label>Max length</Label>
+              <Label htmlFor={`${uid}-maxlen`}>Max length</Label>
               <Input
+                id={`${uid}-maxlen`}
                 inputMode="numeric"
                 value={maxLen}
                 onChange={(e) => setMaxLen(e.target.value)}
@@ -205,6 +209,7 @@ function ValueEditor({
   values: ProductOptionInput["values"];
 }) {
   const router = useRouter();
+  const vid = useId();
   const [pending, startTransition] = useTransition();
   const [label, setLabel] = useState("");
   const [value, setValue] = useState(type === "color" ? "#0077a5" : "");
@@ -251,8 +256,9 @@ function ValueEditor({
       </div>
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label className="text-xs">Label</Label>
+          <Label htmlFor={`${vid}-label`} className="text-xs">Label</Label>
           <Input
+            id={`${vid}-label`}
             className="h-8 w-28"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
@@ -260,10 +266,11 @@ function ValueEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">
+          <Label htmlFor={`${vid}-value`} className="text-xs">
             {type === "color" ? "Hex" : "Code"}
           </Label>
           <Input
+            id={`${vid}-value`}
             className="h-8 w-28"
             type={type === "color" ? "color" : "text"}
             value={value}
@@ -271,8 +278,9 @@ function ValueEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">+₱</Label>
+          <Label htmlFor={`${vid}-delta`} className="text-xs">+₱</Label>
           <Input
+            id={`${vid}-delta`}
             className="h-8 w-20"
             inputMode="decimal"
             value={priceDelta}

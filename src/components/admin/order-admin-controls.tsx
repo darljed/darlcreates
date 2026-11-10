@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -33,6 +33,7 @@ export function OrderAdminControls({
   shipment: { carrier: string; trackingNo: string; status: string } | null;
 }) {
   const router = useRouter();
+  const uid = useId();
   const [pending, startTransition] = useTransition();
   const [carrier, setCarrier] = useState(shipment?.carrier ?? "");
   const [trackingNo, setTrackingNo] = useState(shipment?.trackingNo ?? "");
@@ -96,16 +97,18 @@ export function OrderAdminControls({
         <h2 className="mb-3 font-bold">Shipping</h2>
         <div className="space-y-2">
           <div className="space-y-1">
-            <Label className="text-xs">Carrier</Label>
+            <Label htmlFor={`${uid}-carrier`} className="text-xs">Carrier</Label>
             <Input
+              id={`${uid}-carrier`}
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
               placeholder="J&T, LBC…"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Tracking number</Label>
+            <Label htmlFor={`${uid}-tracking`} className="text-xs">Tracking number</Label>
             <Input
+              id={`${uid}-tracking`}
               value={trackingNo}
               onChange={(e) => setTrackingNo(e.target.value)}
             />

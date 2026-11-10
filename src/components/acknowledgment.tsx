@@ -15,12 +15,12 @@ export function Acknowledgment({ order, buyerName, buyerEmail }: { order: OrderD
     <article className="mx-auto max-w-2xl rounded-xl border-2 border-border bg-white p-8 text-black print:max-w-none print:border-0 print:p-0">
       <header className="flex items-start justify-between gap-4 border-b-2 border-black pb-4">
         <div>
-          <h1 className="text-2xl font-extrabold">{BUSINESS.name}</h1>
+          <p className="text-2xl font-extrabold">{BUSINESS.name}</p>
           <p className="text-sm">{BUSINESS.tagline} · {BUSINESS.location}</p>
           <p className="text-sm">{BUSINESS.contactEmail}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-extrabold uppercase tracking-wide">Order Acknowledgment</p>
+          <h1 className="text-lg font-extrabold uppercase tracking-wide">Order Acknowledgment</h1>
           <p className="text-sm">No. {order.orderNo}</p>
           <p className="text-sm">Date: {order.placedAt.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</p>
         </div>

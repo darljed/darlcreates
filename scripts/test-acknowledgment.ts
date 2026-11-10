@@ -36,6 +36,8 @@ assert("verified payment: 'Paid and verified' + reference", text.includes("Paid 
 
 console.log("\nlegal wording (not a tax document)");
 assert("never titled or headed 'Official Receipt'", !/<h1[^>]*>[^<]*official receipt/i.test(h) && !/uppercase[^>]*>[^<]*official receipt/i.test(h));
+assert("the document title is the page's <h1>", /<h1[^>]*>Order Acknowledgment<\/h1>/.test(h));
+assert("exactly one <h1>", (h.match(/<h1[ >]/g) ?? []).length === 1);
 assert("states it is NOT an official receipt or tax invoice", /not an official receipt or a tax invoice/i.test(text));
 assert("states no VAT was charged", /no VAT has been charged/i.test(text));
 assert("does not claim a TIN / BIR registration / OR number", !/\bTIN\b|BIR (registered|permit|reg)|OR No|series no/i.test(text));

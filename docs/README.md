@@ -11,6 +11,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [database.md](./database.md) | Schema, tables, money/ledger rules |
 | [features.md](./features.md) | What is built, by area |
 | [api-routes.md](./api-routes.md) | Route handlers + Server Actions |
+| [testing.md](./testing.md) | What is tested, how to run it, and how the authenticated browser E2E works |
 | [phase-2-generators.md](./phase-2-generators.md) | Plan + open questions for in-browser STL generators |
 | [personalization-and-3mf.md](./personalization-and-3mf.md) | Proposal: 3MF support + adding a name to an existing product (levels 1-3, owner questions) |
 | [backlog.md](./backlog.md) | Pointer to the roadmap |

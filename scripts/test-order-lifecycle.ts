@@ -102,27 +102,22 @@ async function main() {
     assert("order item price snapshot unchanged after product edit", item.unitPriceCents === 10000);
     assert("stl key snapshot preserved", item.stlKeySnapshot === "stl/test.stl");
 
-    // Submit a GCash payment (append-only).
+    // Submit a GCash payment, have it rejected, then re-submit: payments are append-only, so the
+    // second attempt is a NEW row (the DB allows only one *pending* payment per order at a time).
+    const [first] = await db.insert(s.payments).values({
+      orderId, method: "gcash", gcashReference: `${PREFIX}REF1`, amountCents: 18000, status: "pending",
+    }).returning();
+    await db.update(s.payments).set({ status: "rejected", verifiedBy: adminId, verifiedAt: new Date(), rejectReason: "typo" }).where(eq(s.payments.id, first.id));
     await db.insert(s.payments).values({
-      orderId,
-      method: "gcash",
-      gcashReference: "REF-1",
-      amountCents: 18000,
-      status: "pending",
+      orderId, method: "gcash", gcashReference: `${PREFIX}REF2`, amountCents: 18000, status: "pending",
     });
-    // Re-submit -> a NEW row (append-only), not an overwrite.
-    await db.insert(s.payments).values({
-      orderId,
-      method: "gcash",
-      gcashReference: "REF-2",
-      amountCents: 18000,
-      status: "pending",
-    });
-    const pays = await db
-      .select()
-      .from(s.payments)
-      .where(eq(s.payments.orderId, orderId));
-    assert("payments are append-only (2 rows)", pays.length === 2);
+    const pays = await db.select().from(s.payments).where(eq(s.payments.orderId, orderId));
+    assert("payments are append-only (rejected row kept + new pending row)", pays.length === 2 && pays.some((p) => p.status === "rejected"));
+    let blocked = false;
+    try {
+      await db.insert(s.payments).values({ orderId, method: "gcash", gcashReference: `${PREFIX}REF3`, amountCents: 18000, status: "pending" });
+    } catch { blocked = true; }
+    assert("DB refuses a second pending payment on the same order", blocked);
 
     // Transition rules.
     assert("awaiting_payment -> paid allowed", canTransition("awaiting_payment", "paid"));
