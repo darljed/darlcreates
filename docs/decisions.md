@@ -214,3 +214,8 @@ history with the customer as actor). Once money may have been sent, the owner de
 reference submitted in the same instant as a cancel can leave a pending payment on a cancelled order; `verifyPayment`
 refuses it, so the owner rejects it. "Buy again" re-adds items through `addToCart`, so prices are recomputed and
 unpublished products are skipped with a reason.
+
+## D-27 — Dev-only trusted origins for BetterAuth
+BetterAuth rejects POSTs (e.g. sign-out) whose `Origin` isn't `baseURL` (`INVALID_ORIGIN`). `baseURL` is the Funnel
+host, so sign-out failed when browsing the dev server via `localhost`. `trustedOrigins` now lists localhost
+(ports 3000/3001) when `NODE_ENV !== "production"`; production trusts `baseURL` only.

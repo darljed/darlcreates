@@ -42,6 +42,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Customer image personalization**: an `image` option lets a customer upload artwork; the server verifies ownership + real image bytes; the admin previews it on the order
 - **3MF**: multi-part, multi-color files preview in 3D; colors in the file are kept, uncolored parts take the customer's swatch
 - Review moderation (approve/hide)
+- **Account menu**: your name + email (bottom of the sidebar) and an avatar in the top bar open My account / View storefront / Sign out
 
 ## Known gaps / deferred
 Full, tracked list with IDs: [roadmap-and-gaps.md](./roadmap-and-gaps.md). Headlines:

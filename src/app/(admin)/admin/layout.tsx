@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { InsetShell, type NavGroup } from "@/components/shell/inset-shell";
+import { AdminAccountMenu } from "@/components/admin/admin-account-menu";
 import { BrandLogo } from "@/components/brand-logo";
 import { Toaster } from "@/components/ui/sonner";
 import { adminBadgeCounts } from "@/lib/admin-counts";
@@ -38,12 +39,13 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </Link>
         }
         groups={groups}
+        topbarRight={<AdminAccountMenu variant="avatar" name={admin.name} email={admin.email} image={admin.image ?? null} />}
         sidebarFooter={
-          <div className="space-y-1 px-1 text-xs">
-            <Link href="/" target="_blank" className="flex items-center gap-1.5 rounded-md px-1 py-1 font-medium text-sidebar-foreground/80 hover:bg-background/60">
+          <div className="space-y-1 text-xs">
+            <Link href="/" target="_blank" className="flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-sidebar-foreground/80 hover:bg-background/60">
               <ExternalLink className="size-3.5" aria-hidden /> View storefront
             </Link>
-            <p className="truncate px-1 text-muted-foreground" title={admin.email}>{admin.name}</p>
+            <AdminAccountMenu variant="sidebar" name={admin.name} email={admin.email} image={admin.image ?? null} />
           </div>
         }
       >

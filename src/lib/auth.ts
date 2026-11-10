@@ -11,6 +11,12 @@ import * as schema from "@/db/schema";
  */
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
+  // BetterAuth rejects POSTs (sign-out) from any origin other than baseURL. In development we also
+  // browse via localhost, so allow those origins there only; production trusts baseURL alone.
+  trustedOrigins:
+    process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "http://127.0.0.1:3001"],
   secret: process.env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
