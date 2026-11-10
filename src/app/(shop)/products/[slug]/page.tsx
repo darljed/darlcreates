@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getProductBySlug, listPublishedProducts } from "@/lib/catalog";
 import { getProductReviews } from "@/lib/reviews";
-import { readUrl } from "@/lib/storage";
+import { fileUrl } from "@/lib/storage";
 import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
 import { ProductReviews } from "@/components/product-reviews";
@@ -26,10 +26,8 @@ export default async function ProductPage({
   const product = await getProductBySlug(slug, { publishedOnly: true });
   if (!product) notFound();
 
-  const [stlUrl, ...photoUrls] = await Promise.all([
-    readUrl(product.stlKey),
-    ...product.photos.map((p) => readUrl(p.key)),
-  ]);
+  const stlUrl = fileUrl(product.stlKey);
+  const photoUrls = product.photos.map((p) => fileUrl(p.key));
   const reviews = await getProductReviews(product.id);
 
   return (

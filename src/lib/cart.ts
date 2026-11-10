@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getProductById } from "./catalog";
-import { readUrl } from "./storage";
+import { fileUrl } from "./storage";
 import type { ConfigSelection, ProductOptionInput } from "./pricing";
 
 /** Get or create the user's single active cart. */
@@ -76,7 +76,7 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
       lineTotalCents: it.unitPriceCents * it.qty,
       config,
       summary: summarizeConfig(product.options, config),
-      imageUrl: await readUrl(product.photos[0]?.key ?? null),
+      imageUrl: fileUrl(product.photos[0]?.key ?? null),
     });
   }
   return lines;

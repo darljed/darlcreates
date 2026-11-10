@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { nanoid } from "nanoid";
 
@@ -53,7 +59,8 @@ export async function presignUpload(
   return getSignedUrl(
     client(),
     new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
-    { expiresIn },
+    // Sign content-type so the PUT must use exactly the type we validated.
+    { expiresIn, signableHeaders: new Set(["content-type"]) },
   );
 }
 
@@ -70,4 +77,32 @@ export async function readUrl(
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn },
   );
+}
+
+/**
+ * Stable, never-expiring URL for a public catalog file (product photo / STL).
+ * Pure string — safe to embed in cached/prerendered pages. The route at
+ * /api/files/[...key] signs a fresh short-lived S3 URL per request (gap G-03).
+ */
+export function fileUrl(key: string | null | undefined): string | null {
+  if (!key) return null;
+  return `/api/files/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Size in bytes of an object, or null if it doesn't exist. */
+export async function headObject(key: string): Promise<number | null> {
+  try {
+    const res = await client().send(
+      new HeadObjectCommand({ Bucket: bucket, Key: key }),
+    );
+    return res.ContentLength ?? 0;
+  } catch (err) {
+    const name = (err as { name?: string }).name;
+    if (name === "NotFound" || name === "NoSuchKey") return null;
+    throw err;
+  }
+}
+
+export async function deleteObject(key: string): Promise<void> {
+  await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }

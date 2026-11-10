@@ -11,6 +11,9 @@ import {
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { parsePesoInput } from "@/lib/money";
+import { deleteObject, headObject } from "@/lib/storage";
+import { KEY_PATTERNS, UPLOAD_RULES } from "@/lib/uploads";
+import { productPhotos } from "@/db/schema";
 
 type Result = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -35,7 +38,6 @@ const productSchema = z.object({
   category: z.string().min(1).max(60).default("general"),
   basePrice: z.string().min(1),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
-  stlKey: z.string().max(300).optional(),
 });
 
 export async function createProductAction(input: unknown): Promise<Result> {
@@ -63,7 +65,6 @@ export async function createProductAction(input: unknown): Promise<Result> {
       category: parsed.data.category,
       basePriceCents,
       status: parsed.data.status,
-      stlKey: parsed.data.stlKey || null,
     })
     .returning({ id: products.id });
 
@@ -96,7 +97,6 @@ export async function updateProductAction(input: unknown): Promise<Result> {
       category: parsed.data.category,
       basePriceCents,
       status: parsed.data.status,
-      stlKey: parsed.data.stlKey || null,
       updatedAt: new Date(),
     })
     .where(eq(products.id, parsed.data.id));
@@ -196,4 +196,96 @@ async function slugOf(productId: string): Promise<string | undefined> {
     .where(eq(products.id, productId))
     .limit(1);
   return p?.slug;
+}
+
+// ---------------------------------------------------------------------------
+// File attachments (uploaded directly to S3 via /api/uploads/presign first)
+// ---------------------------------------------------------------------------
+
+const attachStlSchema = z.object({
+  productId: z.string().uuid(),
+  key: z.string().regex(KEY_PATTERNS.stl),
+});
+
+/**
+ * Attach an uploaded STL to a product. Verifies the object really exists and is
+ * within the size limit (the client could lie). The previous STL is NOT deleted
+ * from S3: existing orders reference it via order_items.stl_key_snapshot.
+ */
+export async function attachStlAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = attachStlSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid file key" };
+
+  const size = await headObject(parsed.data.key);
+  if (size === null) return { ok: false, error: "Upload not found in storage" };
+  if (size > UPLOAD_RULES.stl.maxBytes) {
+    await deleteObject(parsed.data.key);
+    return { ok: false, error: "STL too large" };
+  }
+
+  await db
+    .update(products)
+    .set({ stlKey: parsed.data.key, updatedAt: new Date() })
+    .where(eq(products.id, parsed.data.productId));
+
+  invalidate(await slugOf(parsed.data.productId));
+  return { ok: true };
+}
+
+const addPhotoSchema = z.object({
+  productId: z.string().uuid(),
+  key: z.string().regex(KEY_PATTERNS.photo),
+  alt: z.string().max(200).optional().default(""),
+});
+
+export async function addPhotoAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = addPhotoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid file key" };
+
+  const size = await headObject(parsed.data.key);
+  if (size === null) return { ok: false, error: "Upload not found in storage" };
+  if (size > UPLOAD_RULES.photo.maxBytes) {
+    await deleteObject(parsed.data.key);
+    return { ok: false, error: "Photo too large" };
+  }
+
+  const existing = await db
+    .select({ sort: productPhotos.sort })
+    .from(productPhotos)
+    .where(eq(productPhotos.productId, parsed.data.productId));
+  const nextSort = existing.reduce((m, r) => Math.max(m, r.sort + 1), 0);
+
+  await db.insert(productPhotos).values({
+    productId: parsed.data.productId,
+    s3Key: parsed.data.key,
+    alt: parsed.data.alt,
+    sort: nextSort,
+  });
+
+  invalidate(await slugOf(parsed.data.productId));
+  return { ok: true };
+}
+
+const deletePhotoSchema = z.object({ photoId: z.string().uuid() });
+
+export async function deletePhotoAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = deletePhotoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+
+  const [photo] = await db
+    .select()
+    .from(productPhotos)
+    .where(eq(productPhotos.id, parsed.data.photoId))
+    .limit(1);
+  if (!photo) return { ok: false, error: "Photo not found" };
+
+  await db.delete(productPhotos).where(eq(productPhotos.id, photo.id));
+  // Photos are not snapshotted into orders, so the object can go too.
+  await deleteObject(photo.s3Key).catch(() => {});
+
+  invalidate(await slugOf(photo.productId));
+  return { ok: true };
 }

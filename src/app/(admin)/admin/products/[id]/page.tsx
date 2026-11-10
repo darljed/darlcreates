@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
 import { ProductForm } from "@/components/admin/product-form";
 import { SchemaBuilder } from "@/components/admin/schema-builder";
+import { ProductFiles } from "@/components/admin/product-files";
+import { fileUrl } from "@/lib/storage";
 
 export const metadata = { title: "Edit product · Admin" };
 
@@ -31,8 +33,20 @@ export default async function EditProductPage({
             category: product.category,
             basePriceCents: product.basePriceCents,
             status: product.status as "draft" | "published" | "archived",
-            stlKey: product.stlKey,
           }}
+        />
+      </div>
+
+      <div>
+        <h2 className="mb-4 text-2xl font-extrabold">Files</h2>
+        <ProductFiles
+          productId={product.id}
+          stlKey={product.stlKey}
+          photos={product.photos.map((p) => ({
+            id: p.id,
+            url: fileUrl(p.key) ?? "",
+            alt: p.alt,
+          }))}
         />
       </div>
 

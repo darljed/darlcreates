@@ -1,17 +1,15 @@
 import { listPublishedProducts } from "@/lib/catalog";
-import { readUrl } from "@/lib/storage";
+import { fileUrl } from "@/lib/storage";
 import { ProductCard } from "@/components/product-card";
 
 export const metadata = { title: "Shop" };
 
 export default async function ProductsPage() {
   const products = await listPublishedProducts();
-  const withImages = await Promise.all(
-    products.map(async (p) => ({
-      product: p,
-      imageUrl: await readUrl(p.photoKey),
-    })),
-  );
+  const withImages = products.map((p) => ({
+    product: p,
+    imageUrl: fileUrl(p.photoKey),
+  }));
 
   const categories = Array.from(
     new Set(products.map((p) => p.category)),

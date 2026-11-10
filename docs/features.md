@@ -31,13 +31,12 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
 - Shipping entry; **admin-only signed STL download** per order item
+- **File uploads**: STL (≤50 MB) and product photos (≤5 MB) go browser → S3 via presigned PUT; photo grid with delete
 - Review moderation (approve/hide)
 
 ## Known gaps / deferred
 Full, tracked list with IDs: [roadmap-and-gaps.md](./roadmap-and-gaps.md). Headlines:
-- **No upload path** (G-01/G-02): the storage lib exists but there is no presign
-  route and no upload UI; STL keys are pasted and product photos can't be added.
-- Bucket `darlcreates-uploads` not created; Google OAuth creds not set (G-05/G-06).
+- Google sign-in not yet verified end to end (G-05).
 - Authenticated customer flow, admin flow and the 3D viewer with a real STL have
   not been browser-tested (G-14).
 - Image customization option is a placeholder (G-09).

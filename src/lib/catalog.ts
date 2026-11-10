@@ -60,7 +60,7 @@ export type FullProduct = {
   basePriceCents: number;
   status: string;
   stlKey: string | null;
-  photos: { key: string; alt: string }[];
+  photos: { id: string; key: string; alt: string }[];
   options: ProductOptionInput[];
 };
 
@@ -131,7 +131,7 @@ async function assembleProduct(p: typeof products.$inferSelect): Promise<FullPro
     basePriceCents: p.basePriceCents,
     status: p.status,
     stlKey: p.stlKey,
-    photos: photos.map((ph) => ({ key: ph.s3Key, alt: ph.alt })),
+    photos: photos.map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
     options,
   };
 }

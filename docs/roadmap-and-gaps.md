@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-09
+Last updated: 2026-11-09 (S3 + uploads)
 
 ---
 
@@ -19,12 +19,8 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail / fix | Status |
 |---|---|---|---|---|
-| G-01 | 🔴 | **No file upload path at all** | `src/lib/storage.ts` has `presignUpload()` but **no route calls it** — there is no `/api/uploads/presign`. Admin cannot upload STL or photos; `STL key` is a pasted text field. *Earlier status notes wrongly said a presign route existed — corrected here.* Fix: add admin presign route (scoped prefix, content-type + size limits) + upload widget in product form. | ⬜ |
-| G-02 | 🔴 | **Admin cannot add product photos** | `product_photos` has no insert path anywhere (no action, no UI). Storefront reads photos but nothing writes them. Fix with G-01. | ⬜ |
-| G-03 | 🔴 | **Signed S3 URLs baked into cached pages will expire** | Product pages are cached 1h (`use cache`, `cacheLife("hours")`) and prerendered; `readUrl()` returns a signed GET URL valid 1h when `CDN_BASE_URL` is unset. A cached page can outlive its URLs → broken images / STL. Fix: serve reads through CloudFront (`CDN_BASE_URL`, deterministic URLs), or resolve URLs at request time in a dynamic boundary. **Decide before relying on S3 reads.** | ⬜ |
 | G-04 | 🔴 | **Production cannot reach the database** | DB is on the agent-server, Tailscale-only (`100.90.200.13`). A Vercel/Amplify deploy cannot connect. Also `next build` queries the DB (`generateStaticParams`), so CI/Vercel builds fail without access. Fix: choose prod DB (RDS / Supabase / exposed pooler), and decide whether build-time DB access is acceptable. | ⬜ |
-| G-05 | 🔴 | **Google OAuth credentials not set** | `.env.local` has empty `GOOGLE_CLIENT_ID/SECRET`; nobody can sign in. Owner is adding these. Redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google`. | 🚧 owner |
-| G-06 | 🔴 | **`darlcreates-uploads` bucket does not exist** | Verified 404 on 2026-11-09. Create in `ap-south-1` under AWS profile **`darljed`** (account `551892774595`, owner djam.devteam@gmail.com) — **never** the `default`/`pmpc-*` profiles (PMPC account `535066803233`). Needs private bucket, CORS for browser PUT, SSE, scoped IAM key. | ⬜ next |
+| G-05 | 🔴 | **Google OAuth credentials not set** | `.env.local` has empty `GOOGLE_CLIENT_ID/SECRET`; nobody can sign in. Owner is adding these. Redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google`. | 🚧 creds set; sign-in not yet verified |
 
 ### Correctness / security — fix before launch
 
@@ -39,6 +35,14 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-13 | 🟠 | **Seeded DB password was shown in chat/terminal output** | The `darlcreates` DB role password was generated in-session and echoed. Rotate it and store in Bitwarden. | ⬜ |
 | G-14 | 🟠 | **No real UI/browser testing yet** | Build, typecheck and 3 scripts pass, and unauthenticated pages were curl-checked. The authenticated customer flow, admin flow and 3D viewer with a real STL have **not** been exercised in a browser. Planned right after G-05/G-06. | ⬜ next |
 | G-15 | 🟠 | **Tests don't call the real Server Actions** | `scripts/test-order-lifecycle.ts` re-creates the DB steps by hand; it validates the schema/rules, not `placeOrderAction` / `verifyPaymentAction` themselves. Refactor logic into callable service functions and test those. | ⬜ |
+
+### Found while building uploads
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-26 | 🟠 | **Production origins missing from S3 CORS** | CORS allows only `localhost:3000/3001`. Add the production domain before launch or admin uploads fail there. |
+| G-27 | 🟡 | **Orphaned S3 objects** | A file uploaded but never attached (admin closes the tab mid-way) stays in the bucket; replaced STLs are kept on purpose (orders reference them). Add a periodic sweep of unreferenced `stl/`/`photos/` keys. |
+| G-28 | 🟡 | **App S3 key has no rotation plan** | `darlcreates-app` access key lives in `.env.local`. Store in Bitwarden; rotate periodically. |
 
 ### Missing from the spec (planned, not built)
 
@@ -72,9 +76,9 @@ Verified against the code on 2026-11-09 (not from memory).
 ## B. Next steps (agreed order)
 
 1. **Document everything** — this folder. ✅
-2. **Owner: set Google OAuth creds** in `.env.local` (G-05).
-3. **Create S3 bucket** `darlcreates-uploads` with profile `darljed` (G-06) — private, CORS, SSE, scoped IAM key; decide CloudFront vs signed reads (G-03) at the same time.
-4. **Build the upload path** (G-01, G-02): admin presign route + STL/photo upload UI.
+2. **Owner: set Google OAuth creds** in `.env.local` (G-05) — done, sign-in to be verified.
+3. **Create S3 bucket** (G-06) — ✅ done 2026-11-09, with request-time signed reads (G-03).
+4. **Build the upload path** (G-01, G-02) — ✅ done 2026-11-09.
 5. **Browser-test the UI** end to end (G-14): customer flow, admin flow, 3D viewer with a real STL; `make-admin` after first sign-in.
 6. Fix the 🟠 correctness items (G-07 … G-13).
 7. Choose production hosting + DB (G-04).
@@ -109,3 +113,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | ID | Resolved | Notes |
 |---|---|---|
 | G-25 | 2026-11-09 | `tasks.md` updated with real status. |
+| G-01 | 2026-11-09 | Admin STL/photo upload: `POST /api/uploads/presign` (admin-only, validated, content-type signed) + `ProductFiles` UI; `attachStlAction` verifies the object exists via HEAD. Test: `scripts/test-uploads.ts`. |
+| G-02 | 2026-11-09 | `addPhotoAction` / `deletePhotoAction` + photo grid in the product editor. |
+| G-03 | 2026-11-09 | Chose request-time signing (no CloudFront). Cached pages embed stable `/api/files/<key>` URLs; that route signs a fresh 5-min S3 URL per request, only for published products' files (or any `photos/`/`stl/` for admins). See decisions D-14. |
+| G-06 | 2026-11-09 | Bucket `darlcreates-uploads` (ap-south-1, acct 551892774595): all public access blocked, SSE-S3, BucketOwnerEnforced, CORS for localhost:3000/3001, abort-multipart lifecycle. IAM user `darlcreates-app` with an inline policy limited to this bucket; key stored in `.env.local`. Verified allowed on the bucket, AccessDenied on other buckets / list-buckets / IAM. |

@@ -91,3 +91,19 @@ it, and `.kiro/steering/*` for Kiro, plus the Kiro spec as the scope source.
 `scripts/test-*.ts` run with `tsx`: assert helpers, isolated prefixed data,
 cleanup, no framework. Currently money, pricing, and an order-lifecycle script.
 Known weakness: the lifecycle script doesn't call the real Server Actions (G-15).
+
+## D-14 — File delivery: request-time signing, no CloudFront (resolves G-03)
+Cached/prerendered pages must not contain expiring signed URLs. Pages embed the
+stable path `/api/files/<key>` (`fileUrl()`); the route signs a fresh 5-minute S3
+URL on each request and redirects. Bucket stays fully private. Trade-off: one
+extra redirect per image/STL and a DB lookup to authorize; fine at this scale.
+Upgrade path: CloudFront with signed cookies/URLs if traffic or latency demands it.
+Customer uploads and payment proofs (`customer/`, `proof/`) are never served by
+this route.
+
+## D-15 — Dedicated app credentials for S3
+Bucket created in account 551892774595 (profile `darljed`). The app uses IAM user
+`darlcreates-app` whose only permissions are Get/Put/DeleteObject on
+`darlcreates-uploads/*` and ListBucket on the bucket. Verified denied on other
+buckets, list-buckets and IAM. Presigned PUTs sign `content-type`
+(an unsigned header was found to let a different type through — fixed and tested).

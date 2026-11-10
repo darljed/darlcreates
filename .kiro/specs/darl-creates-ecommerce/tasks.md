@@ -21,13 +21,13 @@ E2E → PR → docs. Never merge without permission.
 - [~] 1.4 Seed: 3 sample products with schemas done; admin via `make-admin.ts`.
 
 ## 2. Storage & uploads
-- [~] 2.1 S3 client + key builder + presign helper exist; **no presign route** (G-01); bucket not created (G-06).
+- [x] 2.1 S3 client, presign route (admin), bucket created (G-01, G-06).
 - [ ] 2.2 Server-side post-upload validation (G-09).
-- [~] 2.3 Signed read URLs done; CloudFront/expiry strategy open (G-03).
+- [x] 2.3 Request-time signed reads via `/api/files` (G-03, D-14).
 
 ## 3. Admin — catalog
 - [x] 3.1 Admin RBAC layout + nav.
-- [~] 3.2 Product CRUD done; **STL/photo upload missing** (G-01, G-02).
+- [x] 3.2 Product CRUD + STL/photo upload.
 - [~] 3.3 Schema builder: add/delete option + add value; no edit/reorder (G-19).
 - [~] 3.4 Pricing self-check done; no persistence test of schema builder.
 
@@ -76,7 +76,7 @@ E2E → PR → docs. Never merge without permission.
 - [ ] 11.5 Responsive/perf pass; **browser E2E not yet run** (G-14).
 
 ## 12. Release readiness (added 2026-11-09)
-- [ ] 12.1 Create S3 bucket (profile `darljed`), CORS, scoped IAM key (G-06).
+- [x] 12.1 S3 bucket (profile `darljed`), CORS, scoped IAM key (G-06).
 - [ ] 12.2 Google OAuth creds (G-05, owner).
 - [ ] 12.3 Production hosting + reachable DB (G-04).
 - [ ] 12.4 Rotate DB password into Bitwarden (G-13).

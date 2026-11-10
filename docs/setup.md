@@ -34,11 +34,11 @@ npx tsx scripts/test-order-lifecycle.ts   # needs DB (Tailscale)
 | `DATABASE_URL` | Postgres on the agent-server | ✅ set (role `darlcreates`) |
 | `BETTER_AUTH_SECRET` | Session signing. **Dev placeholder** — generate a real one: `openssl rand -base64 32` | ⚠️ replace |
 | `BETTER_AUTH_URL` | App origin (`http://localhost:3000` locally) | ✅ |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | ⬜ owner adding |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | ✅ set (sign-in not yet verified) |
 | `AWS_REGION` | `ap-south-1` | ✅ |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | **Dedicated key for the uploads bucket only** | ⬜ after bucket creation |
-| `S3_BUCKET` | `darlcreates-uploads` | ⬜ bucket not created yet |
-| `CDN_BASE_URL` | CloudFront domain for reads (see gap G-03) | ⬜ optional |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Key of IAM user `darlcreates-app` (uploads bucket only) | ✅ set |
+| `S3_BUCKET` | `darlcreates-uploads` | ✅ created 2026-11-09 |
+| `CDN_BASE_URL` | Optional CloudFront domain. **Leave empty** — reads go through `/api/files` (D-14) | — |
 | `SMTP_*`, `EMAIL_FROM` | Order emails; console-logged when unset | ⬜ |
 | `NEXT_PUBLIC_GCASH_NAME` / `NEXT_PUBLIC_GCASH_NUMBER` | Shown to customers at payment. **Confirm the number is the business GCash** (T-06) | ⚠️ confirm |
 
@@ -89,7 +89,7 @@ Rules:
   can fall through to another account.
 - Primary region `ap-south-1`; SES (if used for email) is `ap-southeast-1`.
 
-### Planned S3 bucket setup (G-06)
+### S3 bucket (created 2026-11-09)
 
 `darlcreates-uploads`, `ap-south-1`, account `551892774595`:
 
@@ -101,7 +101,10 @@ Rules:
 - IAM policy for the app key: `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`
   on `arn:aws:s3:::darlcreates-uploads/*` and `s3:ListBucket` on the bucket —
   nothing else.
-- Optional lifecycle rule: expire abandoned `customer/` uploads after N days.
+- Lifecycle: abort incomplete multipart uploads after 3 days. (Sweep for orphaned objects is G-27.)
+- CORS currently lists only localhost origins — add the production origin (G-26).
+- IAM user: `darlcreates-app`, inline policy `darlcreates-uploads-only`.
+- To rotate the key: `aws iam create-access-key --user-name darlcreates-app --profile darljed`, update `.env.local`, then delete the old key.
 
 ## Branching & git
 

@@ -28,7 +28,6 @@ export type ProductFormValues = {
   category: string;
   basePriceCents: number;
   status: "draft" | "published" | "archived";
-  stlKey: string | null;
 };
 
 export function ProductForm({ initial }: { initial?: ProductFormValues }) {
@@ -40,15 +39,13 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
     category: initial?.category ?? "general",
     basePrice: initial ? String(centavosToPesos(initial.basePriceCents)) : "",
     status: initial?.status ?? "draft",
-    stlKey: initial?.stlKey ?? "",
   });
 
   function submit() {
     startTransition(async () => {
-      const payload = { ...v, stlKey: v.stlKey || undefined };
       const res = initial?.id
-        ? await updateProductAction({ ...payload, id: initial.id })
-        : await createProductAction(payload);
+        ? await updateProductAction({ ...v, id: initial.id })
+        : await createProductAction(v);
       if (res.ok) {
         toast.success(initial?.id ? "Product saved" : "Product created");
         if (!initial?.id && "id" in res && res.id) {
@@ -119,19 +116,11 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
           </Select>
         </div>
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="stlKey">STL file key (S3)</Label>
-        <Input
-          id="stlKey"
-          placeholder="stl/xxxx-model.stl"
-          value={v.stlKey}
-          onChange={(e) => setV({ ...v, stlKey: e.target.value })}
-        />
-        <p className="text-xs text-muted-foreground">
-          The print-ready STL shown in the 3D viewer. Direct upload arrives with
-          S3; for now paste the object key.
-        </p>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        {initial?.id
+          ? "Upload the STL and photos in the section below."
+          : "After creating, you can upload the STL, photos and customization options."}
+      </p>
       <Button
         onClick={submit}
         disabled={pending}
