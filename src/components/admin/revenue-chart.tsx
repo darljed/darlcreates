@@ -26,11 +26,13 @@ export function RevenueChart({ points }: { points: RevenuePoint[] }) {
         <span>{formatPHP(total)} in {points.length} days</span>
         <span>{fmt(points[points.length - 1].day)}</span>
       </figcaption>
-      <table className="sr-only">
+      <div className="sr-only">
+      <table>
         <caption>Verified revenue by day</caption>
         <thead><tr><th scope="col">Day</th><th scope="col">Revenue</th></tr></thead>
         <tbody>{points.filter((p) => p.cents).map((p) => <tr key={p.day}><td>{p.day}</td><td>{formatPHP(p.cents)}</td></tr>)}</tbody>
       </table>
+      </div>
     </figure>
   );
 }

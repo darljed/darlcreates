@@ -19,14 +19,18 @@ export function matchesQuery(p: Filterable, query: string): boolean {
   return q.split(" ").every((word) => hay.includes(word));
 }
 
+/** "Keychains " and "keychains" are the same category. */
+export const categoryKey = (c: string) => c.trim().toLowerCase();
+
 export function filterProducts<T extends Filterable>(items: T[], query: string, category: string | null): T[] {
-  return items.filter((p) => (!category || p.category === category) && matchesQuery(p, query));
+  const want = category ? categoryKey(category) : null;
+  return items.filter((p) => (!want || categoryKey(p.category) === want) && matchesQuery(p, query));
 }
 
 /** Categories with counts, most common first then alphabetical. */
 export function categoryCounts(items: Filterable[]): { category: string; count: number }[] {
   const m = new Map<string, number>();
-  for (const p of items) m.set(p.category, (m.get(p.category) ?? 0) + 1);
+  for (const p of items) m.set(categoryKey(p.category), (m.get(categoryKey(p.category)) ?? 0) + 1);
   return [...m.entries()]
     .map(([category, count]) => ({ category, count }))
     .sort((a, b) => b.count - a.count || a.category.localeCompare(b.category));

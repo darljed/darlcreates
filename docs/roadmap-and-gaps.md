@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-10 (footer, legal pages, mobile fixes)
+Last updated: 2026-11-10 (legal UX, logos, demo data + fixes)
 
 ---
 
@@ -176,4 +176,5 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-55 | 2026-11-10 | Dashboard stat cards are now the same height (every card has a hint line and fills its grid cell). |
 | G-56 | 2026-11-10 | **Legal pages editor redesigned** (tabs, Write/Preview, toolbar, link dialog, dirty guard, acceptance stats). See D-31. |
 | G-57 | 2026-11-10 | **Logo upload for every place a logo is used** (`/admin/branding`, six slots with size/format rules, previews). Replaced the fixed brand files with owner-uploadable ones; SVG intentionally not accepted. See D-30. `test-branding.ts` (67 checks incl. live S3). |
+| G-58 | 2026-11-10 | **Demo seed + design review with real volume** (`scripts/seed-demo.ts`, `test-data-integrity.ts`). Found and fixed: the dashboard revenue figure was clipped (number now scales with its card), a hidden chart table stretched the page by 180 px, the admin orders list had no search/pagination/customer column (72 rows = one 3,500 px page), the "3D model" header wrapped, categories differing only in case were separate chips (now normalized), product-card prices floated at different heights, the product page's price label sat low, the activity log repeated "Order placed · Order placed", customer order numbers wrapped mid-number, and the product page overflowed by 8 px at 320 px. |
 

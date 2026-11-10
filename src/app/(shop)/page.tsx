@@ -10,7 +10,9 @@ import { fileUrl } from "@/lib/storage";
 /** Landing page. Every block of copy comes from Admin → Landing page (defaults in site-content-schema). */
 export default async function Home() {
   const c = await getHomeContent();
-  const products = c.featured.enabled ? (await listPublishedProducts()).slice(0, c.featured.limit) : [];
+  const products = c.featured.enabled
+    ? [...(await listPublishedProducts())].sort((a, b) => b.createdAtMs - a.createdAtMs).slice(0, c.featured.limit)
+    : [];
   const heroImage = fileUrl(c.hero.imageKey);
 
   return (

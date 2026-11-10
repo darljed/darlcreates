@@ -81,7 +81,7 @@ export function Th({ className, ...p }: React.ThHTMLAttributes<HTMLTableCellElem
     <th
       scope="col"
       className={cn(
-        "border-b bg-muted/60 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+        "whitespace-nowrap border-b bg-muted/60 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
         `${compact}:px-3 ${compact}:py-1.5 ${compact}:text-[11px]`,
         className,
       )}
@@ -115,7 +115,7 @@ export function Stat({
   const body = (
     <div
       className={cn(
-        "flex h-full flex-col rounded-lg border p-4 transition-colors",
+        "@container flex h-full flex-col rounded-lg border p-4 transition-colors",
         `${compact}:p-3`,
         tone === "primary" && "border-primary bg-primary text-primary-foreground",
         tone === "warn" && "border-accent bg-accent/40",
@@ -124,7 +124,8 @@ export function Stat({
       )}
     >
       <p className={cn("text-xs", tone === "primary" ? "opacity-85" : "text-muted-foreground")}>{label}</p>
-      <p className={cn("mt-1 text-2xl font-extrabold leading-none", `${compact}:text-xl`)}>{value}</p>
+      {/* the number scales with the card width (container query) so ₱231,271.50 never gets clipped */}
+      <p className="mt-1 whitespace-nowrap text-[clamp(1.05rem,13cqw,1.5rem)] font-extrabold leading-none tabular-nums">{value}</p>
       {/* Always reserve the hint line so every card in a row has the same height. */}
       <p className={cn("mt-1 min-h-4 text-xs leading-4", tone === "primary" ? "opacity-80" : "text-muted-foreground")}>{hint ?? "\u00a0"}</p>
     </div>

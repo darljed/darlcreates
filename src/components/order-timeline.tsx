@@ -39,7 +39,7 @@ export function OrderTimeline({
             </p>
             <p className="text-xs text-muted-foreground">
               {h.createdAt.toLocaleString("en-PH")}
-              {h.note ? ` · ${h.note}` : ""}
+              {h.note && h.note.trim().toLowerCase() !== (LABELS[h.toStatus] ?? h.toStatus).toLowerCase() ? ` · ${h.note}` : ""}
             </p>
           </div>
         </li>

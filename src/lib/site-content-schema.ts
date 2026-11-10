@@ -77,7 +77,7 @@ export const DEFAULT_HOME: HomeContent = {
     { icon: "Palette", title: "Customize it", body: "Choose colors, add your name or text, pick a size. Price updates live." },
     { icon: "Rocket", title: "Fast turnaround", body: "Pay via GCash, we verify, print, and ship. Track every step." },
   ],
-  featured: { enabled: true, title: "Popular right now", limit: 4 },
+  featured: { enabled: true, title: "New in the shop", limit: 4 },
   faq: [
     { q: "How do I pay?", a: "Pay with GCash. Send the amount, then enter your GCash reference number at checkout. We verify it and start printing." },
     { q: "How long does it take?", a: "Most items are printed and shipped within a few days of payment verification. Your order page shows each step." },

@@ -13,7 +13,7 @@ export function ProductCard({
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group block overflow-hidden rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:border-primary hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border-2 border-border bg-card transition-all hover:-translate-y-1 hover:border-primary hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-square overflow-hidden bg-muted">
         {imageUrl ? (
@@ -32,12 +32,12 @@ export function ProductCard({
           {product.category}
         </span>
       </div>
-      <div className="p-4">
+      <div className="flex flex-1 flex-col p-4">
         <h3 className="font-bold leading-tight">{product.name}</h3>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
           {product.description}
         </p>
-        <p className="mt-3 text-lg font-extrabold text-primary">
+        <p className="mt-auto pt-3 text-lg font-extrabold text-primary">
           {formatPHP(product.basePriceCents)}
           <span className="ml-1 text-xs font-medium text-muted-foreground">
             + options

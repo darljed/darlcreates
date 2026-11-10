@@ -108,7 +108,7 @@ export function ProductCustomizer({
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <ProductGallery
         productName={productName}
         modelUrl={stlUrl}
@@ -197,7 +197,7 @@ export function ProductCustomizer({
         ))}
 
         <div className="rounded-xl border-2 border-border bg-muted/40 p-4">
-          <div className="flex items-end justify-between">
+          <div className="flex items-baseline justify-between gap-3">
             <span className="text-sm text-muted-foreground">Your price</span>
             <span className="text-3xl font-extrabold text-primary">
               {formatPHP(unitPriceCents)}

@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { products, orders, payments, orderItems, users } from "@/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { products, productPhotos, orders, payments, orderItems, users } from "@/db/schema";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { REVENUE_ORDER_FILTER } from "./order-service";
 
 export async function adminListProducts() {
@@ -13,6 +13,7 @@ export async function adminListProducts() {
       basePriceCents: products.basePriceCents,
       status: products.status,
       stlKey: products.stlKey,
+      photoKey: sql<string | null>`(select ${productPhotos.s3Key} from ${productPhotos} where ${productPhotos.productId} = ${products.id} order by ${productPhotos.sort} limit 1)`,
     })
     .from(products)
     .orderBy(desc(products.updatedAt));
@@ -46,23 +47,62 @@ export async function adminPendingPayments(): Promise<PendingPayment[]> {
   return rows;
 }
 
-export async function adminListOrders(status?: string) {
-  const base = db
+/** Escape LIKE wildcards so a search for "50%" or "a_b" matches literally. */
+const likeTerm = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+export type AdminOrderRow = {
+  id: string;
+  orderNo: string;
+  status: (typeof orders.$inferSelect)["status"];
+  totalCents: number;
+  placedAt: Date;
+  customer: string;
+  email: string;
+  /** "2× Honeycomb Desk Organizer, 1× Cable Clip Set" */
+  itemsLabel: string | null;
+};
+
+/** One page of orders, newest first. Search matches order number, customer name or email. */
+export async function adminListOrders(opts: { status?: string; q?: string; page?: number; pageSize?: number } = {}) {
+  const pageSize = opts.pageSize ?? 25;
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const q = opts.q?.trim().slice(0, 80);
+  const where = and(
+    opts.status ? eq(orders.status, opts.status as AdminOrderRow["status"]) : undefined,
+    q ? or(ilike(orders.orderNo, likeTerm(q)), ilike(users.name, likeTerm(q)), ilike(users.email, likeTerm(q))) : undefined,
+  );
+
+  const rows = await db
     .select({
       id: orders.id,
       orderNo: orders.orderNo,
       status: orders.status,
       totalCents: orders.totalCents,
       placedAt: orders.placedAt,
+      customer: users.name,
+      email: users.email,
+      itemsLabel: sql<string | null>`(select string_agg(${orderItems.qty} || '× ' || ${orderItems.nameSnapshot}, ', ' order by ${orderItems.nameSnapshot}) from ${orderItems} where ${orderItems.orderId} = ${orders.id})`,
     })
     .from(orders)
-    .orderBy(desc(orders.placedAt));
-  if (status) {
-    return base.where(
-      eq(orders.status, status as typeof orders.$inferSelect.status),
-    );
-  }
-  return base;
+    .innerJoin(users, eq(orders.userId, users.id))
+    .where(where)
+    .orderBy(desc(orders.placedAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
+
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(orders)
+    .innerJoin(users, eq(orders.userId, users.id))
+    .where(where);
+
+  return { rows: rows as AdminOrderRow[], total, page, pageSize };
+}
+
+/** Orders per status, for the filter chips. */
+export async function adminOrderStatusCounts(): Promise<Record<string, number>> {
+  const rows = await db.select({ status: orders.status, n: sql<number>`count(*)::int` }).from(orders).groupBy(orders.status);
+  return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
 export type DashboardStats = {

@@ -252,3 +252,9 @@ a new URL) instead of redirecting each visitor to S3.
 The legal workspace keeps both editors mounted so switching tabs never loses text, warns on leaving with unsaved changes, and
 compares against the last saved text (undoing an edit returns to "all changes saved"). Toolbar actions are pure functions in
 `legal-format.ts` (tested). The privacy version still can't be chosen by the browser (D-28).
+
+## D-32 — Demo data is deterministic, tagged, and removable in one command
+`seed-demo.ts` uses a fixed random seed, so screenshots and bug reports are reproducible, and tags every row and file it creates, so
+`clear` is exact and never touches real data. It writes through the same tables the app uses (not through the service layer) so it can backdate
+timestamps; `test-data-integrity.ts` is the guard that the backdated data still obeys the app's rules (it caught the seed putting two history rows
+on the same instant). The demo products are published on purpose, to review the real storefront; remove them before launch.

@@ -26,6 +26,8 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | `checkout` | **the real service functions**: order placement, server-owned amount, duplicate references, concurrent verify, cancelled orders, transitions | DB |
 | `content` | CMS: link/icon allowlists, limits, defaults, `site/` upload rules, store info + footer schema, legal text format (safe links, headings), privacy-version rules (normal edit keeps it, "ask again" renews it, browser cannot choose it), consent follows the version, round trips + corrupt-row fallback (isolated keys, never the live rows) | DB |
 | `branding` | image-size reader (PNG/JPEG/WebP, real brand files), per-slot size/shape/type rules, schema, "every slot is rendered by some page", store round trip, and the server verifier against real S3 objects (valid, wrong shape, text/SVG renamed .png, missing key) | DB + S3 |
+| `admin-orders` | admin order list: search by order no./name/email, LIKE wildcards matched literally, pagination, status filter + counts, items summary | DB |
+| `data-integrity` | read-only checks over ALL data: totals add up, history ends at the order status and never runs backwards, payments match totals, one verified/pending per order, separation of duties, shipments, reviews only for delivered purchases, and the dashboard agrees with the raw data. Also validates the demo seed | DB |
 | `customer-orders` | customer cancel (unpaid only, blocked while a payment is pending), order list data, Buy again (recomputed price, archived product refused) | DB |
 | `customer-images` | customer upload security (ownership, magic bytes, smuggled keys) | DB + S3 |
 | `privacy` | consent versioning, address book, export, account deletion | DB + S3 |
@@ -68,3 +70,16 @@ delete from products where slug ilike 'test-%' or name like 'TEST%';
 delete from users    where id like 'TEST-%';
 ```
 Check S3 for `TEST` keys and anything under `customer/` that isn't real.
+
+## 6. Demo data (to review layouts with realistic volume)
+`npx tsx scripts/seed-demo.ts seed` creates 12 products (17 generated photos, 11 simple 3D models, options of every
+type, a draft, an archived one, one with no photo, one with a very long name), 14 customers (long names, accents,
+missing fields), ~70 orders over 45 days in every status with payments, shipments, status history, and ~30 reviews.
+Random choices use a fixed seed, so every run is identical. Everything is tagged: products `demo-*`, customers
+`seed-user-*` (`@seed.darlcreates.test`), files under `photos/demo-`, `models/demo-`, `customer/seed-user-`.
+- `... seed-demo.ts status` counts it, `... clear` removes **all** of it (rows and S3 files) and nothing else.
+- The demo products are **published**, so they show on the public storefront. **Run `clear` before launch.**
+- Run `test-data-integrity.ts` afterwards; it validates the seed against the app's own rules.
+- To browse as a demo customer without Google sign-in, sign a session cookie with BetterAuth (see
+  `scripts/e2e-session.ts` `cookieFor`) for `seed-user-maria-santos` and add it to the browser.
+

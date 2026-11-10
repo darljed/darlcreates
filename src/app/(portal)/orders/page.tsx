@@ -56,7 +56,7 @@ async function OrdersList() {
           const needsPayment = o.status === "awaiting_payment" && !o.paymentPending;
           return (
             <Tr key={o.id}>
-              <Td>
+              <Td className="whitespace-nowrap">
                 <Link href={`/orders/${o.orderNo}`} className="font-semibold hover:text-primary">
                   {o.orderNo}
                 </Link>
@@ -65,7 +65,7 @@ async function OrdersList() {
               <Td label="Items" className="max-w-xs truncate text-muted-foreground" title={o.itemsLabel}>
                 {o.itemsLabel}
               </Td>
-              <Td label="Total">{formatPHP(o.totalCents)}</Td>
+              <Td label="Total" className="whitespace-nowrap">{formatPHP(o.totalCents)}</Td>
               <Td label="Status">
                 <OrderStatusBadge status={o.status} size="sm" />
                 {o.status === "awaiting_payment" && o.paymentPending && (
@@ -73,7 +73,7 @@ async function OrdersList() {
                 )}
               </Td>
               <Td className="text-right">
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2 lg:flex-nowrap">
                   {needsPayment && (
                     <Button asChild size="sm" className="bg-primary text-primary-foreground">
                       <Link href={`/orders/${o.orderNo}#pay`}>Pay now</Link>

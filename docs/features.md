@@ -34,6 +34,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 ## Admin (owner) ✅
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
   status counts, needs-attention, top products, recent orders)
+- **Orders list**: customer and items columns, search (order no., name, email), status chips with counts, 25 per page; **Reviews** can be filtered (needs approval first); **Products** list shows a photo thumbnail
 - **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA band
 - **Store & footer** (`/admin/store`): store name, tagline, about, email, phone (tap to call), address, hours, explore links, social links, bottom line
 - **Legal pages** (`/admin/legal`): a tabbed workspace (Privacy / Terms, each with Write and Preview tabs; preview at desktop or phone width). Formatting toolbar (heading, bullets, link dialog that rejects unsafe URLs), word count, clickable section outline, unsaved-changes dot + guard, Discard, Ctrl/Cmd+S, "last saved by", how many customers accepted the current privacy version, and a confirm dialog before "ask every customer to accept again"

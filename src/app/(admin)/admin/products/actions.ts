@@ -35,7 +35,7 @@ function invalidate(slug?: string) {
 const productSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(2000).optional().default(""),
-  category: z.string().min(1).max(60).default("general"),
+  category: z.string().trim().toLowerCase().min(1).max(60).default("general"), // stored lower-case so "Toys" and "toys" are one category
   basePrice: z.string().min(1),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
 });

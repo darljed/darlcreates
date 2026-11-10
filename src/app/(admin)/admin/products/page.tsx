@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Box } from "lucide-react";
 import { adminListProducts } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
+import { fileUrl } from "@/lib/storage-url";
 import { Button } from "@/components/ui/button";
 import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
@@ -39,6 +40,7 @@ export default async function AdminProductsPage() {
         <DataTable>
           <thead>
             <tr>
+              <Th className="w-14"><span className="sr-only">Photo</span></Th>
               <Th>Name</Th>
               <Th>Category</Th>
               <Th>Base price</Th>
@@ -49,6 +51,14 @@ export default async function AdminProductsPage() {
           <tbody>
             {products.map((p) => (
               <Tr key={p.id}>
+                <Td className="w-14 !py-1.5">
+                  {p.photoKey ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={fileUrl(p.photoKey) ?? ""} alt="" width={40} height={40} loading="lazy" className="size-10 border object-cover" />
+                  ) : (
+                    <span className="flex size-10 items-center justify-center border border-dashed text-[10px] text-muted-foreground" aria-label="No photo">none</span>
+                  )}
+                </Td>
                 <Td>
                   <Link href={`/admin/products/${p.id}`} className="font-semibold hover:text-primary">
                     {p.name}

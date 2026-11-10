@@ -42,5 +42,14 @@ assert("counts sum to the total", cc.reduce((a, c) => a + c.count, 0) === P.leng
 assert("ties sort alphabetically", cc.slice(1).map((c) => c.category).join() === "keychain,keychains,toys");
 assert("input order is not mutated", P[0].name === "Outdoor Phone Stand");
 
+const MIXED = [
+  { name: "A", description: "", category: "Keychains" },
+  { name: "B", description: "", category: "keychains " },
+  { name: "C", description: "", category: "KEYCHAINS" },
+  { name: "D", description: "", category: "Toys" },
+];
+assert("categories differing only in case/spaces are one category", categoryCounts(MIXED).length === 2 && categoryCounts(MIXED)[0].count === 3);
+assert("the category filter ignores case and surrounding spaces", names(filterProducts(MIXED, "", "keychains")).join() === "A,B,C" && names(filterProducts(MIXED, "", "  KEYCHAINS")).join() === "A,B,C");
+
 if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }
 console.log("\nAll product-filter checks passed.");
