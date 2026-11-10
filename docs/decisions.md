@@ -165,3 +165,10 @@ a payment on a cancelled order could be marked verified). Rules now live in `ord
 (transactions + `FOR UPDATE`), and the invariants that must never break are also enforced by
 partial unique indexes, so a bug in app code cannot create a duplicate live reference.
 The client never supplies money: amounts come from the order row.
+
+## D-21 — Customer uploads are untrusted and never public
+Customers can now put files in our bucket, so: (1) keys are bound to the uploader (`customer/<userId>/`);
+(2) type is decided from the file's bytes, not its name or the browser's content type; (3) SVG/GIF are
+refused (SVG can carry script); (4) the server rebuilds the stored selection from the product schema so
+no foreign S3 key can ride along; (5) `/api/files` never serves `customer/` or `proof/`; only the owner
+(signed URL on their own pages) and the admin can see them. Nothing prints automatically; the admin reviews.

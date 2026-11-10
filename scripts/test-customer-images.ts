@@ -69,7 +69,7 @@ async function main() {
     let productId = "";
     async function put(userId: string, name: string, body: Buffer, ct: string) {
       const key = storage.buildKey("customer", name, userId);
-      const r = await fetch(await storage.presignUpload(key, ct, 60), { method: "PUT", headers: { "Content-Type": ct }, body });
+      const r = await fetch(await storage.presignUpload(key, ct, 60), { method: "PUT", headers: { "Content-Type": ct }, body: new Uint8Array(body) });
       if (!r.ok) throw new Error("put failed " + r.status);
       keys.push(key);
       return key;

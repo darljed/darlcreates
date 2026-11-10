@@ -20,7 +20,7 @@ prices and state transitions.
 
 | Action | File | Notes |
 |---|---|---|
-| `addToCartAction` | `(shop)/cart/actions.ts` | Recomputes price from the live option schema |
+| `addToCartAction` | `(shop)/cart/actions.ts` | Wrapper over `addToCart` (`lib/cart-service.ts`): normalizes the selection to the product schema, recomputes price, verifies any customer image (owner, exists, size, magic bytes) |
 | `updateQtyAction`, `removeItemAction` | same | Scoped to the user's own cart |
 | `placeOrderAction` | `(shop)/checkout/actions.ts` | Thin wrapper over `placeOrder` (service). Returns `{error}` for `useActionState`; redirects on success. Optional "save address" |
 | `submitPaymentAction` | same | Wrapper over `submitGcashReference`. Amount is the order total from the DB; reference normalized; duplicates and a 2nd pending payment are refused |

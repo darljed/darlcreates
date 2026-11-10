@@ -32,6 +32,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Order management: forward-only status transitions + **append-only history**
 - Shipping entry; **admin-only signed STL download** per order item
 - **File uploads**: 3D models (**STL or 3MF**, ≤50 MB) and product photos (≤5 MB) go browser → S3 via presigned PUT; photo grid with delete
+- **Customer image personalization**: an `image` option lets a customer upload artwork; the server verifies ownership + real image bytes; the admin previews it on the order
 - **3MF**: multi-part, multi-color files preview in 3D; colors in the file are kept, uncolored parts take the customer's swatch
 - Review moderation (approve/hide)
 
