@@ -88,6 +88,7 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - The customer's text is checked twice for printability (browser for feedback, server on add-to-cart). Allowed characters still come from the option's pattern; XML special characters in the name are escaped in the 3MF.
 - The download route is admin-only; the generated file is `private, no-store` and not kept anywhere.
 - Fonts are open (SIL OFL / Apache 2.0) files in `public/fonts`; they are public by nature. The customer's font choice is validated against the slot's offered list in `normalizeSelection` and again in `withFont`; any other value is dropped.
+- `measureNameSpaceAction` is admin-only, validates its numbers with the slot schema, and reads only the product's own stored model; the in-memory model cache holds at most two models for ten minutes. A customer's name colour is accepted only if it is in the slot's list (`normalizeSelection`).
 - Auto-configuration opens an uploaded 3MF on the server: the zip is capped at 120 MB unzipped and 3 million triangles, nesting depth is limited, and any failure leaves the file attached as uploaded.
 
 ## 9. Secrets

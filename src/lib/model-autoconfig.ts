@@ -64,6 +64,22 @@ export async function autoConfigureModel(productId: string, key: string): Promis
       const clean = stripPlaceholder(files, det.componentIndex);
       const surface = threeMfSurface(clean).mesh;
       slot = det.slot;
+      // with two or more filaments the customer can pick the name's colour from them (filament number kept for the print file)
+      if (det.filaments.length >= 2) {
+        const seen = new Set<string>();
+        const colours: { label: string; hex: string; filament: number }[] = [];
+        const used = new Map<string, number>();
+        det.filaments.forEach((hex, i) => {
+          const key = hex.toUpperCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          const base = colorName(hex);
+          const n = (used.get(base) ?? 0) + 1;
+          used.set(base, n);
+          colours.push({ label: n > 1 ? `${base} ${n}` : base, hex, filament: i + 1 });
+        });
+        slot = { ...slot, nameColors: colours.slice(0, 12) };
+      }
       if (!checkFit(surface, slot, slot.maxWidth, slotMaxHeight(slot)).fits) {
         const k = fitScale(surface, slot);
         if (k) {

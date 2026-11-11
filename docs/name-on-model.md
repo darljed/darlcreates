@@ -29,7 +29,9 @@
 | `normal` | Direction the surface faces, out of the model (unit vector) |
 | `up` | Which way is up for the letters, along the surface (unit vector) |
 | `maxWidth`, `maxHeight`, `height`, `depth`, `sink` | Widest and tallest the name's **ink** may be (mm; `maxHeight` counts ascenders and descenders and defaults to 1.5 × `height` for older slots), wanted capital-letter height (mm), how far letters stand out (mm), how far they sink into the surface (mm) |
-| `font` | `bold` or `chunky` |
+| `font`, `fonts` | The default font and, optionally, the list the customer may choose from (Bold, Chunky, Marker, Modern, Condensed, Script) |
+| `nameColor` | `{ hex, filament? }`: set when the example text printed in a different filament than the model, or when the customer picked a name colour. The preview draws the name in it and the print file assigns the name part to that filament |
+| `nameColors` | Up to 12 `{ label, hex, filament? }` the customer may choose from, besides "Same as product" |
 
 The letters are sunk a little (default 0.4 mm) so a slicer merges them with the base: **raised text needs no boolean (CSG) maths**. A right-handed frame (x = up × normal) guarantees the name reads left to right when seen from outside, on a top face and on a side wall (tested).
 
@@ -58,6 +60,18 @@ At save time the server casts rays down onto the model from nine points over the
 **Bug fixed 2026-11-11 (Script font overflowed the model):** the first version checked only a `maxWidth` × capital-height band and centred on the capital band. Script (Pacifico) has deep descenders and tall loops, so a name such as "Gypsy" reached 7.6 mm below the centre line (11.3 mm of ink against a 10.3 mm area) and ran off the surface; the check had also been run for the default font only. Now the rectangle is the ink box, set from the designer's example (23.57 × 10.28 mm for the v2 stand), and verified for every font and for names with tails (`test-name-mesh.ts`).
 
 On the stand the default 40 mm × 6 mm box hung off the surface at the first spot tried ("3 of 9 points over empty space"). A search over the largest flat areas found 28 to 30 mm wide spots on the top deck, the wall, and the sloped front of the backrest; the sloped front was used.
+
+## Limits that keep names on the model (admin editor)
+
+The editor does not let the admin enter sizes that would overflow. After every click or rotation, `measureNameSpaceAction` asks the server how much room there is at that spot (`src/lib/name-space.ts`): for name heights of 3, 4, 5 … 50 mm it finds the widest area that sits fully on the surface (same nine-point rule and 0.7 mm tolerance as `checkFit`, a test pins the two together). The table is made monotone (taller never allows wider) so it is safe.
+- **Inputs are limited:** Widest name, Tallest name and Letter height show "max N mm here" and are clamped as you type. Widening shrinks the height to what still fits, and vice versa (the value you just changed wins). Letter height can't exceed the tallest name.
+- **After a click or rotation** the current sizes are pulled inside the new room (a toast says so). While measuring, the size inputs and Save are disabled; if there is no room at all (too small or not flat) the editor says so and Save stays off.
+- **Fast:** the model's triangles are put in a 2D grid in the slot's own plane, so a lookup is one cell instead of a ray against 500k triangles: the whole table for the 523k-triangle v2 stand takes about 130 ms. The parsed model is cached in memory for 10 minutes (`name-surface.ts`).
+- Saving still runs the full `checkFit` on the server as a second line of defence.
+
+## Name colour (customer choice)
+
+Under "Name colours customers can choose" the admin lists colours (a colour picker, a label, and the slicer's filament number if known). Auto-config fills it from the 3MF's filaments (Pink 1, Cream 2, Red 3 for the v2 stand); "Add colour" and one-click chips from the product's Colors add more. A **Preview** button shows a colour on the model while editing. On the product page a **Name colour** row appears under the font picker ("Same as product" plus one swatch per colour) and the name is redrawn in the chosen colour. The choice is stored in the order (`nameColor`, validated against the list), shown in the summary ("Maria (Chunky font, Red name)"), and in a Bambu 3MF the name part is assigned to the colour's filament (checked on a real order: Red → extruder 3). Without a filament number the part keeps the object's filament and the colour name is in the order for the workshop to set by hand.
 
 ## Upload auto-configuration
 
@@ -124,7 +138,7 @@ Today the position is set by clicking in the admin and is stored in our database
 - Known Bambu quirk: colour painting inside negative text can misbehave (BambuStudio issue #8984); not relevant unless text is also multi-coloured.
 
 ### Suggested order
-A. ~~Wire text-element detection into the upload step~~ (done 2026-11-11, with fonts and colours). Marker-part detection (any slicer) is still to do. B. Engraved mode (negative part, wall-thickness check, decal preview). C. ~~More fonts, allow-list, customer font picker~~ (done). D. Customer-chosen name colour mapped to filament slots (a fixed contrasting colour from the file is done). E. A negative-part sample, to confirm the engraved subtype. A lighter preview model for big files. Snapshot the slot per order (G-80) before real orders depend on any of it.
+A. ~~Wire text-element detection into the upload step~~ (done 2026-11-11, with fonts and colours). Marker-part detection (any slicer) is still to do. B. Engraved mode (negative part, wall-thickness check, decal preview). C. ~~More fonts, allow-list, customer font picker~~ (done). D. ~~Customer-chosen name colour mapped to filament slots~~ (done). E. A negative-part sample, to confirm the engraved subtype. A lighter preview model for big files. Snapshot the slot per order (G-80) before real orders depend on any of it.
 
 ## Limits (what this proof of concept does not do)
 

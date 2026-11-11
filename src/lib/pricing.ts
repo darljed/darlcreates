@@ -37,7 +37,7 @@ export type ProductOptionInput = {
 /** A customer's selection: optionId -> chosen value. */
 export type ConfigSelection = Record<
   string,
-  { valueId?: string; text?: string; imageKey?: string; font?: string }
+  { valueId?: string; text?: string; imageKey?: string; font?: string; nameColor?: string }
 >;
 
 export type PriceResult = {
@@ -135,7 +135,13 @@ export function normalizeSelection(
         // a font choice is kept only if this option's name slot offers it
         const slot = (opt.constraints.slot ?? {}) as { font?: string; fonts?: string[] };
         const offered = new Set([slot.font, ...(slot.fonts ?? [])].filter(Boolean));
-        config[opt.id] = sel.font && offered.size > 1 && offered.has(sel.font) ? { text, font: sel.font } : { text };
+        const entry: { text: string; font?: string; nameColor?: string } = { text };
+        if (sel.font && offered.size > 1 && offered.has(sel.font)) entry.font = sel.font;
+        // a name colour is kept only if this option's name slot offers it (stored as the offered spelling)
+        const colours = ((opt.constraints.slot ?? {}) as { nameColors?: { hex: string }[] }).nameColors ?? [];
+        const colour = sel.nameColor ? colours.find((c) => c.hex.toLowerCase() === sel.nameColor!.toLowerCase()) : undefined;
+        if (colour) entry.nameColor = colour.hex;
+        config[opt.id] = entry;
       }
     } else if (opt.type === "image") {
       if (sel.imageKey) {
@@ -161,5 +167,6 @@ export const configSelectionSchema = z.record(
     text: z.string().max(500).optional(),
     imageKey: z.string().max(300).optional(),
     font: z.string().max(30).optional(),
+    nameColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   }),
 );

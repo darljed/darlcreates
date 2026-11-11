@@ -96,7 +96,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-86 | 🟠 | **Large models are slow in the browser** | The v2 stand (523k triangles, 44 MB of XML) takes about 12 s and 166 MB of heap to show in dev. Use a lighter preview model (decimated copy or a separate display file) for the product page; keep the full model for the print file |
 | G-87 | ✅ 2026-11-11 | **Text-element detection wired to upload** | `attachModelAction` → `autoConfigureModel`: slot, cleaned model, Colors from filaments, fonts offered. Tested (`test-model-autoconfig.ts`) and run with the real v2 file |
 | G-91 | ✅ 2026-11-11 | **Script font names overflowed the model** | The fit check covered only a width × capital-height band; descenders and loops of some fonts/names went past the surface. Fixed with an ink-box rectangle (`maxHeight`), see D-41 |
-| G-88 | 🟡 | **Customer cannot choose the name's colour** | Only a fixed contrasting colour from the file (`nameColor`). A Name colour option mapped to filament slots is not built |
+| G-88 | ✅ 2026-11-11 | **Customer-chosen name colour** | `nameColors` on the slot, picker on the product page, preview, order summary and filament assignment in the 3MF. See D-42 |
+| G-92 | ✅ 2026-11-11 | **Admin could enter sizes that overflow the model** | Inputs are limited to the measured room at the spot (`measureNameSpaceAction`); save still checks |
 | G-89 | 🟡 | **Marker-part detection (any slicer) and engraved (negative part) not built** | Engraving is next, with a negative-part sample from the owner |
 | G-90 | 🟡 | **No admin upload of custom fonts** | Fonts are files in `public/fonts`. `opentype.js` cannot read every font (Bangers failed on its GSUB table) |
 

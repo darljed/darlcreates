@@ -50,6 +50,7 @@ async function main() {
     const nameOpt = opts1.find((o) => o.type === "text");
     const slot = slotOf(nameOpt?.constraints as { slot?: unknown });
     assert("the slot is valid, at the detected spot, with the sensible defaults for the text option", !!slot && Math.abs(slot.position[0] - 120) < 0.01 && slot.normal[0] > 0.99 && (nameOpt!.constraints as { maxLen?: number }).maxLen === 12 && nameOpt!.required === false);
+    assert("the three filaments are offered as name colours, with their filament numbers", slot?.nameColors?.map((c) => `${c.label}:${c.filament}`).join() === "Pink:1,Cream:2,Red:3", JSON.stringify(slot?.nameColors));
     assert("fonts offered: the match for Marker Felt plus two sturdy ones", slot?.fonts?.join() === "marker,bold,chunky");
     assert("the name area is the example's own box: 10 x 4 mm", slot?.maxWidth === 10 && slot?.maxHeight === 4, JSON.stringify([slot?.maxWidth, slot?.maxHeight]));
     const colourOpt = opts1.find((o) => o.type === "color");

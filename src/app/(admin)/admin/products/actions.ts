@@ -15,9 +15,11 @@ import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
 import { nameSlotSchema, slotMaxHeight } from "@/lib/name-mesh";
-import { checkFit, fitScale, readBaseSurface, shrinkSlot } from "@/lib/name-3mf";
+import { checkFit, fitScale, shrinkSlot } from "@/lib/name-3mf";
+import { loadSurface } from "@/lib/name-surface";
+import { measureSpace } from "@/lib/name-space";
+import type { SpaceTable } from "@/lib/name-mesh";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
-import { getObject } from "@/lib/storage";
 
 type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
 
@@ -222,11 +224,9 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
   if (!opt || opt.productId !== productId || opt.type !== "text") return { ok: false, error: "Choose a text option of this product" };
 
   if (slot && kind && product.stlKey) {
-    // A name of the widest size allowed must sit fully on the surface here, or some names would print floating or buried.
-    const obj = await getObject(product.stlKey);
-    if (!obj) return { ok: false, error: "The model file could not be read from storage" };
+    // A name area of the size allowed must sit fully on the surface here, or some names would print floating or buried.
     try {
-      const surface = readBaseSurface(await new Response(obj.stream).arrayBuffer(), kind);
+      const surface = await loadSurface(product.stlKey);
       const fit = checkFit(surface, slot, slot.maxWidth, slotMaxHeight(slot));
       if (!fit.fits) {
         const k = fitScale(surface, slot);
@@ -249,6 +249,30 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
   invalidate(product.slug);
   revalidatePath(`/admin/products/${productId}`);
   return { ok: true };
+}
+
+const spaceSchema = z.object({
+  productId: z.string().uuid(),
+  position: nameSlotSchema.shape.position,
+  normal: nameSlotSchema.shape.normal,
+  up: nameSlotSchema.shape.up,
+});
+
+/**
+ * How much room there is for a name at a spot on the product's model, as a table of widest-area-per-height. The admin
+ * editor uses it to stop values that would overflow; saving checks again (`saveNameSlotAction`).
+ */
+export async function measureNameSpaceAction(input: unknown): Promise<{ ok: true; table: SpaceTable } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = spaceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid position" };
+  const [product] = await db.select({ stlKey: products.stlKey }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
+  if (!product?.stlKey || !/\.(stl|3mf)$/i.test(product.stlKey)) return { ok: false, error: "This product has no STL or 3MF model" };
+  try {
+    return { ok: true, table: measureSpace(await loadSurface(product.stlKey), parsed.data) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+  }
 }
 
 async function slugOf(productId: string): Promise<string | undefined> {

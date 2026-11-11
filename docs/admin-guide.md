@@ -65,6 +65,8 @@ For a product with an **STL or 3MF** model and a **text** option (for example "N
 - **Stands out** (how far the letters rise, about 1.2 mm) and **Sunk in** (leave at 0.4 so the letters fuse to the surface).
 - **Font** (Bold or Chunky) and **Rotate**.
 
+The size boxes are **limited to what fits** at the spot you clicked ("max N mm here"); if you ask for more, the other value is reduced so the name stays on the surface. If there is no room, the editor says so. Under **Name colours** add the colours customers may pick for the name (from your Colors, or any colour), with the slicer filament number if you want the print file to assign it; the **Preview** button shows a colour on the model.
+
 Type a sample name to see it; the line under it shows the real size and the thinnest stroke. **Save position.** Customers now see their name on the model as they type. In an order, the item's download is a **3MF with two parts: the base and the name**. Open it in your slicer and give the name its own filament if you want a contrasting colour. If the name would hang off the surface, saving is refused and the message tells you the widest name that fits; lower "Widest name" (or move the spot) and save again. The name is a part of the model's object, so you can still give it its own filament in the slicer.
 
 ## Users

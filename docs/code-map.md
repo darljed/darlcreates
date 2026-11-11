@@ -96,7 +96,10 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `legal-format.ts` | **Pure.** Legal-text parser and the editor toolbar's text transforms (rejects unsafe links) |
 | `model-autoconfig.ts` | **Service (server).** After a 3MF upload: example text → name slot (+ cleaned model), filament colours → Colors option |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
+| `config-summary.ts` | **Pure.** `summarizeConfig`: the readable summary of a customer's selection (re-exported by `cart.ts`) |
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
+| `name-space.ts` | **Pure (server use).** `SurfaceProbe` and `measureSpace`: how much room a name has at a spot, as a table of widest-area-per-height |
+| `name-surface.ts` | **Service (server).** The product model as one mesh, cached in memory for 10 minutes |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
 | `like.ts` | Escapes `%` and `_` for SQL `LIKE` searches |
 | `money.ts` | **The only money path.** Integer centavos ↔ ₱ display and parsing |

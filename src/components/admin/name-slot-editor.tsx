@@ -2,13 +2,17 @@
 
 /**
  * Admin: choose where the customer's name goes on the product's 3D model. Click the surface to place it, then set the
- * letter height, the widest the name may be, how far it stands out, the font and its rotation. A sample name is drawn
- * live with the same code the customer's preview and the print file use. Saves into the text option's `slot`.
+ * letter height, the widest and tallest the name may be, how far it stands out, the font(s), the name colour(s) and its
+ * rotation. A sample name is drawn live with the same code the customer's preview and the print file use. Saves into the
+ * text option's `slot`.
+ *
+ * Sizes cannot overflow the model: after every click or rotation the server measures how much room there is at that
+ * spot (name-space.ts) and the width / height inputs are limited to it. Saving checks again.
  */
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, RotateCcw, RotateCw } from "lucide-react";
+import { Loader2, Plus, RotateCcw, RotateCw, Trash2 } from "lucide-react";
 import { Vector3 } from "three";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +21,15 @@ import { Check, Field } from "@/components/admin/editor-bits";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import type { PickHit } from "@/components/three/stl-viewer";
 import { useNameBuild } from "@/components/use-name-build";
-import { DEFAULT_SLOT_SIZES, fontChoices, NAME_FONTS, NAME_FONT_IDS, slotMaxHeight, slotOf, type NameFontId, type NameSlot } from "@/lib/name-mesh";
-import { saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
+import {
+  clampToSpace, DEFAULT_SLOT_SIZES, fontChoices, maxHeightFor, maxWidthFor, NAME_FONTS, NAME_FONT_IDS, slotMaxHeight, slotOf, spaceLimits,
+  type NameFontId, type NameSlot, type SpaceTable,
+} from "@/lib/name-mesh";
+import { measureNameSpaceAction, saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
 
 export type NameSlotOption = { id: string; label: string; constraints: { slot?: unknown } };
+/** The product's colour swatches, offered as quick additions to the name colours. */
+export type ColorSwatch = { label: string; hex: string };
 
 /** "Up" for the letters on a freshly clicked surface: model Z on walls, model Y on a top/bottom face. */
 function defaultUp(normal: [number, number, number]): [number, number, number] {
@@ -34,7 +43,7 @@ function rotateUp(slot: NameSlot, degrees: number): [number, number, number] {
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
-export function NameSlotEditor({ productId, modelUrl, options }: { productId: string; modelUrl: string; options: NameSlotOption[] }) {
+export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { productId: string; modelUrl: string; options: NameSlotOption[]; colors?: ColorSwatch[] }) {
   const router = useRouter();
   const [optionId, setOptionId] = useState(options.find((o) => slotOf(o.constraints))?.id ?? options[0]?.id ?? "");
   const [slots, setSlots] = useState<Record<string, NameSlot | null>>(() => Object.fromEntries(options.map((o) => [o.id, slotOf(o.constraints)])));
@@ -42,7 +51,44 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
   const [pending, start] = useTransition();
   const slot = slots[optionId] ?? null;
   const setSlot = (s: NameSlot | null) => setSlots((p) => ({ ...p, [optionId]: s }));
+  const [previewHex, setPreviewHex] = useState<string | null>(null);
   const build = useNameBuild(slot, sample);
+
+  // --- room at this spot -----------------------------------------------------------------------------------------
+  const spotKey = slot ? JSON.stringify([slot.position, slot.normal, slot.up]) : "";
+  const [space, setSpace] = useState<{ key: string; table: SpaceTable } | null>(null);
+  const [spaceError, setSpaceError] = useState<string | null>(null);
+  const request = useRef(0);
+  const table = space && space.key === spotKey ? space.table : null;
+  const measuring = Boolean(slot) && !table && !spaceError;
+  const limits = table ? spaceLimits(table) : null;
+  const noRoom = Boolean(limits && limits.maxWidth <= 0);
+
+  useEffect(() => {
+    if (!spotKey) return;
+    const mine = ++request.current;
+    const [position, normal, up] = JSON.parse(spotKey) as [NameSlot["position"], NameSlot["normal"], NameSlot["up"]];
+    const timer = setTimeout(async () => {
+      const res = await measureNameSpaceAction({ productId, position, normal, up });
+      if (mine !== request.current) return; // a newer click or rotation superseded this one
+      if (!res.ok) {
+        setSpaceError(res.error);
+        return;
+      }
+      setSpaceError(null);
+      setSpace({ key: spotKey, table: res.table });
+      // bring the current sizes inside the room that was just measured
+      setSlots((prev) => {
+        const cur = prev[optionId];
+        if (!cur || JSON.stringify([cur.position, cur.normal, cur.up]) !== spotKey) return prev;
+        const fit = clampToSpace(res.table, { width: cur.maxWidth, height: slotMaxHeight(cur) }, "width");
+        if (fit.width <= 0 || (fit.width === cur.maxWidth && fit.height === slotMaxHeight(cur))) return prev;
+        toast.info(`Name area reduced to ${fit.width} × ${fit.height} mm to fit here.`);
+        return { ...prev, [optionId]: { ...cur, maxWidth: fit.width, maxHeight: fit.height, height: Math.min(cur.height, fit.height) } };
+      });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [spotKey, productId, optionId]);
   const dirty = useMemo(() => JSON.stringify(slot) !== JSON.stringify(slotOf(options.find((o) => o.id === optionId)?.constraints)), [slot, options, optionId]);
 
   function onPick(hit: PickHit) {
@@ -79,17 +125,58 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
     });
   }
 
-  const num = (key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink", label: string, step: number, hint: string) => (
-    <Field label={label} hint={hint}>
-      <Input
-        type="number"
-        step={step}
-        value={slot ? (key === "maxHeight" ? slotMaxHeight(slot) : slot[key]) : ""}
-        disabled={!slot}
-        onChange={(e) => slot && setSlot({ ...slot, [key]: Number(e.target.value) })}
-      />
-    </Field>
-  );
+  /** Set one size, then pull the others back inside the room at this spot. */
+  function setSize(key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink", raw: number) {
+    if (!slot || !Number.isFinite(raw)) return;
+    if (!table || key === "depth" || key === "sink") {
+      setSlot({ ...slot, [key]: raw });
+      return;
+    }
+    if (key === "maxWidth") {
+      const fit = clampToSpace(table, { width: raw, height: slotMaxHeight(slot) }, "width");
+      setSlot({ ...slot, maxWidth: fit.width, maxHeight: fit.height, height: Math.min(slot.height, fit.height) });
+    } else if (key === "maxHeight") {
+      const fit = clampToSpace(table, { width: slot.maxWidth, height: raw }, "height");
+      setSlot({ ...slot, maxWidth: fit.width, maxHeight: fit.height, height: Math.min(slot.height, fit.height) });
+    } else {
+      setSlot({ ...slot, height: Math.min(raw, slotMaxHeight(slot)) }); // capital letters cannot be taller than the area
+    }
+  }
+
+  const maxOf = (key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink"): number | undefined => {
+    if (!slot || !table) return undefined;
+    if (key === "maxWidth") return maxWidthFor(table, slotMaxHeight(slot));
+    if (key === "maxHeight") return maxHeightFor(table, slot.maxWidth);
+    if (key === "height") return slotMaxHeight(slot);
+    return undefined;
+  };
+
+  const num = (key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink", label: string, step: number, hint: string) => {
+    const max = maxOf(key);
+    return (
+      <Field label={label} hint={max !== undefined ? `max ${max} mm here` : hint}>
+        <Input
+          type="number"
+          step={step}
+          max={max}
+          value={slot ? (key === "maxHeight" ? slotMaxHeight(slot) : slot[key]) : ""}
+          disabled={!slot || measuring || noRoom}
+          onChange={(e) => setSize(key, Number(e.target.value))}
+        />
+      </Field>
+    );
+  };
+
+  // --- name colours the customer can choose ----------------------------------------------------------------------
+  const HEX = /^#[0-9a-fA-F]{6}$/;
+  const nameColors = slot?.nameColors ?? [];
+  function setNameColors(next: NonNullable<NameSlot["nameColors"]>) {
+    if (!slot) return;
+    const { nameColors: _old, ...rest } = slot;
+    void _old;
+    setSlot(next.length ? { ...rest, nameColors: next } : rest);
+  }
+  const previewColor = previewHex ?? slot?.nameColor?.hex;
 
   return (
     <Panel
@@ -107,7 +194,7 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
       )}
       <div className="mt-3 grid gap-4 md:grid-cols-[1fr_260px]">
         <div className="aspect-square overflow-hidden rounded-lg border-2 bg-card md:aspect-[4/3]">
-          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={slot?.nameColor?.hex} onPick={onPick} />
+          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={previewColor} onPick={onPick} />
         </div>
         <div className="space-y-3">
           <Field label="Sample name" hint="to preview">
@@ -136,10 +223,75 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
           {slot?.nameColor && (
             <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-block size-4 rounded-full border" style={{ backgroundColor: slot.nameColor.hex }} aria-hidden />
-              Name prints in filament {slot.nameColor.filament} ({slot.nameColor.hex}), set from your 3MF.
+              Name prints in {slot.nameColor.filament ? `filament ${slot.nameColor.filament} ` : ""}({slot.nameColor.hex}) unless the customer picks another colour.
               <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { const { nameColor: _c, ...rest } = slot; void _c; setSlot(rest); }}>
                 Same as the model
               </Button>
+            </p>
+          )}
+          <fieldset disabled={!slot} className="space-y-1.5">
+            <legend className="text-xs font-medium">Name colours customers can choose <span className="font-normal text-muted-foreground">(none = the name follows the product colour)</span></legend>
+            {nameColors.map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <input
+                  type="color"
+                  aria-label={`Colour of ${c.label}`}
+                  className="h-8 w-9 shrink-0 cursor-pointer rounded border bg-background p-0.5"
+                  value={HEX.test(c.hex) ? c.hex : "#888888"}
+                  onChange={(e) => setNameColors(nameColors.map((x, j) => (j === i ? { ...x, hex: e.target.value } : x)))}
+                />
+                <Input aria-label={`Label of colour ${i + 1}`} className="min-w-0 flex-1" value={c.label} maxLength={30} onChange={(e) => setNameColors(nameColors.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+                <Input
+                  aria-label={`Slicer filament number of ${c.label}`}
+                  title="Slicer filament number (optional): the name part is assigned to it in the print file"
+                  className="w-14 shrink-0"
+                  type="number"
+                  min={1}
+                  max={32}
+                  placeholder="Fil."
+                  value={c.filament ?? ""}
+                  onChange={(e) => setNameColors(nameColors.map((x, j) => (j === i ? { ...x, filament: e.target.value ? Number(e.target.value) : undefined } : x)))}
+                />
+                <Button type="button" size="icon" variant="outline" aria-label={`Preview ${c.label}`} title="Show this colour in the preview" onClick={() => setPreviewHex(c.hex)}>
+                  <span className="size-4 rounded-full border" style={{ backgroundColor: c.hex }} />
+                </Button>
+                <Button type="button" size="icon" variant="outline" aria-label={`Remove ${c.label}`} onClick={() => setNameColors(nameColors.filter((_, j) => j !== i))}>
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {nameColors.length < 12 && (
+                <Button type="button" size="sm" variant="outline" onClick={() => setNameColors([...nameColors, { label: "Name colour", hex: "#e11d48" }])}>
+                  <Plus className="mr-1 size-4" /> Add colour
+                </Button>
+              )}
+              {colors.filter((c) => HEX.test(c.hex) && !nameColors.some((n) => n.hex.toLowerCase() === c.hex.toLowerCase())).slice(0, 8).map((c) => (
+                <Button key={c.hex} type="button" size="sm" variant="outline" onClick={() => setNameColors([...nameColors, { label: c.label, hex: c.hex }])} title={`Add ${c.label} from the product colors`}>
+                  <span className="mr-1 inline-block size-3 rounded-full border" style={{ backgroundColor: c.hex }} aria-hidden /> {c.label}
+                </Button>
+              ))}
+              {previewHex && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPreviewHex(null)}>
+                  Preview: same as product
+                </Button>
+              )}
+            </div>
+          </fieldset>
+          {measuring && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+              <Loader2 className="size-3.5 animate-spin" /> Measuring the room for a name here…
+            </p>
+          )}
+          {noRoom && (
+            <p className="text-xs text-destructive" role="alert">
+              There is no room for a name here: the surface is too small or not flat. Click a larger flat area.
+            </p>
+          )}
+          {spaceError && <p className="text-xs text-destructive" role="alert">Could not measure the room: {spaceError}. Saving will still check it.</p>}
+          {limits && !noRoom && (
+            <p className="text-xs text-muted-foreground">
+              Room here: up to {limits.maxWidth} mm wide (at the smallest height) or {limits.maxHeight} mm tall (at the smallest width). Sizes are limited to what fits.
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -169,7 +321,7 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
                 : (build?.error ?? "")}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" disabled={!slot || !dirty || pending} onClick={() => save(slot)}>
+            <Button type="button" size="sm" disabled={!slot || !dirty || pending || measuring || noRoom} onClick={() => save(slot)}>
               {pending && <Loader2 className="mr-1 size-4 animate-spin" />} Save position
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={pending || !slotOf(options.find((o) => o.id === optionId)?.constraints)} onClick={() => { setSlot(null); save(null); }}>

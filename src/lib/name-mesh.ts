@@ -69,10 +69,16 @@ export const nameSlotSchema = z.object({
   /** Fonts the customer may pick from. Omitted or just the default font: no picker is shown. */
   fonts: z.array(z.enum(NAME_FONT_IDS)).min(1).max(NAME_FONT_IDS.length).optional(),
   /**
-   * Set when the designer's example text was printed in a different filament than the model (a contrasting colour):
-   * the name is given that filament in the slicer and drawn in that colour in the preview. Omitted = same as the model.
+   * Set when the designer's example text was printed in a different filament than the model (a contrasting colour), or
+   * when the customer chose a name colour: the name is given that filament in the slicer and drawn in that colour in
+   * the preview. Omitted = same as the model. `filament` is the slicer's filament number, if known.
    */
-  nameColor: z.object({ hex: z.string().regex(/^#[0-9a-fA-F]{6}$/), filament: z.number().int().min(1).max(32) }).optional(),
+  nameColor: z.object({ hex: z.string().regex(/^#[0-9a-fA-F]{6}$/), filament: z.number().int().min(1).max(32).optional() }).optional(),
+  /** Name colours the customer may choose from (besides "same as the product"). Omitted or empty: no choice. */
+  nameColors: z
+    .array(z.object({ label: z.string().trim().min(1).max(30), hex: z.string().regex(/^#[0-9a-fA-F]{6}$/), filament: z.number().int().min(1).max(32).optional() }))
+    .max(12)
+    .optional(),
 });
 export type NameSlot = z.infer<typeof nameSlotSchema>;
 
@@ -87,6 +93,58 @@ export function fontChoices(slot: Pick<NameSlot, "font" | "fonts">): NameFontId[
 export function withFont(slot: NameSlot, requested: string | undefined): NameSlot {
   const ok = requested && (fontChoices(slot) as string[]).includes(requested) ? (requested as NameFontId) : slot.font;
   return ok === slot.font ? slot : { ...slot, font: ok };
+}
+
+/** The slot with the customer's name colour applied, if it is one of the offered colours; otherwise unchanged. */
+export function withNameColor(slot: NameSlot, requestedHex: string | undefined): NameSlot {
+  const hit = requestedHex ? slot.nameColors?.find((c) => c.hex.toLowerCase() === requestedHex.toLowerCase()) : undefined;
+  return hit ? { ...slot, nameColor: { hex: hit.hex, ...(hit.filament ? { filament: hit.filament } : {}) } } : slot;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// How much room there is at a spot: a table measured on the model (see name-space.ts), used to limit the admin's values
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** `widths[i]` = the widest name area (mm) that sits fully on the surface when it is `heights[i]` mm tall; 0 = no room. */
+export type SpaceTable = { heights: number[]; widths: number[] };
+
+/** Widest area that fits at this height (conservative: uses the next measured height up). */
+export function maxWidthFor(t: SpaceTable, height: number): number {
+  const i = t.heights.findIndex((h) => h >= height - 1e-9);
+  return i < 0 ? 0 : t.widths[i];
+}
+
+/** Tallest area that fits at this width. */
+export function maxHeightFor(t: SpaceTable, width: number): number {
+  let best = 0;
+  t.heights.forEach((h, i) => {
+    if (t.widths[i] >= width - 1e-9) best = h;
+  });
+  return best;
+}
+
+/** The largest width and the largest height that are each possible on their own at this spot. */
+export function spaceLimits(t: SpaceTable): { maxWidth: number; maxHeight: number } {
+  let maxHeight = 0;
+  t.heights.forEach((h, i) => {
+    if (t.widths[i] > 0) maxHeight = h;
+  });
+  return { maxWidth: Math.max(0, ...t.widths), maxHeight };
+}
+
+/**
+ * Bring a requested width and height inside the measured room, keeping the one the admin just changed as large as
+ * possible and shrinking the other. `changed` says which one the admin edited.
+ */
+export function clampToSpace(t: SpaceTable, want: { width: number; height: number }, changed: "width" | "height"): { width: number; height: number } {
+  const { maxWidth, maxHeight } = spaceLimits(t);
+  if (maxWidth <= 0) return { width: 0, height: 0 };
+  if (changed === "width") {
+    const width = Math.min(want.width, maxWidth);
+    return { width, height: Math.min(want.height, maxHeightFor(t, width)) };
+  }
+  const height = Math.min(want.height, maxHeight);
+  return { width: Math.min(want.width, maxWidthFor(t, height)), height };
 }
 
 /** A sensible font for the font name a designer used in the slicer (information only; we print with our own fonts). */
@@ -112,7 +170,7 @@ export function slotOf(constraints: { slot?: unknown } | null | undefined): Name
  */
 export function personalizedName(
   options: { id: string; type: string; constraints: { slot?: unknown } }[],
-  config: Record<string, { text?: string; font?: string }>,
+  config: Record<string, { text?: string; font?: string; nameColor?: string }>,
   baseKey: string | null,
 ): { slot: NameSlot; text: string; kind: "stl" | "3mf" } | null {
   const kind = baseKey && /\.(stl|3mf)$/i.exec(baseKey)?.[1].toLowerCase();
@@ -121,7 +179,7 @@ export function personalizedName(
     if (opt.type !== "text") continue;
     const slot = slotOf(opt.constraints);
     const text = cleanName(config[opt.id]?.text ?? "");
-    if (slot && text) return { slot: withFont(slot, config[opt.id]?.font), text, kind }; // the customer's font, if they chose one
+    if (slot && text) return { slot: withNameColor(withFont(slot, config[opt.id]?.font), config[opt.id]?.nameColor), text, kind }; // the customer's font and name colour, if they chose them
   }
   return null;
 }

@@ -6,10 +6,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
-import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, type NameSlot } from "../src/lib/name-mesh";
+import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, withNameColor, type NameSlot } from "../src/lib/name-mesh";
 import { colorName } from "../src/lib/color-name";
+import { SPACE_TOLERANCE_MM, SurfaceProbe, measureSpace } from "../src/lib/name-space";
+import { clampToSpace, maxHeightFor, maxWidthFor, spaceLimits } from "../src/lib/name-mesh";
 import { normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
-import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot } from "../src/lib/name-3mf";
+import { summarizeConfig } from "../src/lib/config-summary";
+import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot, FIT_TOLERANCE_MM } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
 import { withText } from "./fixtures/bambu-text-3mf";
 
@@ -84,6 +87,23 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
     const drop = normalizeSelection([opt], { t: { text: "Ana", font: "../../etc/passwd" } }, () => true).config.t;
     const none = normalizeSelection([{ ...opt, constraints: { slot: topSlot } }], { t: { text: "Ana", font: "chunky" } }, () => true).config.t;
     return keep.font === "chunky" && drop.font === undefined && none.font === undefined;
+  })());
+  const palette: NameSlot = { ...topSlot, nameColors: [{ label: "Red", hex: "#FF0000", filament: 3 }, { label: "Green", hex: "#00ff00" }] };
+  assert("withNameColor applies an offered colour (any letter case), with its filament if known, and ignores others", (() => {
+    const red = withNameColor(palette, "#ff0000"), green = withNameColor(palette, "#00FF00");
+    return red.nameColor?.hex === "#FF0000" && red.nameColor.filament === 3 && green.nameColor?.hex === "#00ff00" && green.nameColor.filament === undefined && withNameColor(palette, "#123456") === palette && withNameColor(palette, undefined) === palette;
+  })());
+  assert("personalizedName hands the chosen name colour to the print file", personalizedName([{ id: "o1", type: "text", constraints: { slot: palette } }], { o1: { text: "Ana", nameColor: "#FF0000" } }, "a.stl")?.slot.nameColor?.filament === 3);
+  assert("normalizeSelection keeps an offered name colour (as the slot spells it) and drops others, including junk", (() => {
+    const opt: ProductOptionInput = { id: "t", type: "text", label: "Name", required: false, priceDeltaCents: 0, constraints: { slot: palette }, values: [] };
+    const keep = normalizeSelection([opt], { t: { text: "Ana", nameColor: "#ff0000" } }, () => true).config.t;
+    const other = normalizeSelection([opt], { t: { text: "Ana", nameColor: "#123456" } }, () => true).config.t;
+    const none = normalizeSelection([{ ...opt, constraints: { slot: topSlot } }], { t: { text: "Ana", nameColor: "#FF0000" } }, () => true).config.t;
+    return keep.nameColor === "#FF0000" && other.nameColor === undefined && none.nameColor === undefined;
+  })());
+  assert("the cart summary names the font and the name colour", (() => {
+    const opt: ProductOptionInput = { id: "t", type: "text", label: "Name", required: false, priceDeltaCents: 0, constraints: { slot: { ...palette, fonts: ["bold", "chunky"] } }, values: [] };
+    return summarizeConfig([opt], { t: { text: "Ana", font: "chunky", nameColor: "#FF0000" } })[0].value === "Ana (Chunky font, Red name)" && summarizeConfig([opt], { t: { text: "Ana" } })[0].value === "Ana";
   })());
   assert("colorName: plain names for filament colours", colorName("#FF0000") === "Red" && colorName("#F95D73") === "Pink" && colorName("#000000") === "Black" && colorName("#FFFFFF") === "White" && colorName("#F7E6DE") === "Cream" && colorName("#0077A5") === "Blue" && colorName("#22C55E") === "Green" && colorName("zzz") === "zzz");
 
@@ -174,6 +194,34 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   })());
   assert("fitScale gives up (null) when the spot itself is off the surface", fitScale(base, { ...topSlot, position: [30, 10, 20], maxWidth: 30 }) === null);
   assert("a side wall works the same way", checkFit(base, side, 12, 5).fits && !checkFit(base, { ...side, position: [20, 10, 18.5] }, 12, 5).fits);
+
+  console.log("\nroom at a spot (limits for the admin editor)");
+  const cubeTable = measureSpace(base, topSlot);
+  assert("centred on the 20 mm cube top: 19 to 20 mm wide for any height up to 17 mm, nothing at 25 mm and above", cubeTable.heights.every((h, i) => (h <= 17 ? cubeTable.widths[i] >= 19 && cubeTable.widths[i] <= 20 : h >= 25 ? cubeTable.widths[i] === 0 : true)), JSON.stringify(cubeTable));
+  const edgeTable = measureSpace(base, { ...topSlot, position: [14, 10, 20] });
+  assert("6 mm from the edge: no wider than 12 (+ tolerance) at any height, and never wider when taller", Math.max(...edgeTable.widths) <= 13 && edgeTable.widths.every((w, i) => i === 0 || w <= edgeTable.widths[i - 1]), JSON.stringify(edgeTable.widths));
+  assert("off the model: no room anywhere", spaceLimits(measureSpace(base, { ...topSlot, position: [40, 10, 20] })).maxWidth === 0);
+  assert("every width the table allows really passes checkFit", edgeTable.heights.every((h, i) => !edgeTable.widths[i] || checkFit(base, { ...topSlot, position: [14, 10, 20] }, edgeTable.widths[i], h).fits));
+  assert("the fast probe agrees with checkFit on random rectangles (cube, several spots)", (() => {
+    let n = 0, same = 0;
+    for (const pos of [[10, 10, 20], [14, 10, 20], [4, 4, 20], [16, 16, 20], [10, 10, 25]] as [number, number, number][]) {
+      const probe = new SurfaceProbe(base, { ...topSlot, position: pos }, 60, 40);
+      for (const [w, h] of [[8, 3], [12, 6], [20, 5], [20, 20], [26, 8], [30, 30], [10, 12]]) {
+        n++;
+        if (probe.fits(w, h) === checkFit(base, { ...topSlot, position: pos }, w, h).fits) same++;
+      }
+    }
+    return n === same;
+  })());
+  assert("the tolerance in name-space matches the one in checkFit", SPACE_TOLERANCE_MM === FIT_TOLERANCE_MM);
+  const sp = { heights: [3, 5, 8, 12], widths: [30, 24, 16, 0] };
+  assert("maxWidthFor / maxHeightFor read the table conservatively", maxWidthFor(sp, 5) === 24 && maxWidthFor(sp, 6) === 16 && maxWidthFor(sp, 13) === 0 && maxHeightFor(sp, 24) === 5 && maxHeightFor(sp, 25) === 3 && maxHeightFor(sp, 31) === 0);
+  assert("clampToSpace: widening shrinks the height to fit; making taller shrinks the width; nothing fits = 0", (() => {
+    const a = clampToSpace(sp, { width: 40, height: 8 }, "width"); // width capped at 30, then height at most 3
+    const b = clampToSpace(sp, { width: 30, height: 20 }, "height"); // height capped at 8, then width at most 16
+    const none = clampToSpace({ heights: [3], widths: [0] }, { width: 10, height: 5 }, "width");
+    return a.width === 30 && a.height === 3 && b.height === 8 && b.width === 16 && none.width === 0 && none.height === 0;
+  })());
 
   console.log("\nname added to a slicer 3MF (Bambu-style: plate object made of components, geometry in a second file)");
   // two 10 mm cubes as components of one "Assembly" object, placed on the plate at (128,128,5) like Bambu does

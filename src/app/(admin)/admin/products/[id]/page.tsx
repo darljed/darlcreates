@@ -59,6 +59,7 @@ export default async function EditProductPage({
           productId={product.id}
           modelUrl={fileUrl(product.stlKey) ?? ""}
           options={product.options.filter((o) => o.type === "text").map((o) => ({ id: o.id, label: o.label, constraints: o.constraints }))}
+          colors={(product.options.find((o) => o.type === "color")?.values ?? []).map((v) => ({ label: v.label, hex: v.value }))}
         />
       )}
     </div>

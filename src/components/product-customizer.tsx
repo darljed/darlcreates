@@ -19,7 +19,7 @@ import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, configSelectionSchema, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
-import { fontChoices, NAME_FONTS, slotOf, withFont } from "@/lib/name-mesh";
+import { fontChoices, NAME_FONTS, slotOf, withFont, withNameColor } from "@/lib/name-mesh";
 import { useNameBuild } from "@/components/use-name-build";
 import { addToCartAction } from "@/app/(shop)/cart/actions";
 
@@ -109,7 +109,10 @@ export function ProductCustomizer({
   const nameOpt = useMemo(() => options.find((o) => o.type === "text" && slotOf(o.constraints)) ?? null, [options]);
   const nameSlot = useMemo(() => (nameOpt ? slotOf(nameOpt.constraints) : null), [nameOpt]);
   const nameFonts = useMemo(() => (nameSlot ? fontChoices(nameSlot) : []), [nameSlot]);
-  const chosenSlot = useMemo(() => (nameSlot ? withFont(nameSlot, nameOpt ? selection[nameOpt.id]?.font : undefined) : null), [nameSlot, nameOpt, selection]);
+  const chosenSlot = useMemo(
+    () => (nameSlot ? withNameColor(withFont(nameSlot, nameOpt ? selection[nameOpt.id]?.font : undefined), nameOpt ? selection[nameOpt.id]?.nameColor : undefined) : null),
+    [nameSlot, nameOpt, selection],
+  );
   const nameBuild = useNameBuild(chosenSlot, nameOpt ? (selection[nameOpt.id]?.text ?? "") : "");
   const nameError = nameBuild && !nameBuild.ok ? nameBuild.error : null;
 
@@ -153,7 +156,7 @@ export function ProductCustomizer({
         color={activeColor}
         photos={photos}
         overlay={nameBuild?.ok ? nameBuild.geometry : null}
-        overlayColor={nameSlot?.nameColor?.hex}
+        overlayColor={chosenSlot?.nameColor?.hex}
       />
 
       {/* Customizer form */}
@@ -238,6 +241,42 @@ export function ProductCustomizer({
                     <option key={f} value={f}>{NAME_FONTS[f].label}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {opt.id === nameOpt?.id && (nameSlot?.nameColors?.length ?? 0) > 0 && (
+              <div role="group" aria-label="Name colour" className="space-y-1.5">
+                <p className="text-xs font-semibold">Name colour</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={!selection[opt.id]?.nameColor}
+                    onClick={() => setValue(opt.id, { nameColor: undefined })}
+                    className={cn(
+                      "rounded-full border-2 px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      !selection[opt.id]?.nameColor ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary",
+                    )}
+                  >
+                    Same as product
+                  </button>
+                  {nameSlot!.nameColors!.map((col) => {
+                    const on = selection[opt.id]?.nameColor?.toLowerCase() === col.hex.toLowerCase();
+                    return (
+                      <button
+                        key={col.hex}
+                        type="button"
+                        aria-label={`${col.label} name`}
+                        aria-pressed={on}
+                        title={col.label}
+                        onClick={() => setValue(opt.id, { nameColor: col.hex })}
+                        className={cn(
+                          "size-8 rounded-full border-2 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          on ? "border-foreground ring-2 ring-ring" : "border-border",
+                        )}
+                        style={{ backgroundColor: col.hex }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             )}
             {opt.id === nameOpt?.id && (

@@ -3,8 +3,7 @@ import { carts, cartItems } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { fileUrl, readUrl } from "./storage";
-import type { ConfigSelection, ProductOptionInput } from "./pricing";
-import { NAME_FONTS, type NameFontId } from "./name-mesh";
+import type { ConfigSelection } from "./pricing";
 
 /** Get or create the user's single active cart. */
 export async function getOrCreateCart(userId: string): Promise<string> {
@@ -36,27 +35,8 @@ export type CartLine = {
   uploadUrl: string | null;
 };
 
-/** Human-readable summary of a config snapshot using the product's schema. */
-export function summarizeConfig(
-  options: ProductOptionInput[],
-  config: ConfigSelection,
-): { label: string; value: string }[] {
-  const out: { label: string; value: string }[] = [];
-  for (const opt of options) {
-    const sel = config[opt.id];
-    if (!sel) continue;
-    if (opt.type === "text" && sel.text) {
-      const fontLabel = sel.font && sel.font in NAME_FONTS ? NAME_FONTS[sel.font as NameFontId].label : null;
-      out.push({ label: opt.label, value: fontLabel ? `${sel.text} (${fontLabel} font)` : sel.text });
-    } else if (sel.valueId) {
-      const v = opt.values.find((x) => x.id === sel.valueId);
-      if (v) out.push({ label: opt.label, value: v.label });
-    } else if (sel.imageKey) {
-      out.push({ label: opt.label, value: "uploaded image" });
-    }
-  }
-  return out;
-}
+export { summarizeConfig } from "./config-summary";
+import { summarizeConfig } from "./config-summary";
 
 export async function getCartLines(userId: string): Promise<CartLine[]> {
   const cartId = await getOrCreateCart(userId);
