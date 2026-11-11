@@ -2,10 +2,11 @@
 
 /**
  * Product page customizer: option pickers with live price (display only; the server recomputes), image upload, add
- * to cart.
+ * to cart. If the customer must sign in or accept the privacy policy first, their choices are kept and the add is
+ * completed automatically when they return.
  */
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, ShoppingBag } from "lucide-react";
@@ -37,38 +38,64 @@ export function ProductCustomizer({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionLoading } = useSession();
   const signedIn = Boolean(session?.user);
   const [selection, setSelection] = useState<ConfigSelection>({});
   const [pending, startTransition] = useTransition();
   const storeKey = `dc:selection:${productId}`;
 
-  // Restore choices saved just before a sign-in redirect. sessionStorage only exists in the
-  // browser, so this has to run after mount; the saved copy is removed as soon as it's used.
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem(storeKey);
-      if (!saved) return;
-      sessionStorage.removeItem(storeKey);
-      const parsed = configSelectionSchema.safeParse(JSON.parse(saved));
-      if (parsed.success && Object.keys(parsed.data).length) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSelection(parsed.data);
-        toast.info("We kept your choices. Add to cart when you're ready.");
+  // Keep the customer's work across a sign-in or privacy-consent detour. sessionStorage only exists in the browser.
+  // `add` means "they pressed Add to cart": the add is finished automatically when they come back. `tries` stops a
+  // loop if consent somehow never sticks.
+  const keepAndGo = useCallback(
+    (sel: ConfigSelection, add: boolean, to: "/sign-in" | "/consent", tries = 0) => {
+      try {
+        sessionStorage.setItem(storeKey, JSON.stringify({ selection: sel, add, tries, at: Date.now() }));
+      } catch {
+        /* storage unavailable: they'll just re-pick */
       }
+      router.push(`${to}?redirect=${encodeURIComponent(pathname)}`);
+    },
+    [storeKey, router, pathname],
+  );
+
+  const addNow = useCallback(
+    (sel: ConfigSelection, tries = 0) => {
+      startTransition(async () => {
+        const res = await addToCartAction({ productId, selection: sel, qty: 1 });
+        if (res.ok) {
+          toast.success("Added to cart", { action: { label: "Go to cart", onClick: () => router.push("/cart") } });
+          router.refresh();
+        } else if ("needs" in res && tries < 2) {
+          keepAndGo(sel, true, res.needs === "consent" ? "/consent" : "/sign-in", tries + 1);
+        } else {
+          toast.error(res.error ?? "Could not add to cart");
+        }
+      });
+    },
+    [productId, router, keepAndGo],
+  );
+
+  // Restore choices saved before a sign-in / consent redirect, and finish the add if that is what they were doing.
+  // The saved copy is removed as soon as it's used, and ignored when old.
+  useEffect(() => {
+    if (sessionLoading) return;
+    try {
+      const raw = sessionStorage.getItem(storeKey);
+      if (!raw) return;
+      sessionStorage.removeItem(storeKey);
+      const saved = JSON.parse(raw) as { selection?: unknown; add?: boolean; tries?: number; at?: number };
+      const parsed = configSelectionSchema.safeParse(saved.selection);
+      if (!parsed.success || !Object.keys(parsed.data).length) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelection(parsed.data);
+      const fresh = typeof saved.at === "number" && Date.now() - saved.at < 30 * 60 * 1000;
+      if (saved.add && fresh && signedIn) addNow(parsed.data, saved.tries ?? 0);
+      else toast.info("We kept your choices. Add to cart when you're ready.");
     } catch {
       /* private mode or corrupt value: start fresh */
     }
-  }, [storeKey]);
-
-  function goSignIn() {
-    try {
-      sessionStorage.setItem(storeKey, JSON.stringify(selection));
-    } catch {
-      /* storage unavailable: they'll just re-pick */
-    }
-    router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
-  }
+  }, [storeKey, sessionLoading, signedIn, addNow]);
 
   // Live, client-side preview of the authoritative price (server re-checks).
   const { unitPriceCents, errors } = useMemo(
@@ -94,22 +121,14 @@ export function ProductCustomizer({
 
   function onAddToCart() {
     if (!signedIn) {
-      goSignIn();
+      keepAndGo(selection, true, "/sign-in");
       return;
     }
     if (errors.length) {
       toast.error(errors[0]);
       return;
     }
-    startTransition(async () => {
-      const res = await addToCartAction({ productId, selection, qty: 1 });
-      if (res.ok) {
-        toast.success("Added to cart", { action: { label: "Go to cart", onClick: () => router.push("/cart") } });
-        router.refresh();
-      } else {
-        toast.error(res.error ?? "Could not add to cart");
-      }
-    });
+    addNow(selection);
   }
 
   return (
@@ -195,7 +214,7 @@ export function ProductCustomizer({
                 signedIn={signedIn}
                 value={selection[opt.id]?.imageKey}
                 onChange={(key) => setValue(opt.id, { imageKey: key })}
-                onNeedSignIn={goSignIn}
+                onNeedSignIn={() => keepAndGo(selection, false, "/sign-in")}
               />
             )}
           </div>

@@ -1,11 +1,12 @@
 "use client";
 
 /**
- * Account dropdown for the storefront header: My orders, My account, Sign out.
+ * Account dropdown for the storefront header: My orders, Admin (owner only), My account, Sign out. Carries the links that
+ * the header hides on phones.
  */
 
 import { useRouter } from "next/navigation";
-import { LogOut, Package, User as UserIcon } from "lucide-react";
+import { LayoutDashboard, LogOut, Package, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
   DropdownMenu,
@@ -21,10 +22,12 @@ export function UserMenu({
   name,
   email,
   image,
+  isAdmin = false,
 }: {
   name: string;
   email: string;
   image: string | null;
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const initials = name
@@ -55,6 +58,11 @@ export function UserMenu({
         <DropdownMenuItem onSelect={() => router.push("/orders")}>
           <Package className="mr-2 size-4" /> My Orders
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onSelect={() => router.push("/admin")}>
+            <LayoutDashboard className="mr-2 size-4" /> Admin
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={() => router.push("/account")}>
           <UserIcon className="mr-2 size-4" /> My account
         </DropdownMenuItem>
