@@ -69,6 +69,30 @@ Browser-checked on 2026-11-11 against a throwaway "20 mm cube" product (`scripts
 
 On 2026-11-11 the **Outdoor Phone Stand** (a 3MF) got a name slot on the sloped front of its backrest: position (128, 120.5, 24), facing (0, −0.94, 0.34), 5 mm Bold letters, widest name 28 mm, 1.2 mm raised. Its existing required "Name" option (max 8 characters, +₱10.00) is the one customers type into, so **customers on the public product page now see their name on the model**. The spot was chosen by a search for large flat areas plus the fit check, and set by a script; move it in Admin → Products → Outdoor Phone Stand → Name on the model, or press **Remove** to switch the preview and the 3MF off (orders then download the original file again). An 8-letter name of wide letters (for example "WWWWWWWW") is refused as too long to print clearly; typical names fit.
 
+## Next: configuring the slot from the 3MF, fonts and colour, engraving (design, not built)
+
+Raised by the owner on 2026-11-11 after the proof of concept worked. Nothing here is built yet.
+
+### 1. Where the text goes: detect it from an example placed in the 3MF
+Today the position is set by clicking in the admin and is stored in our database, not in the 3MF. Nothing needs configuring in the 3MF. To detect it on upload instead, the designer places an **example** in the slicer and we read it (STL has no parts, so STL keeps click-to-place):
+- **Marker part (works in any slicer, no sample needed).** Add a part with a reserved name (for example `NAME`), a thin box where the text should be. We read its oriented bounding box: centre = position, thin axis = facing (the side with free space outside the model, by ray test), long axis = up, size = widest name and letter height, thickness = depth. The marker is then excluded from the preview and the print file.
+- **Slicer text element** (Bambu Studio / Orca / PrusaSlicer text tool). The slicer stores the text, font, size, depth and the part's transform in its config files, so position, facing, depth and even the mode (normal part = raised, negative part = engraved) can be read exactly. **I have not seen a real file yet** (the Outdoor Phone Stand has no text element, and its config only has `normal_part`), so this needs a sample from the owner before it can be built.
+- Either way the detected values pre-fill the slot at upload; the admin confirms or adjusts in the editor. Re-detect when the model is replaced.
+
+### 2. Font and colour
+- **Font:** yes. More heavy OFL fonts can be bundled (a file in `public/fonts` plus an entry in `NAME_FONTS`), the product can allow a list, and the customer can pick one (the preview loads it on demand). An admin upload of the owner's own TTF/OTF is possible (licence is the owner's responsibility). Latin text only: `opentype.js` does no complex-script shaping. A slicer text element's font cannot be reproduced unless we have the file; it would be mapped to a bundled font or uploaded.
+- **Colour:** printing colour is a filament choice. In a Bambu 3MF it is the part's `extruder` (we already write `1`); we can set the name part to another AMS slot, per product or from a "Name colour" option whose swatches map to slots. `Metadata/project_settings.config` lists the project's real filament colours (`filament_colour`; the stand has one, `#D4B1DD`), so swatches can be pre-filled from the file. Printers without an AMS would need a manual colour change. The preview already draws the name in a darker shade; it would use the chosen swatch.
+
+### 3. Engraved text
+- **Recommended: a negative part.** Add the name to the object as a **negative part** (Bambu/Orca/PrusaSlicer all have the type; Bambu: Change Type → Negative Part) and the slicer subtracts it at slice time. No CSG library, and the cut depth is simply the depth of our letter mesh, so the admin controls it. If the designer's example is a negative text/part, detect mode = engraved and depth from it. Placement uses the same slot.
+- **Fallback for STL (no slicer config to hold a negative part): real CSG** with `manifold-3d` (WASM) on the server, which writes a plain cut mesh any slicer reads. Heavier: for a 3MF the cut has to be written back into the geometry file.
+- **Safety check:** cast the existing rays *into* the model to measure the wall behind the surface; refuse a depth that leaves less than about 0.8 mm (it would break through).
+- **Preview:** a true engraved preview needs CSG in the browser on a small patch of the model; the cheap version draws the letters as a dark recess-coloured decal on the surface.
+- Known Bambu quirk: colour painting inside negative text can misbehave (BambuStudio issue #8984); not relevant unless text is also multi-coloured.
+
+### Suggested order
+A. Marker-part detection + pre-fill at upload. B. Engraved mode (negative part, wall-thickness check, decal preview). C. More fonts, per-product allow-list, customer font picker. D. Name colour mapped to filament slots. E. Slicer text-element detection once samples exist. Snapshot the slot per order (G-80) before real orders depend on any of it.
+
 ## Limits (what this proof of concept does not do)
 
 | Gap | Why it matters / next step |
