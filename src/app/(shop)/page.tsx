@@ -3,20 +3,32 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/product-card";
 import { CmsLink, ICONS } from "@/components/cms";
-import { getHomeContent } from "@/lib/site-content";
+import { JsonLd } from "@/components/json-ld";
+import { faqLd, organizationLd, pageMetadata, websiteLd } from "@/lib/seo";
+import { getBranding, getHomeContent, getSiteInfo } from "@/lib/site-content";
 import { listPublishedProducts } from "@/lib/catalog";
 import { fileUrl } from "@/lib/storage";
 
+export async function generateMetadata() {
+  const { seo } = await getSiteInfo();
+  return pageMetadata({ title: seo.title, description: seo.description, path: "/", absoluteTitle: true });
+}
+
 /** Landing page. Every block of copy comes from Admin → Landing page (defaults in site-content-schema). */
 export default async function Home() {
-  const c = await getHomeContent();
+  const [c, info, { logos }] = await Promise.all([getHomeContent(), getSiteInfo(), getBranding()]);
   const products = c.featured.enabled
     ? [...(await listPublishedProducts())].sort((a, b) => b.createdAtMs - a.createdAtMs).slice(0, c.featured.limit)
     : [];
   const heroImage = fileUrl(c.hero.imageKey);
 
+  const logoUrl = fileUrl(logos.favicon?.key) ?? "/brand/icon.png";
+
   return (
     <main className="flex-1">
+      <JsonLd data={organizationLd(info, logoUrl)} />
+      <JsonLd data={websiteLd(info)} />
+      <JsonLd data={faqLd(c.faq)} />
       {c.announcement.enabled && c.announcement.text && (
         <div className="bg-accent px-6 py-2 text-center text-sm font-semibold text-accent-foreground">
           {c.announcement.href ? (

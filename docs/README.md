@@ -16,6 +16,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [code-map.md](./code-map.md) | Every route, library, component and script, with what it is for |
 | [design-system.md](./design-system.md) | Tokens, density, shell and page primitives, forms, states, responsive and print rules |
 | [admin-guide.md](./admin-guide.md) | The owner's guide to each admin page and common workflows |
+| [shipping-research.md](./shipping-research.md) | Research (nothing built yet): how to calculate shipping and the cheapest way to integrate it |
 | [features.md](./features.md) | What is built, by area |
 | [decisions.md](./decisions.md) | Decision log: why things are the way they are |
 | [testing.md](./testing.md) | What is tested, how to run it, authenticated browser E2E, demo data |

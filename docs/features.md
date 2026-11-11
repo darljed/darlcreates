@@ -32,6 +32,10 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Email notifications (order placed / payment verified / rejected / shipped),
   SMTP when configured, console in dev
 
+- **Installable (PWA)**: manifest, icons, offline page and an "Install the app" link in the footer
+- **Search and AI visibility**: per-page titles and descriptions, schema.org markup (organization, FAQ, product with price and rating, breadcrumbs), `sitemap.xml`, `robots.txt`, `/llms.txt`; private pages are not indexed
+- Add to cart survives sign-in and the privacy-consent step: choices are kept and the item is added when the customer comes back
+
 ## Admin (owner) ✅
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
   status counts, needs-attention, top products, recent orders)
@@ -44,6 +48,8 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Product CRUD + **customization-schema builder** (options + color/size values)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
+- **Internal waybill** per order (A6 slip with barcode, ship-to, pack list and tick boxes) for our own tracking
+- **Search title and description** for the home page (Store & footer)
 - Shipping entry; **admin-only signed STL download** per order item
 - **File uploads**: 3D models (**STL or 3MF**, ≤50 MB) and product photos (≤5 MB) go browser → S3 via presigned PUT; photo grid with delete
 - **Customer image personalization**: an `image` option lets a customer upload artwork; the server verifies ownership + real image bytes; the admin previews it on the order

@@ -1,8 +1,9 @@
 /**
- * Storefront header: logo, navigation, cart badge and account menu.
+ * Storefront header: logo, navigation, cart badge and account menu. On phones the text links collapse (Shop becomes an icon;
+ * My Orders and Admin live in the account menu) so the logo is never squeezed.
  */
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Store } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/session";
 import { cartItemCount } from "@/lib/cart";
 import { UserMenu } from "./user-menu";
@@ -12,9 +13,10 @@ import { BrandLogo } from "./brand-logo";
 function HeaderShell({ children }: { children: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center" aria-label="Darl Creates home">
-          <BrandLogo variant="horizontal" className="h-9" priority />
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
+        {/* shrink-0: the logo keeps its natural width; the nav is what gives way on a phone */}
+        <Link href="/" className="flex shrink-0 items-center" aria-label="Darl Creates home">
+          <BrandLogo variant="horizontal" className="h-8 max-[360px]:h-7 sm:h-9" priority />
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">{children}</nav>
       </div>
@@ -22,13 +24,25 @@ function HeaderShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** "Shop" as an icon on phones (saves ~20px next to the logo) and as text from the sm breakpoint. */
+function ShopLink() {
+  return (
+    <>
+      <Button asChild variant="ghost" size="icon" className="sm:hidden" aria-label="Shop">
+        <Link href="/products"><Store className="size-5" /></Link>
+      </Button>
+      <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+        <Link href="/products">Shop</Link>
+      </Button>
+    </>
+  );
+}
+
 /** Static fallback shown while the session resolves (streamed). */
 export function SiteHeaderSkeleton() {
   return (
     <HeaderShell>
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/products">Shop</Link>
-      </Button>
+      <ShopLink />
       <Button asChild variant="ghost" size="icon" aria-label="Cart">
         <Link href="/cart">
           <ShoppingBag className="size-5" />
@@ -45,16 +59,14 @@ export async function SiteHeader() {
 
   return (
     <HeaderShell>
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/products">Shop</Link>
-      </Button>
+      <ShopLink />
       {user && (
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
           <Link href="/orders">My Orders</Link>
         </Button>
       )}
       {isAdmin(user) && (
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
           <Link href="/admin">Admin</Link>
         </Button>
       )}
@@ -73,6 +85,7 @@ export async function SiteHeader() {
           name={user.name}
           email={user.email}
           image={user.image ?? null}
+          isAdmin={isAdmin(user)}
         />
       ) : (
         <Button

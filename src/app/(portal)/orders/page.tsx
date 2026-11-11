@@ -1,3 +1,4 @@
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
@@ -8,7 +9,7 @@ import { ReorderButton } from "@/components/order-actions";
 import { Button } from "@/components/ui/button";
 import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
-export const metadata = { title: "My Orders" };
+export const metadata = { title: "My Orders", ...NOINDEX };
 export const instant = false;
 
 export default function OrdersPage() {

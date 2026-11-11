@@ -111,6 +111,10 @@ for (const f of appFiles) {
       .join("/");
   check(codeMap.includes(`\`${route}\``), `route ${route} (${f}) is not in docs/code-map.md`);
 }
+// metadata files generate routes too
+for (const [file, route] of [["robots.ts", "/robots.txt"], ["sitemap.ts", "/sitemap.xml"], ["manifest.ts", "/manifest.webmanifest"]] as const) {
+  if (existsSync(join(ROOT, "src/app", file))) check(codeMap.includes(`\`${route}\``), `route ${route} (src/app/${file}) is not in docs/code-map.md`);
+}
 for (const nf of walk("src/app", (f) => f.endsWith("/not-found.tsx") || f === "src/app/not-found.tsx")) {
   const short = nf.replace("src/app/", "");
   check(codeMap.includes(short.replace(/\/not-found\.tsx$/, "")) || codeMap.includes("not-found.tsx"), `${nf} is not in docs/code-map.md`);

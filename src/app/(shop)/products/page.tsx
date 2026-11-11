@@ -1,8 +1,14 @@
 import { listPublishedProducts } from "@/lib/catalog";
 import { fileUrl } from "@/lib/storage";
 import { ProductBrowser } from "@/components/product-browser";
+import { JsonLd } from "@/components/json-ld";
+import { itemListLd, pageMetadata } from "@/lib/seo";
 
-export const metadata = { title: "Shop" };
+export const metadata = pageMetadata({
+  title: "Shop custom 3D printed products",
+  description: "Browse ready-to-print designs, spin them in 3D, personalize the color, size or name, and we print and ship your order anywhere in the Philippines.",
+  path: "/products",
+});
 
 export default async function ProductsPage() {
   const products = await listPublishedProducts();
@@ -13,6 +19,7 @@ export default async function ProductsPage() {
 
   return (
     <main className="flex-1">
+      <JsonLd data={withImages.length ? itemListLd(products) : null} />
       <section className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-6xl px-6 py-14">
           <h1 className="text-4xl font-extrabold md:text-5xl">The Shop</h1>

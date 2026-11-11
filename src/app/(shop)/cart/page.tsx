@@ -1,3 +1,4 @@
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser, requireUser } from "@/lib/session";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckoutSteps } from "@/components/order-progress";
 import { CartItemRow } from "@/components/cart-item-row";
 
-export const metadata = { title: "Cart" };
+export const metadata = { title: "Cart", ...NOINDEX };
 
 export default function CartPage() {
   return (

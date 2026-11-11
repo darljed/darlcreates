@@ -76,6 +76,7 @@ Sending is best-effort: a failed send is logged and never blocks an order, payme
 | `cacheComponents` | `true` | Pages are static by default; per-user or uncached data must be in `<Suspense>` or opt out with `export const instant = false`. Runtime values like `new Date()` during prerender fail the build. See `tech.md` and D-16. |
 | `partialPrefetching` | `true` | Prefetch the static shell of a route. |
 | `allowedDevOrigins` | `["macbook-01.tail85990d.ts.net"]` | Dev only. Without it Next blocks HMR when you browse the dev server through the Tailscale hostname. Hostname only (no scheme, port or path); restart `next dev` after changing. |
+| `headers()` for `/sw.js` | `Content-Type: application/javascript`, `Cache-Control: no-cache, no-store, must-revalidate` | The service worker file must never come from a stale cache or users stay on an old version. (No other security headers yet: G-65.) |
 | `turbopack.rules["*.css"]` | `@tailwindcss/turbopack` | Tailwind v4 is configured in CSS (`src/app/globals.css`), not in a JS file. |
 
 Other files: `tsconfig.json` (strict; alias `@/*` → `src/*`; includes `.next/types` and `.next/dev/types`, which is why stale generated types can cause typecheck errors, see operations.md), `components.json` (shadcn: new-york style, Radix, CSS variables), `drizzle.config.ts` (schema `src/db/schema/index.ts`, output `drizzle/`, `strict: true`, loads `.env.local`), `eslint.config.mjs`.

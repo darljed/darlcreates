@@ -5,16 +5,26 @@ import { revalidatePath } from "next/cache";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { cartItems } from "@/db/schema";
-import { requireUser } from "@/lib/session";
+import { getAccess, requireUser } from "@/lib/session";
 import { getOrCreateCart } from "@/lib/cart";
 import { addToCart } from "@/lib/cart-service";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
-/** Thin wrapper: auth -> service (validation, price, image checks) -> revalidate. */
-export async function addToCartAction(input: unknown): Promise<ActionResult> {
-  const user = await requireUser();
-  const res = await addToCart(user.id, input);
+/** `needs` tells the browser what to do first; it keeps the customer's choices and retries after. */
+type AddResult = ActionResult | { ok: false; error: string; needs: "sign_in" | "consent" };
+
+/**
+ * Thin wrapper: access check -> service (validation, price, image checks) -> revalidate.
+ * Unlike the other actions this does NOT redirect when sign-in or privacy consent is missing: a redirect from here
+ * would throw away a customized product. It returns `needs` instead and the product page resumes the add afterwards.
+ */
+export async function addToCartAction(input: unknown): Promise<AddResult> {
+  const access = await getAccess();
+  if (access.state === "signed_out") return { ok: false, error: "Please sign in to add to cart.", needs: "sign_in" };
+  if (access.state === "consent") return { ok: false, error: "Please accept the privacy policy to continue.", needs: "consent" };
+  if (access.state !== "ok") return { ok: false, error: "This account can't place orders." };
+  const res = await addToCart(access.user.id, input);
   if (res.ok) revalidatePath("/cart");
   return res;
 }

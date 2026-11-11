@@ -81,6 +81,10 @@ Secrets live in `.env.local` (and ideally Bitwarden). Never paste them into chat
 - [ ] Store details, footer, logos, landing page filled in
 - [ ] SMTP configured, or accept console-only emails (G-23)
 - [ ] Rotate the DB password and the S3 key (G-13, G-28); review `npm audit` (T-07)
+- [ ] Set the home-page search title and description in Admin → Store & footer; submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools
+- [ ] Open the site on a phone, install it, and turn on airplane mode to see the offline page
+- [ ] Set the home-page search title and description in Admin → Store & footer; submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools (G-77)
+- [ ] Install the site on a phone and turn on airplane mode to see the offline page
 - [ ] Security headers added (G-65); a database backup scheduled (G-67)
 - [ ] You can sign in, place an order, submit a reference, verify it and walk the order to delivered
 
@@ -93,12 +97,14 @@ Secrets live in `.env.local` (and ideally Bitwarden). Never paste them into chat
 | Admin page shows an "Instant" / "blocking route" overlay in dev | A page awaits uncached data outside `<Suspense>` without `export const instant = false` | Add the opt-out to that page (a layout's does not cover its children). `test-instant.ts` finds these |
 | Sign-out does nothing or says invalid origin | You are on an origin that is not `BETTER_AUTH_URL` (and not localhost in dev) | Use the configured URL |
 | Blocked customer says they cannot sign in | Working as intended; check the user's page in Admin → Users | Unblock if wrong |
-| Typecheck complains about a route that no longer exists, or "does not satisfy AppRoutes" for a new route | Stale generated types in `.next` | `rm -rf .next/types`; load the new route once in the running dev server so it regenerates |
+| Typecheck complains about a route that no longer exists, or "does not satisfy AppRoutes" for a new route | Stale generated types in `.next` | `npx next typegen` (fast, no server needed), or `rm -rf .next/types`; load the new route once in the running dev server so it regenerates |
 | Upload fails with "Failed to fetch" although the presign call returned 200 | The page's origin is not in the S3 CORS rules | Add it (setup.md → S3) and run `test-cors.ts` |
 | Browser shows `ERR_CONNECTION_REFUSED` on 3001 | The dev server is not running | Start it (section 1) |
 | `EADDRINUSE` on 3001 | Another dev server is already running | Stop it or use that one |
 | Dev server is very slow on the first visit to a page or action | On-demand compilation | Wait; this does not happen in the production build |
 | Product page fails to load a model, or the 3D box shows "preview unavailable" | The file is missing or unreadable in S3 | Re-upload in Admin → Products → Files |
+| The site shows old files or an old version on a phone / laptop that installed it | The service worker caches build assets | They update on the next visit after a deploy; to force it, bump `VERSION` in `public/sw.js`. In dev there is no worker (it is removed on load) |
+| Google or an AI assistant shows old product info | `sitemap.xml`, `llms.txt` and page markup follow the product / content cache tags | Saving in Admin refreshes them at once; crawlers re-read on their own schedule |
 | Emails are not arriving | SMTP not configured | They are printed in the server console (`[email:dev]`) |
 | Dashboard numbers look wrong | Remember: revenue counts verified payments on non-cancelled, non-refunded orders only | order-lifecycle.md, "Where each number comes from"; run `test-data-integrity.ts` |
 | A customer paid but the order is still awaiting payment | They have not submitted the reference, or it is waiting in Admin → Payments | Verify it there |

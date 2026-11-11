@@ -122,6 +122,18 @@ export function StoreEditor({ initial }: { initial: SiteInfo }) {
         </div>
       </Panel>
 
+      <Panel title="Search engines and AI answers" description="How the home page appears on Google, Facebook and in AI assistants. Product pages build their own from the product name and description.">
+        <div className="grid gap-3">
+          <Field label="Search title" hint={`${d.seo.title.length}/70 · about 60 shows in full`}>
+            <Input value={d.seo.title} maxLength={70} onChange={(e) => upd((n) => void (n.seo.title = e.target.value))} />
+          </Field>
+          <Field label="Search description" hint={`${d.seo.description.length}/170 · about 155 shows in full`}>
+            <Textarea rows={2} value={d.seo.description} maxLength={170} onChange={(e) => upd((n) => void (n.seo.description = e.target.value))} />
+          </Field>
+          <p className="text-xs text-muted-foreground">Say what you make, where, and how to buy. Write for a person asking &ldquo;where can I get custom 3D printed gifts in the Philippines?&rdquo;</p>
+        </div>
+      </Panel>
+
       {linkList("links", "Explore links", "Footer navigation", 8, "link", { label: "Link", href: "/" })}
       {linkList("social", "Social media", "Facebook, Instagram, TikTok…", 6, "social link", { label: "Facebook", href: "https://" })}
 

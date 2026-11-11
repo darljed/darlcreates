@@ -1,8 +1,10 @@
 import { LegalBody } from "@/components/legal-body";
 import { getLegal } from "@/lib/site-content";
+import { pageMetadata } from "@/lib/seo";
 
 export async function generateMetadata() {
-  return { title: (await getLegal("privacy")).title };
+  const doc = await getLegal("privacy");
+  return pageMetadata({ title: doc.title, description: "How we collect, use and protect your personal data under the Philippine Data Privacy Act (RA 10173).", path: "/privacy" });
 }
 
 /** Text is owner-editable in Admin → Legal pages. */

@@ -7,6 +7,9 @@ import { fileUrl } from "@/lib/storage";
 import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
 import { ProductReviews } from "@/components/product-reviews";
+import { JsonLd } from "@/components/json-ld";
+import { getSiteInfo } from "@/lib/site-content";
+import { absoluteUrl, breadcrumbLd, clip, pageMetadata, productLd } from "@/lib/seo";
 
 export async function generateStaticParams() {
   const products = await listPublishedProducts();
@@ -18,7 +21,16 @@ export async function generateMetadata({
 }: PageProps<"/products/[slug]">) {
   const { slug } = await params;
   const product = await getProductBySlug(slug, { publishedOnly: true });
-  return { title: product?.name ?? "Product" };
+  // notFound() here (not just in the page) lets the response carry a real 404 status, not a 200 "soft 404"
+  if (!product) notFound();
+  const img = product.photos[0] ? fileUrl(product.photos[0].key) : null;
+  const price = formatPHP(product.basePriceCents);
+  return pageMetadata({
+    title: product.name,
+    description: `${product.description ? clip(product.description, 105) : `${product.name}, a 3D printed ${product.category}.`} Made to order from ${price} in the Philippines.`,
+    path: `/products/${product.slug}`,
+    image: img ? { url: absoluteUrl(img), alt: product.photos[0].alt || product.name } : null,
+  });
 }
 
 export default function ProductPage({
@@ -68,10 +80,23 @@ async function ProductContent({
     const url = fileUrl(p.key);
     return url ? [{ url, alt: p.alt }] : [];
   });
-  const reviews = await getProductReviews(product.id);
+  const [reviews, { store }] = await Promise.all([getProductReviews(product.id), getSiteInfo()]);
 
   return (
     <main className="flex-1">
+      <JsonLd
+        data={productLd(product, {
+          storeName: store.name,
+          imageUrls: photos.map((p) => p.url),
+          rating: { average: reviews.average, count: reviews.count },
+        })}
+      />
+      <JsonLd
+        data={breadcrumbLd([
+          { name: "Shop", path: "/products" },
+          { name: product.name, path: `/products/${product.slug}` },
+        ])}
+      />
       <div className="mx-auto max-w-6xl px-6 py-10">
         <nav className="mb-6 text-sm text-muted-foreground">
           <Link href="/products" className="hover:text-foreground">

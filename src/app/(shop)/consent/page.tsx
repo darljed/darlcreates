@@ -1,3 +1,4 @@
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,7 +9,7 @@ import { safeRedirect } from "@/lib/safe-redirect";
 import { getLegal } from "@/lib/site-content";
 import { acceptConsentAction } from "./actions";
 
-export const metadata = { title: "Privacy consent" };
+export const metadata = { title: "Privacy consent", ...NOINDEX };
 
 export default function ConsentPage({ searchParams }: PageProps<"/consent">) {
   return (

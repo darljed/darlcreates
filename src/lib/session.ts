@@ -33,6 +33,26 @@ export async function requireUser(where = "/") {
   return user;
 }
 
+/** Why a signed-in/out visitor may not proceed yet. "ok" carries the user. */
+export type Access =
+  | { state: "ok"; user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>> }
+  | { state: "signed_out" | "consent" | "blocked" | "deleted" };
+
+/**
+ * Non-redirecting twin of requireUser() for Server Actions called from client code, which can then keep the
+ * customer's work (e.g. a customized product) and send them through sign-in or consent themselves, instead of the
+ * action redirecting away and losing it. Same checks, same order as requireUser().
+ */
+export async function getAccess(): Promise<Access> {
+  const user = await getCurrentUser();
+  if (!user) return { state: "signed_out" };
+  const c = await getConsent(user.id);
+  if (c?.deletedAt) return { state: "deleted" };
+  if (c?.blockedAt) return { state: "blocked" };
+  if (!hasCurrentConsent(c, await getPrivacyVersion())) return { state: "consent" };
+  return { state: "ok", user };
+}
+
 /**
  * Require an admin. Server-side RBAC gate for every /admin route and admin
  * Server Action. A non-admin is sent home — never shown partial admin data.

@@ -33,6 +33,9 @@ export default async function AdminOrderDetailPage({
         title={order.orderNo}
         actions={
           <>
+            <Link href={`/admin/orders/${order.id}/waybill`} className="text-xs font-semibold underline">
+              Print waybill
+            </Link>
             <Link href={`/admin/orders/${order.id}/acknowledgment`} className="text-xs font-semibold underline">
               Order Acknowledgment
             </Link>

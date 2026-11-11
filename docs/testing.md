@@ -24,6 +24,8 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `seo` | URL/text helpers, JSON-LD shape and escaping, product price and rating markup, robots.txt rules, the store-info `seo` default for old rows, and that every private page is noindex and every public page has metadata | nothing |
+| `waybill` | Code 128 table sanity, known checksum, encode/decode round trip, and the slip (order number, address, items, payment warning, no prices or email, escaping) | nothing |
 | `money`, `pricing` | centavos math; price + option validation | nothing |
 | `instant` | every page that awaits data/params has `instant=false` or `<Suspense>` (dev-overlay rule the build does NOT catch) | nothing |
 | `a11y-labels` | every form `<Label>` is linked to its control | nothing |
@@ -104,6 +106,14 @@ Random choices use a fixed seed, so every run is identical. Everything is tagged
 | `scripts/make-admin.ts` | promote a user to admin by email |
 | `scripts/seed.ts` | sample catalog (dev only, T-03) |
 | `scripts/build-brand-assets.py` | rebuilds `public/brand/*` from `brand/source` (needs Pillow) |
+
+## 7b. Testing the PWA and SEO output
+The service worker only runs in a **production build**: `NEXT_DIST_DIR=.next-build npx next build`, then `NEXT_DIST_DIR=.next-build npx next start -p 3001` (stop any dev server first), and `rm -rf .next-build` afterwards. Then:
+- `curl localhost:3001/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/manifest.webmanifest`; view-source of `/` and a product page for the `<script type="application/ld+json">` blocks.
+- In the browser: wait for `navigator.serviceWorker.ready`, reload, check `navigator.serviceWorker.controller`, then `context.setOffline(true)` and open `/products`: you should get "You're offline".
+- To check sitemap / llms.txt follow content changes: delete a product, run `REVALIDATE_URL=http://localhost:3001 npx tsx scripts/e2e-session.ts cleanup`, and fetch them again.
+- Barcode check: in Chromium, draw the waybill's `<svg>` to a canvas and run `new BarcodeDetector({ formats: ['code_128'] }).detect(canvas)`; it must return the order number.
+- Add-to-cart resume: clear `consent_at` for the E2E customer, customize a product, press Add to cart: you should land on `/consent?redirect=/products/<slug>`, then return and see "Added to cart" with the choices intact.
 
 ## 8. More browser-test gotchas
 - `role=alert` also matches Next's hidden route announcer; scope to `getByRole('main')`.

@@ -1,3 +1,4 @@
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
@@ -9,7 +10,7 @@ import { CheckoutForm } from "@/components/checkout-form";
 import { listAddresses } from "@/lib/addresses";
 import { shippingCentsFor } from "@/lib/shipping";
 
-export const metadata = { title: "Checkout" };
+export const metadata = { title: "Checkout", ...NOINDEX };
 
 export default function CheckoutPage() {
   return (
