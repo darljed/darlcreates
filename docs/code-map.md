@@ -93,6 +93,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `files.ts` | Decides whether a storage key may be served publicly |
 | `image-size.ts` | **Pure.** Reads PNG/JPEG/WebP pixel size from the first bytes |
 | `legal-format.ts` | **Pure.** Legal-text parser and the editor toolbar's text transforms (rejects unsafe links) |
+| `name-3mf.ts` | **Service (server).** Print file for a named item: reads the STL, builds the name, writes a two-object 3MF; `nameProblem` for add-to-cart |
+| `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
+| `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
 | `like.ts` | Escapes `%` and `_` for SQL `LIKE` searches |
 | `money.ts` | **The only money path.** Integer centavos ↔ ₱ display and parsing |
 | `order-service.ts` | **Service.** Place order, submit payment, verify/reject (row locks), transition, shipment, customer cancel, reorder |
@@ -147,6 +150,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `gcash-payment-panel.tsx` | GCash number, amount, copy buttons, reference form, rejection reason |
 | `legal-body.tsx` | Renders legal text as React elements (never HTML) |
 | `not-found-view.tsx` | Shared 404 body |
+| `use-name-build.ts` | Hook: builds the customer's (or the admin's sample) name on the model as they type |
 | `order-actions.tsx` | `ReorderButton` and `CancelOrderButton` |
 | `order-progress.tsx` | Order progress bar and checkout steps |
 | `order-status-badge.tsx` | Status pill |
@@ -171,7 +175,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 |---|---|
 | `shell/inset-shell.tsx` | Inset sidebar shell (admin + customer area) |
 | `shell/ui.tsx` | Page primitives: header, panel, tables, stat, empty state |
-| `three/stl-viewer.tsx` | Three.js viewer for STL and 3MF (client only) |
+| `three/stl-viewer.tsx` | Three.js viewer for STL and 3MF (client only); can draw the customer's name on the model (`overlay`) and report clicks (`onPick`) |
 | `three/stl-viewer-lazy.tsx` | Dynamic import wrapper (`ssr: false`) |
 | `three/viewer-loading.tsx` | Loading animation |
 
@@ -186,6 +190,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |
 | `legal-editor.tsx` | Legal text editor: toolbar, outline, word count |
 | `legal-workspace.tsx` | Tabs, preview, save, unsaved guard |
+| `name-slot-editor.tsx` | "Name on the model": click the 3D model to place the name, size it, save |
 | `order-admin-controls.tsx` | Status buttons and shipping form |
 | `payment-actions.tsx` | Verify / reject buttons |
 | `product-files.tsx` | Model and photo uploads |
@@ -232,6 +237,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
+| `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-money.ts` | Money maths |
 | `test-order-lifecycle.ts` | Full order lifecycle |
 | `test-pricing.ts` | Price engine |
@@ -249,6 +255,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 |---|---|
 | `next.config.ts` | `cacheComponents`, `partialPrefetching`, dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
 | `drizzle.config.ts` | drizzle-kit config |
+| `public/fonts/` | The two name fonts (SIL Open Font License, licence files included) used by the preview and the print file |
 | `public/sw.js`, `public/offline.html` | PWA service worker (caches build assets and logos, never pages) and its offline page |
 | `components.json` | shadcn config |
 | `eslint.config.mjs` | Lint rules |

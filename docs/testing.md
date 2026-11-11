@@ -24,6 +24,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `name-mesh` | name slot validation, letters on a top face and a side wall (position, thickness, reads left to right), printability refusals, both fonts, the 3MF print file built from the cube STL, `slotOf` / `personalizedName` / `nameProblem` | nothing (run from the project root: it reads `public/fonts`) |
 | `seo` | URL/text helpers, JSON-LD shape and escaping, product price and rating markup, robots.txt rules, the store-info `seo` default for old rows, and that every private page is noindex and every public page has metadata | nothing |
 | `waybill` | Code 128 table sanity, known checksum, encode/decode round trip, and the slip (order number, address, items, payment warning, no prices or email, escaping) | nothing |
 | `money`, `pricing` | centavos math; price + option validation | nothing |

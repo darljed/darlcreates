@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (growth batch: G-70 to G-74)
+Last updated: 2026-11-11 (name-on-model proof of concept: G-79 to G-85)
 
 ---
 
@@ -82,6 +82,18 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-77 | 🟡 | **Search and AI visibility needs content, not just markup** | The markup is in place; ranking depends on good product names and descriptions, the FAQ, photos with alt text, reviews, and submitting `sitemap.xml` to Google Search Console / Bing. Owner task. |
 | G-78 | 🟡 | **Waybill is one order at a time** | No "print all ready-to-ship" batch page yet. Easy to add if the volume needs it. |
 
+### Found while building the name-on-model proof of concept
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-79 | 🟠 | **No check that the name stays on the surface** | A wide name can overhang a small face. Fix: sample the name's footprint against the model, warn the admin and shrink or refuse. See [name-on-model.md](./name-on-model.md) |
+| G-80 | 🟠 | **Slot is not snapshotted per order** | The print file uses the product's current slot, so moving the slot later changes old orders' files. Fix: copy slot + font to the order item at placement (immutable snapshot rule) |
+| G-81 | 🟠 | **3MF products cannot take a name** | The Outdoor Phone Stand is a Bambu 3MF. Needs a server-side 3MF reader and merging into the package |
+| G-82 | 🟡 | **Raised text only** | Engraving needs CSG (for example `manifold-3d`) |
+| G-83 | 🟡 | **No moderation or per-character price for names** | Same as the earlier personalization questions |
+| G-84 | 🟡 | **Print report not shown to the admin** | Width, thinnest stroke and watertight result are computed but only returned by `buildPrintFile` |
+| G-85 | 🟡 | **Flat surfaces only** | The name is a flat sheet on one plane; curved faces need wrapping |
+
 ### Missing from the spec (planned, not built)
 
 | ID | Sev | Gap | Spec ref | Status |
@@ -145,7 +157,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | ID | Idea | Notes |
 |---|---|---|
 | F-16 | **3MF as personalized-order output** | Upload + preview of 3MF is done (see Resolved F-16a). Still open: *generating* a 3MF per personalized order (base + name as separate parts). Depends on F-17. |
-| F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
+| F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder). **Proof of concept built 2026-11-11: [name-on-model.md](./name-on-model.md)** (G-79 to G-85 are what is left) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
 
 ## D. Resolved
 

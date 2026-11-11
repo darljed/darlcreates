@@ -83,6 +83,12 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - JSON-LD is serialized with `<` escaped, so product or FAQ text cannot close the script tag.
 - The waybill page is admin-only (the admin layout and `requireAdmin()` cover it) and omits prices and email.
 
+### Notes added with the name-on-model work
+- The print file is rebuilt on the server from the saved text and the stored slot; a mesh or coordinates from the browser are never used. The slot can only be written by `saveNameSlotAction` (admin, Zod-validated, finite numbers, bounded sizes).
+- The customer's text is checked twice for printability (browser for feedback, server on add-to-cart). Allowed characters still come from the option's pattern; XML special characters in the name are escaped in the 3MF.
+- The download route is admin-only; the generated file is `private, no-store` and not kept anywhere.
+- Fonts are open (SIL OFL) files in `public/fonts`; they are public by nature.
+
 ## 9. Secrets
 
 `.env.local` is gitignored; `.env.example` lists the keys with empty values. `NEXT_PUBLIC_*` values are visible to everyone, so only non-secrets go there (GCash name and number, business name and email). The database password and the S3 key were shown in terminal output during setup and should be rotated (G-13, G-28); rotation steps are in [operations.md](./operations.md).
