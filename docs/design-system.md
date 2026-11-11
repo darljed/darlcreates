@@ -50,6 +50,10 @@ Rules live in `globals.css` under `[data-density="compact"]` and target `data-sl
 
 Under 640px `.stack-table` turns each row into a card of `LABEL  value` lines (CSS in `globals.css`). The header row stays for screen readers only. Every `Td` in a data column needs `label`, or the cell shows no caption. Action cells (Verify, Reject) stay on screen instead of scrolling sideways.
 
+## Storefront header on phones
+
+The logo link is `shrink-0` and keeps its natural width (`h-8`, `h-7` under 360 px, `h-9` from sm). Anything that would crowd it collapses: Shop becomes an icon, and My Orders and Admin move into the account menu (`hidden sm:inline-flex` on the text buttons). When adding a header item, check 320, 375 and 640 px signed in **and** signed out, and compare the logo's rendered width with `height × naturalWidth / naturalHeight`.
+
 ## Forms (`admin/editor-bits.tsx`)
 
 | Component | Purpose |

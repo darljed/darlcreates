@@ -20,7 +20,7 @@ prices and state transitions.
 
 | Action | File | Notes |
 |---|---|---|
-| `addToCartAction` | `(shop)/cart/actions.ts` | Wrapper over `addToCart` (`lib/cart-service.ts`): normalizes the selection to the product schema, recomputes price, verifies any customer image (owner, exists, size, magic bytes) |
+| `addToCartAction` | `(shop)/cart/actions.ts` | **Does not redirect.** Uses `getAccess()`; when sign-in or privacy consent is missing it returns `{ ok:false, needs:"sign_in"\|"consent" }` so the product page keeps the customer's choices, sends them through sign-in / consent, and finishes the add on return (D-35). Otherwise a wrapper over `addToCart` (`lib/cart-service.ts`): normalizes the selection to the product schema, recomputes price, verifies any customer image (owner, exists, size, magic bytes) |
 | `updateQtyAction`, `removeItemAction` | same | Scoped to the user's own cart |
 | `placeOrderAction` | `(shop)/checkout/actions.ts` | Thin wrapper over `placeOrder` (service). Returns `{error}` for `useActionState`; redirects on success. Optional "save address" |
 | `submitPaymentAction` | same | Wrapper over `submitGcashReference`. Amount is the order total from the DB; reference normalized; duplicates and a 2nd pending payment are refused |
@@ -76,12 +76,21 @@ Logic is in `lib/user-admin.ts` (framework-free). Sign-in is refused for blocked
 | `deleteAddressAction`, `setDefaultAddressAction` | Scoped to the caller's own addresses |
 | `deleteAccountAction` | Requires typing DELETE; `deleteAccount` refuses while an order is in progress or for the admin account |
 
+## Public metadata routes
+| Route | Notes |
+|---|---|
+| `GET /robots.txt` | `src/app/robots.ts`. Allows public pages and `/api/files/` to search and AI crawlers; disallows admin, account, orders, cart, checkout, sign-in, consent and `/api/` |
+| `GET /sitemap.xml` | `src/app/sitemap.ts`. Home, shop, legal pages, every published product with its last edit. Cached with tag `products` |
+| `GET /llms.txt` | `src/app/llms.txt/route.ts`. Markdown summary for AI assistants: ordering, payment, flat shipping, catalog with prices, FAQ, contact. Cached with tags `products`, `site:home`, `site:info` |
+| `GET /manifest.webmanifest` | `src/app/manifest.ts`. Name, description, icons (the uploaded browser-tab icon when 512 px or larger) |
+| `GET /admin/orders/[id]/waybill` | Admin page: the internal waybill (see [admin-guide.md](./admin-guide.md)) |
+
 ## Pages
 
 Storefront: `/`, `/privacy`, `/terms`, `/products`, `/products/[slug]`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
 Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
-`/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/payments`, `/admin/reviews`.
+`/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/orders/[id]/waybill`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
 
@@ -96,4 +105,4 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
-Last updated: 2026-11-10
+Last updated: 2026-11-11

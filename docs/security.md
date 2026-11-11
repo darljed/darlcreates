@@ -76,6 +76,13 @@ Integer centavos only; `payments` and `order_status_history` are append-only; th
 
 Consent is recorded with a timestamp and the policy version; changing the policy can require everyone to accept again. Customers can download their data (`/account/export`) and delete their account (personal data is removed or blanked; order and payment rows are kept for record-keeping with no name attached; refused while an order is in progress). Admins can do the same on a customer's behalf. Details: D-22, D-23, D-28.
 
+### Notes added with the PWA, SEO and waybill work
+- `addToCartAction` is the one Server Action that does not call `requireUser()`: it calls `getAccess()` (same checks and order) and returns a `needs` code instead of redirecting. It still refuses signed-out, blocked and deleted accounts before touching the cart.
+- The service worker (`public/sw.js`) never caches HTML, API responses, uploads or `/api/files`, so one customer's page can never be served to another on a shared device.
+- `/robots.txt` keeps admin, account, orders, cart, checkout, sign-in, consent and `/api/` out of search. robots.txt is a request, not access control: the pages are protected by login, and they also send `noindex`.
+- JSON-LD is serialized with `<` escaped, so product or FAQ text cannot close the script tag.
+- The waybill page is admin-only (the admin layout and `requireAdmin()` cover it) and omits prices and email.
+
 ## 9. Secrets
 
 `.env.local` is gitignored; `.env.example` lists the keys with empty values. `NEXT_PUBLIC_*` values are visible to everyone, so only non-secrets go there (GCash name and number, business name and email). The database password and the S3 key were shown in terminal output during setup and should be rotated (G-13, G-28); rotation steps are in [operations.md](./operations.md).

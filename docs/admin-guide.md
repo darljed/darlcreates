@@ -33,6 +33,7 @@ The queue of GCash references customers submitted. For each one:
 - Change status with the buttons shown (only valid next steps appear). Add a note if useful. Moves never go backwards.
 - **Shipping**: enter courier, tracking number and status. Marking *Shipped* emails the customer.
 - **Order Acknowledgment**: a printable page for the customer's records.
+- **Print waybill**: a small (A6) internal slip for our own tracking: order barcode, who it ships to, what to pack, courier and tracking lines (filled in once you save the shipment) and tick boxes (Printed, Cleaned, Packed, Handed to courier). It warns "NOT VERIFIED: do not ship" if the payment isn't verified. It has no prices. It is **not** a courier label; book the courier separately. Scan the barcode into the Orders search box to jump to the order.
 - **Refunds and cancelling a paid order**: this changes the status only. Send the money back yourself in GCash.
 
 ## Reviews
@@ -65,6 +66,14 @@ Find customers by name or email; filter by active, blocked, admins or deleted. A
 
 Edit what customers see on the home page: announcement bar, hero (headline, text, buttons, image), highlights, featured products, FAQ and the call-to-action band. Save to publish. Empty sections are hidden.
 
+## Search engines and AI answers
+
+Under **Store & footer** the panel "Search engines and AI answers" holds the title and description Google, Facebook and AI assistants show for your home page. Aim for about 60 and 155 characters; say what you make, where and how to buy. Product pages build theirs from the product name and description, so write a clear first sentence in each product description. The landing-page FAQ is also published for search and AI answers, so keep it accurate (payment, timing, shipping).
+
+## Installing the shop as an app
+
+Customers can install the site on their phone or computer from the "Install the app" link in the footer (iPhone: Share, then Add to Home Screen). It opens full-screen and shows an offline page when there is no connection. The installed icon is your browser-tab icon if you upload one that is 512 px or larger, otherwise the built-in logo icon.
+
 ## Logos & branding
 
 Six upload slots: wide logo, dark-background logo, icon-only mark, browser-tab icon, phone home-screen icon and link-sharing image. Each slot shows where it is used, the exact size and allowed types, and a preview. Files are checked again on the server. SVG is not accepted. **Use built-in logos** restores the originals.
@@ -90,6 +99,7 @@ Privacy Policy and Terms and Conditions, each with *Write* and *Preview* tabs (p
 | Customer sent the wrong reference | Reject with the reason. They submit a new one |
 | Customer wants to cancel before paying | They can cancel from their order page. You can also cancel in Orders |
 | Customer wants to cancel after paying | Orders → Cancel (or Refunded), then return the money in GCash |
+| Print a packing slip | Orders → open the order → Print waybill → Print |
 | Take a product off the shop | Products → set status to Archived |
 | Customer locked out or reports a hijacked account | Users → Sign out everywhere (or Block) |
 | Customer asks for their data or deletion | They use My account → Download my data / Delete account. You can delete from their user page |

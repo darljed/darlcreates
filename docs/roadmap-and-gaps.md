@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (documentation pass: G-65 to G-69)
+Last updated: 2026-11-11 (growth batch: G-70 to G-74)
 
 ---
 
@@ -71,7 +71,16 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-65 | 🟠 | **No security headers** | `next.config.ts` sets no Content-Security-Policy, frame-ancestors / `X-Frame-Options`, `Referrer-Policy` or `Permissions-Policy`. Add them before launch; the CSP must allow the S3 origin for image and model loads and uploads. See [security.md](./security.md). |
 | G-66 | 🟡 | **Admin has no second factor of its own** | Admin access relies on the owner's Google account. Turn on Google 2-step verification. One admin; roles change only through `scripts/make-admin.ts`. |
 | G-67 | 🟠 | **No scheduled database backup and no error monitoring** | Take a manual `pg_dump` before risky migrations ([operations.md](./operations.md)). Schedule a dump and add error reporting (F-15). |
-| G-68 | 🟡 | **A removed product's URL returns HTTP 200** | The page shows the branded 404 and is `noindex`, but the status code is 200 because the product lookup happens inside a Suspense boundary after the response has started. Fixing it needs the lookup before streaming (or a redirect). Low SEO risk while `noindex` stays. |
+| G-68 | 🟡 | **A removed product's URL returns HTTP 200** | The page shows the branded 404 and is `noindex`, but the status code is 200 because the product lookup happens inside a Suspense boundary after the response has started. Calling `notFound()` from `generateMetadata` too (added with the SEO work) did not change the status in a production build. Fixing it needs the lookup before streaming (or a redirect). Low SEO risk while `noindex` stays. |
+
+### Found during the growth batch
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-75 | 🟠 | **Shipping is still a flat ₱80** | Most orders are over- or under-charged. Research and a build plan are in [shipping-research.md](./shipping-research.md) (F-05). Needs the owner's answers first. |
+| G-76 | 🟡 | **No push notifications or offline ordering in the PWA** | Deliberate (D-37). Order-status push would need a subscription table and VAPID keys. |
+| G-77 | 🟡 | **Search and AI visibility needs content, not just markup** | The markup is in place; ranking depends on good product names and descriptions, the FAQ, photos with alt text, reviews, and submitting `sitemap.xml` to Google Search Console / Bing. Owner task. |
+| G-78 | 🟡 | **Waybill is one order at a time** | No "print all ready-to-ship" batch page yet. Easy to add if the volume needs it. |
 
 ### Missing from the spec (planned, not built)
 
@@ -117,7 +126,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | F-01 | **Phase 2 — STL generators** | See [phase-2-generators.md](./phase-2-generators.md). The headline feature. |
 | F-02 | Automated payment (Maya / GCash API) | Removes manual verification; needs a payment-provider merchant account. Schema already stores method + reference. |
 | F-04 | Courier API (J&T, LBC, Lalamove) | Live rates + label creation + tracking webhooks. |
-| F-05 | Region-based shipping table | Replace flat ₱80. Config-driven, per province/zone. |
+| F-05 | Region-based shipping table | Replace flat ₱80. Config-driven, per province/zone. **Researched 2026-11-11: [shipping-research.md](./shipping-research.md)** (own zone × weight rate table, pickup option, manual courier booking; owner questions listed there). |
 | F-06 | Discount codes / bundles | Keychain multi-packs, event giveaways. |
 | F-07 | Bulk / corporate quote requests | Giveaways and events are a natural fit for 3D-printed keychains. |
 | F-08 | Print-queue / production board | Kanban of `in_production` orders, filament usage, print-time estimates. |
@@ -192,3 +201,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-63 | 2026-11-10 | **All mentions of the store's tax/registration status removed** (default Privacy/Terms, Order Acknowledgment, code, docs, specs, steering files); `test-content.ts` scans all source to keep it out. Store description rewritten: "Your 3D printing partner". |
 | G-64 | 2026-11-10 | **User management** (`/admin/users`): see D-33. `test-user-admin.ts` (71 checks). |
 | G-69 | 2026-11-11 | **Documentation pass.** New: `configuration.md`, `operations.md`, `security.md`, `order-lifecycle.md`, `design-system.md`, `admin-guide.md`, `code-map.md`. Rewrote `architecture.md`; refreshed `setup.md`, `database.md`, `testing.md`, `features.md`, READMEs, steering and `.env.example`. Added file header comments. New guard `scripts/test-docs.ts` fails when code is added without being documented. |
+| G-70 | 2026-11-11 | **Logo squeezed on phones.** The header logo now keeps its natural width (`shrink-0`); on phones Shop becomes an icon and My Orders / Admin move into the account menu. Checked at 320 to 640 px signed in and out. |
+| G-71 | 2026-11-11 | **Add to cart lost the customer's work when sign-in or privacy consent was missing.** The action now returns what is needed instead of redirecting; the product page keeps the choices and finishes the add after sign-in / consent. See D-35. Checked in a browser: signed out → sign-in → consent → added, and consent only. |
+| G-72 | 2026-11-11 | **Internal waybill** at `/admin/orders/[id]/waybill` (A6, Code 128 barcode, ship-to, pack list, tick boxes, "do not ship" warning when unpaid). `test-waybill.ts`; barcode decoded back by Chromium's `BarcodeDetector`. See D-36. |
+| G-73 | 2026-11-11 | **PWA.** Manifest, icons (incl. maskable), theme colour, service worker with offline page, footer install link. Verified in a production build: worker active, assets cached, offline navigation shows `/offline.html`. See D-37. |
+| G-74 | 2026-11-11 | **SEO and answer-engine metadata.** Per-page titles, descriptions, canonical, Open Graph; schema.org Organization / WebSite / FAQPage / Product / BreadcrumbList / ItemList; `sitemap.xml`, `robots.txt` (AI crawlers allowed on public pages), `/llms.txt`; private pages `noindex`; owner-editable search title and description. `test-seo.ts`. See D-38. |
