@@ -14,6 +14,8 @@ Outputs:
   public/brand/logo-horizontal-dark.png  (dark bg)
   public/brand/logo-icon.png             (icon only, any bg)
   public/brand/{icon.png,apple-icon.png} + public/favicon.ico  (white mark on brand blue)
+  public/brand/pwa-192.png, pwa-512.png, pwa-maskable-512.png      (installed-app icons; the maskable one is
+                                                                    full-bleed with the mark inside the safe zone)
 """
 from pathlib import Path
 
@@ -95,7 +97,11 @@ def main():
     white_mark_on_blue(icon, 512, radius_frac=0.22).save(BRAND / "icon.png", optimize=True)
     white_mark_on_blue(icon, 180).save(BRAND / "apple-icon.png", optimize=True)
     white_mark_on_blue(icon, 256, radius_frac=0.18).save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
-    print("icon.png, apple-icon.png, favicon.ico written")
+    white_mark_on_blue(icon, 192, radius_frac=0.22).save(BRAND / "pwa-192.png", optimize=True)
+    white_mark_on_blue(icon, 512, radius_frac=0.22).save(BRAND / "pwa-512.png", optimize=True)
+    # maskable: the phone crops it to a circle/squircle, so no rounded corners and the mark stays well inside
+    white_mark_on_blue(icon, 512, scale=0.5).save(BRAND / "pwa-maskable-512.png", optimize=True)
+    print("icon.png, apple-icon.png, favicon.ico, pwa-*.png written")
 
 
 if __name__ == "__main__":

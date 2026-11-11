@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { InsetShell, type NavGroup } from "@/components/shell/inset-shell";
@@ -9,6 +10,8 @@ import { requireAdmin } from "@/lib/session";
 
 // The whole /admin tree is per-request, RBAC-gated, and uncacheable.
 export const instant = false;
+/** Private area: keep every page out of search results and AI indexes. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // Server-side RBAC gate for the entire /admin tree.

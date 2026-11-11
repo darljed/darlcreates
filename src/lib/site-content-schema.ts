@@ -99,6 +99,13 @@ export function parseHomeContent(raw: unknown): HomeContent {
 // Store info + footer ("site" document)
 // ---------------------------------------------------------------------------
 
+/** What search engines and AI answer engines see for the home page when the owner hasn't written their own. */
+export const DEFAULT_SEO = {
+  title: "Darl Creates | Custom 3D Printing in the Philippines",
+  description:
+    "Custom 3D printed products made to order in the Philippines. Pick a design, personalize it, pay with GCash, and we print and ship it to you.",
+};
+
 export const siteInfoSchema = z.object({
   store: z.object({
     name: label(60),
@@ -113,6 +120,10 @@ export const siteInfoSchema = z.object({
   links: z.array(z.object({ label: label(30), href })).max(8),
   social: z.array(z.object({ label: label(30), href })).max(6),
   note: text(160),
+  /** Search-result title and description for the home page (also the site-wide fallback). Stored rows without it get the defaults. */
+  seo: z
+    .object({ title: label(70), description: label(170) })
+    .default(DEFAULT_SEO),
 });
 export type SiteInfo = z.infer<typeof siteInfoSchema>;
 
@@ -134,6 +145,7 @@ export const DEFAULT_SITE_INFO: SiteInfo = {
   ],
   social: [],
   note: "",
+  seo: DEFAULT_SEO,
 };
 
 export function parseSiteInfo(raw: unknown): SiteInfo {

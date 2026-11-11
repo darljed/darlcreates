@@ -4,6 +4,7 @@ import { getSiteInfo } from "@/lib/site-content";
 import { telHref } from "@/lib/site-content-schema";
 import { CmsLink } from "@/components/cms";
 import { BrandLogo } from "@/components/brand-logo";
+import { InstallApp } from "@/components/install-app";
 
 /** Site-wide footer. Everything except the legal links is managed in Admin → Store & footer. */
 export async function SiteFooter() {
@@ -102,10 +103,13 @@ export async function SiteFooter() {
       </div>
 
       <div className="border-t">
-        <p className="mx-auto max-w-6xl px-6 py-4 text-xs text-muted-foreground">
-          © {store.name}
-          {note && <> · {note}</>}
-        </p>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
+          <p className="text-xs text-muted-foreground">
+            © {store.name}
+            {note && <> · {note}</>}
+          </p>
+          <InstallApp />
+        </div>
       </div>
     </footer>
   );

@@ -23,6 +23,8 @@ export type ProductListItem = {
   photoKey: string | null;
   /** ms since epoch, so the landing page can show the newest products. */
   createdAtMs: number;
+  /** ms since epoch of the last edit, for the sitemap. */
+  updatedAtMs: number;
 };
 
 /** Published products for the storefront listing. Cached; invalidated on admin edits. */
@@ -53,6 +55,7 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
       basePriceCents: p.basePriceCents,
       photoKey: photo?.key ?? null,
       createdAtMs: p.createdAt.getTime(),
+      updatedAtMs: p.updatedAt.getTime(),
     });
   }
   return items;

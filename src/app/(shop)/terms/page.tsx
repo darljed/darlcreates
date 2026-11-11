@@ -1,8 +1,10 @@
 import { LegalBody } from "@/components/legal-body";
 import { getLegal } from "@/lib/site-content";
+import { pageMetadata } from "@/lib/seo";
 
 export async function generateMetadata() {
-  return { title: (await getLegal("terms")).title };
+  const doc = await getLegal("terms");
+  return pageMetadata({ title: doc.title, description: "Terms for ordering made-to-order 3D printed products: payment, production, shipping, cancellations and damaged items.", path: "/terms" });
 }
 
 /** Text is owner-editable in Admin → Legal pages. */

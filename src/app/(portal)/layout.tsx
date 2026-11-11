@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { InsetShell, type NavGroup } from "@/components/shell/inset-shell";
 import { BrandLogo } from "@/components/brand-logo";
@@ -8,6 +9,8 @@ import { Toaster } from "@/components/ui/sonner";
 // The customer area is per-user. Pages guard themselves with requireUser(where) so a signed-out
 // visitor returns to the page they asked for after signing in.
 export const instant = false;
+/** Private area: keep every page out of search results and AI indexes. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 const GROUPS: NavGroup[] = [
   {

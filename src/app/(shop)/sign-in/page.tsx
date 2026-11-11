@@ -1,8 +1,9 @@
+import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
 import { SignInCard } from "@/components/sign-in-card";
 import { BrandLogo } from "@/components/brand-logo";
 
-export const metadata = { title: "Sign in" };
+export const metadata = { title: "Sign in", ...NOINDEX };
 
 export default function SignInPage() {
   return (
