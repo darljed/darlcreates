@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Edit and delete a customer's saved addresses from the admin user page.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

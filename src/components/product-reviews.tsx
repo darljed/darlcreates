@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Reviews on a product page: list, average rating and the submit form for eligible customers.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

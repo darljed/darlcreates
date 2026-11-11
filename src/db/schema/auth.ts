@@ -1,3 +1,7 @@
+/**
+ * Auth and account tables: users (role, consent, block fields), sessions, accounts, verifications and the
+ * admin_audit log.
+ */
 import {
   pgTable,
   text,

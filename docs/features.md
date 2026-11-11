@@ -4,7 +4,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Foundation ✅
 - Next.js 16 + shadcn/ui (Vibrant Pop theme) + Tailwind v4
-- Drizzle schema (18 tables) + migrations applied to live DB
+- Drizzle schema (20 tables) + migrations applied to live DB
 - BetterAuth (Google OAuth) + RBAC guards (`requireUser`/`requireAdmin`)
 - Money core (`lib/money.ts`, integer centavos) + pricing engine
 - Multi-agent steering (Kiro `.kiro/steering`, `AGENTS.md`, `CLAUDE.md`)
@@ -53,10 +53,9 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 
 ## Known gaps / deferred
 Full, tracked list with IDs: [roadmap-and-gaps.md](./roadmap-and-gaps.md). Headlines:
-- Google sign-in not yet verified end to end (G-05).
-- Authenticated customer flow, admin flow and the 3D viewer with a real STL have
-  not been browser-tested (G-14).
-- Image customization option is a placeholder (G-09).
-- Payment amount is client-supplied (G-07); shipping fee duplicated (G-08).
-- Interim palette, no real logo (G-24).
+- Google sign-in on the production address is not yet confirmed end to end by the owner (G-05).
+- No security headers (G-65), no second factor beyond the owner's Google account (G-66), no scheduled database backup or error monitoring (G-67).
+- A removed product's URL answers HTTP 200 with the branded 404 page and `noindex` (G-68).
+- No dark theme (G-30); review photos and option reordering are not built (G-17, G-19).
+- Emails only print to the console until SMTP is configured (G-23).
 - **Phase 2**: in-browser STL generators ([plan](./phase-2-generators.md)).

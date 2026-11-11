@@ -1,6 +1,6 @@
 # Database
 
-PostgreSQL via Drizzle ORM. Schema in `src/db/schema/{auth,catalog,commerce}.ts`,
+PostgreSQL via Drizzle ORM. Schema in `src/db/schema/{auth,catalog,commerce,site}.ts`,
 re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 `npm run db:generate`, review the SQL, apply with `db:migrate`).
 
@@ -47,3 +47,24 @@ The column was not renamed to avoid a risky migration for no functional gain. Ke
 - color/size: enumerated via `product_option_values` (`value` = hex / size code).
 
 Price (server-authoritative): `base + Σ option deltas + Σ value deltas`.
+
+## Migrations (`drizzle/`, all applied to the live database)
+| File | What it did |
+|---|---|
+| `0000_init.sql` | Initial schema: auth, catalog, commerce tables and enums |
+| `0001_guards_consent.sql` | `users.consent_at`, `consent_version`, `deleted_at`; the two partial unique indexes on `payments` |
+| `0002_site_content.sql` | `site_content` table (owner-edited documents) |
+| `0003_users_admin.sql` | `admin_audit` table; `users.blocked_at`, `blocked_reason`, `admin_note` |
+
+Workflow, rollback and the "confirm the target first" rule: [operations.md](./operations.md#migrations).
+
+## Relationships and delete behaviour
+- `users` owns: `sessions`, `accounts` (cascade), `carts` (cascade), `addresses` (cascade), `reviews` (cascade).
+- `orders.user_id` is **restrict**: a user row with orders cannot be deleted. Account deletion therefore *anonymizes* the user instead (name, email and linked Google account removed; orders and payments stay with no name attached).
+- `order_items.product_id` and `cart_items.product_id` are **restrict**: a product that was ordered can only be archived, never deleted. This is why `scripts/seed.ts` is dev-only (T-03).
+- `orders` owns `order_items`, `payments`, `shipments`, `order_status_history` (cascade); `payments.verified_by` and `order_status_history.actor_id` point at `users` without cascade.
+- `products` owns `product_photos`, `product_options` (which own `product_option_values`) (cascade).
+- `admin_audit` has **no** foreign keys on purpose, so the trail outlives a user row.
+- `site_content.updated_by` is set null if the editor's user is removed.
+
+Last updated: 2026-11-11

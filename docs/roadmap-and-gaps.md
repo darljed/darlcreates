@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-10 (users, 404s, cache, viewer, hints)
+Last updated: 2026-11-11 (documentation pass: G-65 to G-69)
 
 ---
 
@@ -64,6 +64,15 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-44 | 🟡 | **Deleted accounts block re-registration with the same Google account?** | Deletion removes the linked Google `accounts` row, so signing in again creates a *new* user (fresh consent). Intended, but untested end to end because it needs a real Google login. |
 | G-45 | 🟡 | **Export is JSON only, no admin-side "export for a customer"** | Customers self-serve. If someone emails a request instead, there is no admin button yet. |
 
+### Found during the documentation pass
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-65 | 🟠 | **No security headers** | `next.config.ts` sets no Content-Security-Policy, frame-ancestors / `X-Frame-Options`, `Referrer-Policy` or `Permissions-Policy`. Add them before launch; the CSP must allow the S3 origin for image and model loads and uploads. See [security.md](./security.md). |
+| G-66 | 🟡 | **Admin has no second factor of its own** | Admin access relies on the owner's Google account. Turn on Google 2-step verification. One admin; roles change only through `scripts/make-admin.ts`. |
+| G-67 | 🟠 | **No scheduled database backup and no error monitoring** | Take a manual `pg_dump` before risky migrations ([operations.md](./operations.md)). Schedule a dump and add error reporting (F-15). |
+| G-68 | 🟡 | **A removed product's URL returns HTTP 200** | The page shows the branded 404 and is `noindex`, but the status code is 200 because the product lookup happens inside a Suspense boundary after the response has started. Fixing it needs the lookup before streaming (or a redirect). Low SEO risk while `noindex` stays. |
+
 ### Missing from the spec (planned, not built)
 
 | ID | Sev | Gap | Spec ref | Status |
@@ -106,7 +115,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | ID | Idea | Notes |
 |---|---|---|
 | F-01 | **Phase 2 — STL generators** | See [phase-2-generators.md](./phase-2-generators.md). The headline feature. |
-| F-02 | Automated payment (Maya / GCash API) | Removes manual verification; needs business registration. Schema already stores method + reference. |
+| F-02 | Automated payment (Maya / GCash API) | Removes manual verification; needs a payment-provider merchant account. Schema already stores method + reference. |
 | F-04 | Courier API (J&T, LBC, Lalamove) | Live rates + label creation + tracking webhooks. |
 | F-05 | Region-based shipping table | Replace flat ₱80. Config-driven, per province/zone. |
 | F-06 | Discount codes / bundles | Keychain multi-packs, event giveaways. |
@@ -182,4 +191,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-62 | 2026-11-10 | **Hint text no longer shifts inputs** (shared `Field`: hint sits on the label row, truncated, wired with `aria-describedby`). |
 | G-63 | 2026-11-10 | **All mentions of the store's tax/registration status removed** (default Privacy/Terms, Order Acknowledgment, code, docs, specs, steering files); `test-content.ts` scans all source to keep it out. Store description rewritten: "Your 3D printing partner". |
 | G-64 | 2026-11-10 | **User management** (`/admin/users`): see D-33. `test-user-admin.ts` (71 checks). |
-
+| G-69 | 2026-11-11 | **Documentation pass.** New: `configuration.md`, `operations.md`, `security.md`, `order-lifecycle.md`, `design-system.md`, `admin-guide.md`, `code-map.md`. Rewrote `architecture.md`; refreshed `setup.md`, `database.md`, `testing.md`, `features.md`, READMEs, steering and `.env.example`. Added file header comments. New guard `scripts/test-docs.ts` fails when code is added without being documented. |

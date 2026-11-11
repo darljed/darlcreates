@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Admin editor for the six logo slots: upload, live preview of tab / navbar / shared link, reset to built-in
+ * logos.
+ */
+
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

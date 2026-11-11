@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Account controls on the admin user page: block / unblock, sign out everywhere, ask for consent again, delete.
+ * Each risky action uses a confirm dialog.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

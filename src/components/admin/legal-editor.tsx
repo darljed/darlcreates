@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * One legal document's editor: formatting toolbar, link dialog, word count and section outline.
+ */
+
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

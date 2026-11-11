@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Three.js viewer for STL and 3MF models: frames any model, orbit controls, customer colour choice, reduced-motion
+ * aware.
+ */
+
 import {
   Component,
   Suspense,

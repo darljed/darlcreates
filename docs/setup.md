@@ -15,45 +15,48 @@ committed: `.env.local` is gitignored, `.env.example` documents every key.
 ```bash
 cd /Users/darljedmatundan/Projects/darlcreates
 npm install
-npm run dev            # http://localhost:3000 (3001 if 3000 is busy)
+npx next dev -p 3001   # http://localhost:3001
 ```
 
-Verification gate (run before calling anything done):
+Port 3000 belongs to another project on this machine, so this project uses **3001**. The public address
+(`https://macbook-01.tail85990d.ts.net`, Tailscale Funnel) forwards to 3001. Day-to-day running, building and deploying:
+[operations.md](./operations.md).
+
+Verification gate (run before calling anything done; details in [testing.md](./testing.md)):
 
 ```bash
-npm run build && npm run typecheck
-npx tsx scripts/test-money.ts
-npx tsx scripts/test-pricing.ts
-npx tsx scripts/test-order-lifecycle.ts   # needs DB (Tailscale)
-npx tsx scripts/test-instant.ts           # every admin page has its instant opt-out
-npx tsx scripts/test-uploads.ts           # S3 round trip
-npx tsx scripts/test-cors.ts              # browser-style CORS from each dev origin
+npm run typecheck
+npx eslint src scripts                       # 0 warnings
+NEXT_DIST_DIR=.next-build npx next build     # then: rm -rf .next-build  (never build over a running dev server's .next)
+npx tsx scripts/test-docs.ts                 # docs cover the code
+# plus the scripts/test-*.ts for the area you changed; the full list is in testing.md
 ```
 
 ## Environment variables (`.env.local`)
 
-| Key | Purpose | Status |
-|---|---|---|
-| `DATABASE_URL` | Postgres on the agent-server | ✅ set (role `darlcreates`) |
-| `BETTER_AUTH_SECRET` | Session signing. **Dev placeholder** — generate a real one: `openssl rand -base64 32` | ⚠️ replace |
-| `BETTER_AUTH_URL` | App origin (`http://localhost:3000` locally) | ✅ |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | ✅ set (sign-in not yet verified) |
-| `AWS_REGION` | `ap-south-1` | ✅ |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Key of IAM user `darlcreates-app` (uploads bucket only) | ✅ set |
-| `S3_BUCKET` | `darlcreates-uploads` | ✅ created 2026-11-09 |
-| `CDN_BASE_URL` | Optional CloudFront domain. **Leave empty** — reads go through `/api/files` (D-14) | — |
-| `SMTP_*`, `EMAIL_FROM` | Order emails; console-logged when unset | ⬜ |
-| `NEXT_PUBLIC_GCASH_NAME` / `NEXT_PUBLIC_GCASH_NUMBER` | Shown to customers at payment. **Confirm the number is the business GCash** (T-06) | ⚠️ confirm |
+Copy `.env.example` to `.env.local`. **The full reference (every variable, where it is read, what happens if it is missing,
+build-time vs runtime) is [configuration.md](./configuration.md).** The ones you must set to run:
 
-The storage and email modules degrade gracefully when their env is empty, so the
-app runs without them.
+| Key | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres on the agent-server (role `darlcreates`) |
+| `BETTER_AUTH_SECRET` | Session signing. `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Public origin of the site (`http://localhost:3001` locally) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | Uploads (IAM user `darlcreates-app`, bucket `darlcreates-uploads`) |
+| `NEXT_PUBLIC_GCASH_NAME` / `NEXT_PUBLIC_GCASH_NUMBER` | Shown to customers at payment. **Confirm the number is the business GCash** (T-06) |
+
+Optional: `SMTP_*` and `EMAIL_FROM` (emails are printed to the console when unset), `CDN_BASE_URL` (leave empty),
+`REVALIDATE_SECRET` / `REVALIDATE_URL` (see below), `NEXT_PUBLIC_BUSINESS_NAME` / `NEXT_PUBLIC_BUSINESS_EMAIL`,
+`NEXT_PUBLIC_APP_URL` (leave unset).
+
+The storage and email modules degrade gracefully when their env is empty, so the app runs without them.
 
 ## Google OAuth
 
 1. Google Cloud Console → APIs & Services → Credentials → OAuth client (Web).
-2. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-   (add the production URL later).
-3. Put the ID/secret in `.env.local`, restart `npm run dev`.
+2. Authorized redirect URI: `{BETTER_AUTH_URL}/api/auth/callback/google` (add one for localhost:3001 and one for the Funnel URL).
+3. Put the ID/secret in `.env.local`, restart the dev server.
 4. Sign in once, then promote yourself:
    ```bash
    npx tsx scripts/make-admin.ts you@example.com
@@ -130,7 +133,7 @@ Rules:
 | `.kiro/steering/{product,tech,structure}.md` | Kiro |
 | `.kiro/specs/darl-creates-ecommerce/` | Requirements / design / tasks |
 
-Keep these four in sync when conventions change.
+Keep these four in sync when conventions change. More: [operations.md](./operations.md), [security.md](./security.md), [configuration.md](./configuration.md).
 
 ## Refreshing the running app's cache from scripts
 `seed-demo.ts` and `e2e-session.ts` change products directly in the database. To make the running site drop its cached copies
@@ -173,5 +176,8 @@ Admin → Legal pages; tick "Ask every customer to accept this policy again" whe
 - Opening the dev server via the Tailscale hostname (`macbook-01.tail85990d.ts.net`)
   needs `allowedDevOrigins` in `next.config.ts` (set), otherwise Next blocks
   `/_next/hmr`. Add any other hostname/IP you browse from, then restart `next dev`.
-- Starting `npm run dev` from inside an agent command can be blocked/killed;
-  run it in your own terminal.
+- Two dev servers on the same project fight over port 3001 and `.next` (`EADDRINUSE`). Check with `lsof -i :3001` before starting one.
+- Stale generated route types after deleting or renaming a page (typecheck errors about missing files under `.next/types`):
+  `rm -rf .next/types`, then load a route once in dev.
+- After editing `.env.local`, restart the server; `REVALIDATE_SECRET` and the other server values are read at start-up.
+- A route that works in dev can still fail the build under Cache Components (runtime values during prerender). Always run the build before declaring done.

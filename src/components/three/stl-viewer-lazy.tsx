@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Dynamic import of the 3D viewer (ssr: false) with the loading animation as its fallback.
+ */
+
 import dynamic from "next/dynamic";
 import { ViewerLoading } from "./viewer-loading";
 import type { StlViewerProps } from "./stl-viewer";

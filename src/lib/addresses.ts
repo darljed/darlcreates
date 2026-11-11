@@ -1,3 +1,7 @@
+/**
+ * Saved address book: list, save (no duplicates, cap of 10, first is default), set default, delete (promotes
+ * another default).
+ */
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { addresses } from "@/db/schema";

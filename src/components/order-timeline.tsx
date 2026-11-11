@@ -1,3 +1,6 @@
+/**
+ * The order's activity list (status history) shown to customers and the owner.
+ */
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 

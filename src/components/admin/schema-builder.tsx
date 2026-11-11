@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Customization builder: add or delete options (color, size, text, image) and their values with price changes.
+ */
+
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

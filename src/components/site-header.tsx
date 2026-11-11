@@ -1,3 +1,6 @@
+/**
+ * Storefront header: logo, navigation, cart badge and account menu.
+ */
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { getCurrentUser, isAdmin } from "@/lib/session";

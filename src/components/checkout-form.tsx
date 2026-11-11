@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Checkout form: saved addresses or a new one, save-address option, inline validation, place order
+ * (useActionState).
+ */
+
 import { useActionState, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * My account panels: the address book (set default, delete) and the delete-account confirmation.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

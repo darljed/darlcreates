@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Approve and Hide buttons for one review.
+ */
+
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

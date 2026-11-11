@@ -1,3 +1,7 @@
+/**
+ * Reviews: approved reviews and rating per product (cached, tag `reviews:<productId>`), and the rule for who may
+ * review.
+ */
 import { db } from "@/db";
 import { reviews, orders, orderItems } from "@/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";

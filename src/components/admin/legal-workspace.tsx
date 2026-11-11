@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Tabbed Privacy / Terms workspace around LegalEditor: Write and Preview tabs, save, discard, unsaved-changes
+ * guard and acceptance stats.
+ */
+
 import { useCallback, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LegalEditor, type LegalMeta } from "@/components/admin/legal-editor";

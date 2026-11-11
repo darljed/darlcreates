@@ -1,3 +1,7 @@
+/**
+ * Cached reads of owner-edited site content for the storefront, with the cache tags the admin saves expire
+ * (site:home, site:info, site:brand, site:legal:<slug>).
+ */
 import { cacheLife, cacheTag } from "next/cache";
 import { loadBranding, loadHomeContent, loadLegal, loadSiteInfo } from "./site-content-store";
 import type { LegalSlug } from "./site-content-schema";

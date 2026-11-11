@@ -1,3 +1,6 @@
+/**
+ * Catalog tables: products, photos, options and option values, plus reviews and review photos.
+ */
 import {
   pgTable,
   text,

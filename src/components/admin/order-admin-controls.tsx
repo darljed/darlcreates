@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Order page controls for the owner: next-status buttons with a note, and the shipping form (carrier, tracking,
+ * status).
+ */
+
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

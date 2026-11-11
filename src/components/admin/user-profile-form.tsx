@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Admin form to fix a customer's name, email and private note.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

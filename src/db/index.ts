@@ -1,3 +1,6 @@
+/**
+ * Drizzle client over a pool of 10 connections, reused across dev reloads. Throws if DATABASE_URL is missing.
+ */
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";

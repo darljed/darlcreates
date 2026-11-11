@@ -1,13 +1,21 @@
 # Testing
 
-Last full cycle: 2026-11-10 (all green). Everything below is repeatable.
+Last full cycle: 2026-11-11 (all green). Everything below is repeatable.
 
 ## 1. Static gate (run before every commit)
 ```bash
 npm run typecheck
 npx eslint src scripts          # 0 warnings expected
-npm run build                   # also validates every route
+NEXT_DIST_DIR=.next-build npx next build && rm -rf .next-build   # validates every route; the separate dist dir keeps a running dev server intact
+npx tsx scripts/test-docs.ts    # docs cover the code (see below)
 ```
+
+### Run every test
+Slow because the database is remote. Prints one PASS/FAIL line per script:
+```bash
+for f in scripts/test-*.ts; do npx tsx "$f" >/tmp/t.log 2>&1 && echo "PASS $f" || { echo "FAIL $f"; tail -15 /tmp/t.log; }; done
+```
+`test-cors`, `test-uploads`, `test-branding`, `test-customer-images` and `test-privacy` also need S3 credentials in `.env.local`. All need Tailscale for the database except the ones marked "nothing" below.
 
 ## 2. Test scripts (`npx tsx scripts/test-<name>.ts`)
 Isolated `TEST-` data, asserts, cleans up in `finally`. The DB is remote and slow: run the
@@ -15,6 +23,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 
 | Script | Covers | Needs |
 |---|---|---|
+| `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
 | `money`, `pricing` | centavos math; price + option validation | nothing |
 | `instant` | every page that awaits data/params has `instant=false` or `<Suspense>` (dev-overlay rule the build does NOT catch) | nothing |
 | `a11y-labels` | every form `<Label>` is linked to its control | nothing |
@@ -84,3 +93,22 @@ Random choices use a fixed seed, so every run is identical. Everything is tagged
 - To browse as a demo customer without Google sign-in, sign a session cookie with BetterAuth (see
   `scripts/e2e-session.ts` `cookieFor`) for `seed-user-maria-santos` and add it to the browser.
 
+## 7. Fixtures and tooling
+| File | Used by |
+|---|---|
+| `scripts/fixtures/cube-20mm.stl` | tests and manual uploads: a 20 mm cube STL |
+| `scripts/fixtures/base-plus-name.3mf` | tests and manual uploads: a multi-part 3MF (base plus a name part) |
+| `scripts/fixtures/demo-data.ts` | `seed-demo.ts`: products, customers, review texts |
+| `scripts/fixtures/demo-images.py` | generates the demo product photos (needs Pillow) |
+| `scripts/lib/revalidate.ts` | `seed-demo.ts` and `e2e-session.ts`: drops the running app's cache after direct DB writes (needs `REVALIDATE_SECRET`) |
+| `scripts/make-admin.ts` | promote a user to admin by email |
+| `scripts/seed.ts` | sample catalog (dev only, T-03) |
+| `scripts/build-brand-assets.py` | rebuilds `public/brand/*` from `brand/source` (needs Pillow) |
+
+## 8. More browser-test gotchas
+- `role=alert` also matches Next's hidden route announcer; scope to `getByRole('main')`.
+- `window.confirm()` dialogs (if any are added) need `browser_handle_dialog` before the next action; prefer `ConfirmDialog`, which is a normal element.
+- A click right after navigation can land before React has hydrated. Wait for something that only appears after hydration (a disabled button becoming enabled, a toast target) before clicking.
+- First visit to a route in dev compiles it, so fixed waits are flaky: wait for the expected text.
+- `aws s3 ls` occasionally returns nothing on a good connection; repeat before concluding a file is missing.
+- Running the full suite leaves `TEST-` rows only if a run is killed (section 5).

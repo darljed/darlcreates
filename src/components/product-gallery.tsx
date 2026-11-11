@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Preview box: the interactive 3D model or a photo, switched by thumbnails.
+ */
+
 import { useState } from "react";
 import { Box } from "lucide-react";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";

@@ -1,3 +1,7 @@
+/**
+ * Admin read queries: dashboard totals, revenue series and top products, order list (search, paging, status
+ * counts), order detail, product list.
+ */
 import { db } from "@/db";
 import { products, productPhotos, orders, payments, orderItems, users } from "@/db/schema";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";

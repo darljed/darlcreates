@@ -1,3 +1,6 @@
+/**
+ * Product tile in the shop grid and on the landing page.
+ */
 import Link from "next/link";
 import { Box } from "lucide-react";
 import { formatPHP } from "@/lib/money";

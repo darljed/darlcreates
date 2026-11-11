@@ -1,3 +1,7 @@
+/**
+ * Storefront product reads. Cached with tags `products` and `product:<slug>`; admin edits expire them. Also
+ * assembles a product with its options and photos.
+ */
 import { db } from "@/db";
 import {
   products,

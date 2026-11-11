@@ -1,3 +1,6 @@
+/**
+ * Renders owner-written legal text. Only React elements, never HTML; links were validated by the parser.
+ */
 import { CmsLink } from "@/components/cms";
 import { parseLegalBody, type Inline } from "@/lib/site-content-schema";
 

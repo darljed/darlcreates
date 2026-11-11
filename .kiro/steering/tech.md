@@ -36,6 +36,7 @@
 - **Secrets** in `.env.local` (gitignored). `.env.example` documents the keys.
 
 ## Commands
+- Dev server: `npx next dev -p 3001` (3000 belongs to another project; the public Funnel URL forwards to 3001). Build next to a running dev server: `NEXT_DIST_DIR=.next-build npx next build`, then `rm -rf .next-build`.
 - `npm run dev` / `build` / `start` / `lint` / `typecheck`
 - `npm run db:generate` (migration from schema) / `db:migrate` / `db:push` /
   `db:studio`
@@ -43,8 +44,8 @@
   clean up). Run before marking work done.
 
 ## Verification gate (before declaring any task done)
-1. `npm run build` (0 errors) 2. `npm run typecheck` 3. relevant `scripts/test-*.ts`
-4. for data writes, check DB consistency (no orphans/dupes).
+1. `npm run build` (0 errors) 2. `npm run typecheck` 3. `npx eslint src scripts` (0 warnings) 4. `scripts/test-docs.ts` + relevant `scripts/test-*.ts`
+5. for data writes, check DB consistency (no orphans/dupes).
 
 ## AWS — right account (critical)
 Use AWS profile **`darljed`** (account `551892774595`, djam.devteam@gmail.com)
@@ -61,3 +62,7 @@ Gaps/next steps: `docs/roadmap-and-gaps.md` (G-/T-/F- IDs). Setup & ops:
 
 ## Instant validation
 A layout's `export const instant = false` does NOT cover its child pages. A page that `await`s any uncached data (DB, params, searchParams) outside `<Suspense>` needs its own `instant = false` (admin/per-user pages) or a Suspense boundary. Direct browser uploads to S3 also need the page's origin in the bucket CORS (`scripts/test-cors.ts`). `npx tsx scripts/test-instant.ts` checks every admin page has the opt-out (the build does NOT catch this; it is a dev-overlay warning).
+
+## Docs to read before changing things
+`docs/README.md` indexes everything. Most useful: `configuration.md` (env and constants), `order-lifecycle.md`, `security.md`,
+`design-system.md` (UI rules), `code-map.md` (where everything is), `operations.md` (run, migrate, troubleshoot).

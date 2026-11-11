@@ -1,3 +1,6 @@
+/**
+ * Order status pill: one label and one colour per status.
+ */
 import { cn } from "@/lib/utils";
 
 const LABELS: Record<string, string> = {

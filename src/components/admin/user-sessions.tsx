@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * List of a customer's active sessions with a button to end each one.
+ */
+
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

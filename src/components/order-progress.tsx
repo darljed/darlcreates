@@ -1,3 +1,6 @@
+/**
+ * Progress indicators: the order status bar on an order page, and the 4-step checkout stepper.
+ */
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 

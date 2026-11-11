@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Admin editor for the landing page: announcement bar, hero, highlights, featured products, FAQ and call-to-action
+ * band.
+ */
+
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

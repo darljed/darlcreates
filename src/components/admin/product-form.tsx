@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Product create / edit form: name, description, category, base price and status.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

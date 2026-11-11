@@ -74,6 +74,13 @@ directly. Don't run destructive git/DB ops without confirmation.
 - App S3 credentials in `.env.local` must be a dedicated key scoped to
   `darlcreates-uploads` only. Region `ap-south-1`.
 
+## Docs map
+`docs/README.md` is the index. Env vars and constants: `docs/configuration.md`. Where each file lives: `docs/code-map.md`.
+Order rules: `docs/order-lifecycle.md`. Security: `docs/security.md`. UI rules: `docs/design-system.md`. Running and fixing:
+`docs/operations.md`. `npx tsx scripts/test-docs.ts` fails if code is added without its doc entry (env var, file, route,
+table, Server Action, cache tag, npm script). Dev server: `npx next dev -p 3001`. Build next to a running dev server with
+`NEXT_DIST_DIR=.next-build`.
+
 ## Where the work is tracked
 `docs/roadmap-and-gaps.md` is the live gap tracker (IDs G-xx / T-xx / F-xx).
 Reference IDs in commits; move rows to Resolved when fixed. Setup/ops detail:

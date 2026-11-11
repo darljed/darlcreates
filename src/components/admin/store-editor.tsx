@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Admin editor for store details, contact info, explore links and social links shown in the footer.
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

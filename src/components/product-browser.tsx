@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Shop listing: search box, category chips with counts and the product grid, filtered in the browser.
+ */
+
 import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { ProductCard } from "@/components/product-card";

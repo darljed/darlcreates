@@ -1,3 +1,7 @@
+/**
+ * Order vocabulary: status labels, the allowed forward transitions (ORDER_TRANSITIONS), the order-number generator
+ * and the revenue filter.
+ */
 import { db } from "@/db";
 import {
   orders,

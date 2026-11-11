@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Product editor section for the print model (STL or 3MF) and photos: direct upload to S3, attach, replace,
+ * delete.
+ */
+
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Product page customizer: option pickers with live price (display only; the server recomputes), image upload, add
+ * to cart.
+ */
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";

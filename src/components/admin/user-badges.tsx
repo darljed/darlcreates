@@ -1,3 +1,7 @@
+/**
+ * Small display bits for users: status badge (active / blocked / deleted), admin role badge and the initials
+ * avatar.
+ */
 import { cn } from "@/lib/utils";
 import type { UserState } from "@/lib/user-admin";
 

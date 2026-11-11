@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Verify and Reject buttons for a pending GCash payment (Reject asks for a reason).
+ */
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

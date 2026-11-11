@@ -1,3 +1,7 @@
+/**
+ * Logos and brand images the owner can upload. Pure (no I/O): each slot lists where it is used, the size to supply
+ * and the rules the server enforces.
+ */
 import { z } from "zod";
 
 export type ImageType = "png" | "jpeg" | "webp";

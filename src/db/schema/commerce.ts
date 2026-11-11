@@ -1,3 +1,6 @@
+/**
+ * Commerce tables: addresses, carts and items, orders and items, payments, shipments and the status history.
+ */
 import { sql } from "drizzle-orm";
 import {
   pgTable,

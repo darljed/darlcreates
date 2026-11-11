@@ -7,6 +7,8 @@ everything below just points there so all agents stay in sync.
   see `AGENTS.md`.
 - **Full spec** (requirements / design / tasks) →
   `.kiro/specs/darl-creates-ecommerce/`.
+- **Docs index** → `docs/README.md` (config, code map, security, order lifecycle, design system, operations). Run
+  `npx tsx scripts/test-docs.ts` after adding code: it fails when something is undocumented.
 - Kiro mirrors the same rules in `.kiro/steering/{product,tech,structure}.md`.
 
 ## The essentials (do not violate)

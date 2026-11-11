@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Account dropdown for the storefront header: My orders, My account, Sign out.
+ */
+
 import { useRouter } from "next/navigation";
 import { LogOut, Package, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";

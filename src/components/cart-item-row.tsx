@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * One cart line: thumbnail, chosen options, price, quantity stepper and remove.
+ */
+
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2, Box } from "lucide-react";

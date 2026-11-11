@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Sign-in card with the Google button; the logo is passed in from a server component.
+ */
+
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
