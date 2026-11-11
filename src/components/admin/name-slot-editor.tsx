@@ -17,7 +17,7 @@ import { Check, Field } from "@/components/admin/editor-bits";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import type { PickHit } from "@/components/three/stl-viewer";
 import { useNameBuild } from "@/components/use-name-build";
-import { DEFAULT_SLOT_SIZES, fontChoices, NAME_FONTS, NAME_FONT_IDS, slotOf, type NameFontId, type NameSlot } from "@/lib/name-mesh";
+import { DEFAULT_SLOT_SIZES, fontChoices, NAME_FONTS, NAME_FONT_IDS, slotMaxHeight, slotOf, type NameFontId, type NameSlot } from "@/lib/name-mesh";
 import { saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
 
 export type NameSlotOption = { id: string; label: string; constraints: { slot?: unknown } };
@@ -79,12 +79,12 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
     });
   }
 
-  const num = (key: "height" | "maxWidth" | "depth" | "sink", label: string, step: number, hint: string) => (
+  const num = (key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink", label: string, step: number, hint: string) => (
     <Field label={label} hint={hint}>
       <Input
         type="number"
         step={step}
-        value={slot?.[key] ?? ""}
+        value={slot ? (key === "maxHeight" ? slotMaxHeight(slot) : slot[key]) : ""}
         disabled={!slot}
         onChange={(e) => slot && setSlot({ ...slot, [key]: Number(e.target.value) })}
       />
@@ -145,6 +145,7 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
           <div className="grid grid-cols-2 gap-2">
             {num("height", "Letter height", 0.5, "mm")}
             {num("maxWidth", "Widest name", 1, "mm")}
+            {num("maxHeight", "Tallest name", 0.5, "mm, with tails")}
             {num("depth", "Stands out", 0.1, "mm")}
             {num("sink", "Sunk in", 0.1, "mm")}
           </div>
@@ -164,7 +165,7 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
             {!slot
               ? "No position yet. Click the model."
               : build?.ok
-                ? `"${sample}" is ${build.widthMm.toFixed(1)} × ${build.heightMm.toFixed(1)} mm, thinnest stroke ${build.stemMm.toFixed(2)} mm${build.stemMm < 1 ? " (thin: bigger letters print better)" : ""}.`
+                ? `"${sample}" is ${build.widthMm.toFixed(1)} × ${build.inkHeightMm.toFixed(1)} mm (capital letters ${build.heightMm.toFixed(1)} mm), stroke ${build.stemMm.toFixed(2)} mm${build.stemMm < 1 ? " (thin: bigger letters print better)" : ""}.`
                 : (build?.error ?? "")}
           </p>
           <div className="flex flex-wrap gap-2">

@@ -51,6 +51,7 @@ async function main() {
     const slot = slotOf(nameOpt?.constraints as { slot?: unknown });
     assert("the slot is valid, at the detected spot, with the sensible defaults for the text option", !!slot && Math.abs(slot.position[0] - 120) < 0.01 && slot.normal[0] > 0.99 && (nameOpt!.constraints as { maxLen?: number }).maxLen === 12 && nameOpt!.required === false);
     assert("fonts offered: the match for Marker Felt plus two sturdy ones", slot?.fonts?.join() === "marker,bold,chunky");
+    assert("the name area is the example's own box: 10 x 4 mm", slot?.maxWidth === 10 && slot?.maxHeight === 4, JSON.stringify([slot?.maxWidth, slot?.maxHeight]));
     const colourOpt = opts1.find((o) => o.type === "color");
     const vals = colourOpt ? await db.select().from(s.productOptionValues).where(eq(s.productOptionValues.optionId, colourOpt.id)) : [];
     assert("Colors were created from the three filaments, named in plain English, hex as the value", r1.colours.added.length === 3 && vals.map((v) => v.value).sort().join() === "#F7E6DE,#F95D73,#FF0000" && vals.some((v) => v.label === "Pink") && vals.some((v) => v.label === "Cream") && vals.some((v) => v.label === "Red"), JSON.stringify(vals.map((v) => v.label)));

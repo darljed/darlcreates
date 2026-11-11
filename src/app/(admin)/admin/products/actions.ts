@@ -14,8 +14,8 @@ import { parsePesoInput } from "@/lib/money";
 import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
-import { nameSlotSchema } from "@/lib/name-mesh";
-import { checkFit, readBaseSurface, widestThatFits } from "@/lib/name-3mf";
+import { nameSlotSchema, slotMaxHeight } from "@/lib/name-mesh";
+import { checkFit, fitScale, readBaseSurface, shrinkSlot } from "@/lib/name-3mf";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
 import { getObject } from "@/lib/storage";
 
@@ -227,13 +227,14 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
     if (!obj) return { ok: false, error: "The model file could not be read from storage" };
     try {
       const surface = readBaseSurface(await new Response(obj.stream).arrayBuffer(), kind);
-      const fit = checkFit(surface, slot, slot.maxWidth, slot.height);
+      const fit = checkFit(surface, slot, slot.maxWidth, slotMaxHeight(slot));
       if (!fit.fits) {
-        const w = widestThatFits(surface, slot);
+        const k = fitScale(surface, slot);
+        const smaller = k ? shrinkSlot(slot, k) : null;
         return {
           ok: false,
-          error: w
-            ? `A ${slot.maxWidth} mm wide name would hang off the surface here. Set "Widest name" to ${w} mm or less (or move the spot).`
+          error: smaller
+            ? `A name area of ${slot.maxWidth} × ${slotMaxHeight(slot)} mm would hang off the surface here. Set "Widest name" to ${smaller.maxWidth} mm and "Tallest name" to ${smaller.maxHeight} mm or less (or move the spot).`
             : (fit.problem ?? "The name does not fit on the surface here. Try another spot or smaller letters."),
         };
       }

@@ -6,10 +6,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
-import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotOf, suggestFont, toMesh, withFont, type NameSlot } from "../src/lib/name-mesh";
+import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, type NameSlot } from "../src/lib/name-mesh";
 import { colorName } from "../src/lib/color-name";
 import { normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
-import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, widestThatFits } from "../src/lib/name-3mf";
+import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
 import { withText } from "./fixtures/bambu-text-3mf";
 
@@ -49,6 +49,30 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
     const r = buildName(await loadFont(id), "Ana", { ...topSlot, font: id, height: 7 });
     assert(`${id}: builds "Ana", watertight, printable strokes`, r.ok && isWatertight(toMesh(r.geometry)) && r.stemMm >= 0.8, r.ok ? `stroke ${r.stemMm.toFixed(2)}` : r.error);
   }
+  console.log("\nthe whole outline stays inside the slot rectangle (ascenders and descenders included)");
+  {
+    const boxSlot: NameSlot = { ...topSlot, maxWidth: 24, height: 8, maxHeight: 10 };
+    for (const id of NAME_FONT_IDS) {
+      let worst = 0, widest = 0, printable = 0;
+      for (const t of ["Maria", "Gypsy", "Jay", "Phoebe", "Cams", "Bjorg"]) {
+        const r = buildName(await loadFont(id), t, { ...boxSlot, font: id });
+        if (!r.ok) continue; // refused as unprintable is fine; what is built must fit
+        printable++;
+        const m = toMesh(r.geometry), [x0, y0, , x1, y1] = meshBounds(m);
+        worst = Math.max(worst, y1 - y0, 0);
+        widest = Math.max(widest, x1 - x0);
+        if (Math.abs((y0 + y1) / 2 - 10) > 0.05 || Math.abs((x0 + x1) / 2 - 10) > 0.05) worst = 99; // centred on the slot, both ways
+      }
+      assert(`${id}: every name that builds is at most 24 x 10 mm and centred (widest ${widest.toFixed(1)}, tallest ${worst.toFixed(1)}, ${printable}/6 printable)`, printable > 0 && worst <= 10.001 && widest <= 24.001);
+    }
+  }
+  assert("tails make the ink taller than the capital letters (Script, Gypsy vs Maria), which is why the rectangle is measured on the ink", await (async () => {
+    const f = await loadFont("script");
+    const loose: NameSlot = { ...topSlot, font: "script", maxWidth: 80, height: 8, maxHeight: 60 };
+    const g = buildName(f, "Gypsy", loose), m = buildName(f, "Maria", loose);
+    return g.ok && m.ok && g.inkHeightMm > m.inkHeightMm + 1.5 && g.inkHeightMm > g.heightMm * 1.3;
+  })());
+  assert("older slots without maxHeight get 1.5 x the capital height", slotMaxHeight({ height: 6 }) === 9 && slotMaxHeight({ height: 6, maxHeight: 7 }) === 7);
   assert("there are six fonts to choose from", NAME_FONT_IDS.length === 6);
   assert("fontChoices: no list = just the default; the default is always included", fontChoices({ font: "bold" }).join() === "bold" && fontChoices({ font: "bold", fonts: ["chunky", "marker"] }).join() === "bold,chunky,marker");
   assert("withFont applies an offered font and ignores one that is not offered", withFont({ ...topSlot, fonts: ["bold", "chunky"] }, "chunky").font === "chunky" && withFont({ ...topSlot, fonts: ["bold", "chunky"] }, "script").font === "bold" && withFont(topSlot, "chunky").font === "bold" && withFont(topSlot, undefined).font === "bold");
@@ -142,8 +166,13 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("a name centred near an edge hangs over it and is reported", (() => { const r = checkFit(base, { ...topSlot, position: [18, 10, 20] }, 16, 5); return !r.fits && /not sit fully/.test(r.problem ?? "") && r.gaps.some((g) => g === null); })());
   assert("a slot floating 3 mm above the face is reported (surface not at the slot)", !checkFit(base, { ...topSlot, position: [10, 10, 23] }, 10, 4).fits);
   assert("a slot buried 3 mm inside the cube is reported", !checkFit(base, { ...topSlot, position: [10, 10, 17] }, 10, 4).fits);
-  assert("widestThatFits finds the widest name that stays on the face (a name centred 6 mm from the edge can be at most 12 mm wide)", (() => { const w = widestThatFits(base, { ...topSlot, position: [14, 10, 20], maxWidth: 30 }); return w !== null && w >= 11 && w <= 14 && checkFit(base, { ...topSlot, position: [14, 10, 20] }, w, 5).fits; })());
-  assert("widestThatFits gives up (null) when the spot itself is off the surface", widestThatFits(base, { ...topSlot, position: [30, 10, 20], maxWidth: 30 }) === null);
+  assert("fitScale: a rectangle that already fits is 1; one hanging over the edge shrinks proportionally until it fits", (() => {
+    const edge = { ...topSlot, position: [14, 10, 20] as [number, number, number], maxWidth: 30, maxHeight: 10 }; // 6 mm from the edge: at most 12 wide
+    const k = fitScale(base, edge);
+    const smaller = k ? shrinkSlot(edge, k) : null;
+    return fitScale(base, topSlot) === 1 && !!k && k < 1 && !!smaller && smaller.maxWidth <= 12.5 && smaller.maxWidth >= 9 && smaller.maxHeight! < 10 && checkFit(base, smaller, smaller.maxWidth, smaller.maxHeight!).fits;
+  })());
+  assert("fitScale gives up (null) when the spot itself is off the surface", fitScale(base, { ...topSlot, position: [30, 10, 20], maxWidth: 30 }) === null);
   assert("a side wall works the same way", checkFit(base, side, 12, 5).fits && !checkFit(base, { ...side, position: [20, 10, 18.5] }, 12, 5).fits);
 
   console.log("\nname added to a slicer 3MF (Bambu-style: plate object made of components, geometry in a second file)");

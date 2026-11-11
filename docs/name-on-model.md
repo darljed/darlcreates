@@ -28,7 +28,7 @@
 | `position` | Centre of the name on the surface, **in the model file's own coordinates** (mm, Z up) |
 | `normal` | Direction the surface faces, out of the model (unit vector) |
 | `up` | Which way is up for the letters, along the surface (unit vector) |
-| `maxWidth`, `height`, `depth`, `sink` | Widest name (mm), capital-letter height (mm), how far letters stand out (mm), how far they sink into the surface (mm) |
+| `maxWidth`, `maxHeight`, `height`, `depth`, `sink` | Widest and tallest the name's **ink** may be (mm; `maxHeight` counts ascenders and descenders and defaults to 1.5 × `height` for older slots), wanted capital-letter height (mm), how far letters stand out (mm), how far they sink into the surface (mm) |
 | `font` | `bold` or `chunky` |
 
 The letters are sunk a little (default 0.4 mm) so a slicer merges them with the base: **raised text needs no boolean (CSG) maths**. A right-handed frame (x = up × normal) guarantees the name reads left to right when seen from outside, on a top face and on a side wall (tested).
@@ -53,7 +53,9 @@ Checked against the real Outdoor Phone Stand: reads in 0.24 s (111,530 triangles
 
 ### Fit check (`checkFit`)
 
-At save time the server casts rays down onto the model from nine points over the widest name allowed (centre, corners, edge midpoints). Each must find the surface within 0.7 mm of the slot plane, otherwise the name would hang over an edge, over a hole, or start inside a wall. If it fails the admin is told the widest name that does fit (`widestThatFits`), for example "Set Widest name to 24 mm or less". This is conservative: shorter names are narrower and always fit if the widest does.
+At save time the server casts rays down onto the model from nine points over the **name rectangle** (`maxWidth` × `maxHeight`: centre, corners, edge midpoints). Each must find the surface within 0.7 mm of the slot plane, otherwise the name would hang over an edge, over a hole, or start inside a wall. If it fails the admin is told how far to shrink the rectangle (`fitScale` / `shrinkSlot`), for example "Set Widest name to 24 mm and Tallest name to 8 mm or less". `buildName` scales every name so its **whole outline** fits inside that rectangle and centres the ink in it, so any name in any offered font stays on the checked area.
+
+**Bug fixed 2026-11-11 (Script font overflowed the model):** the first version checked only a `maxWidth` × capital-height band and centred on the capital band. Script (Pacifico) has deep descenders and tall loops, so a name such as "Gypsy" reached 7.6 mm below the centre line (11.3 mm of ink against a 10.3 mm area) and ran off the surface; the check had also been run for the default font only. Now the rectangle is the ink box, set from the designer's example (23.57 × 10.28 mm for the v2 stand), and verified for every font and for names with tails (`test-name-mesh.ts`).
 
 On the stand the default 40 mm × 6 mm box hung off the surface at the first spot tried ("3 of 9 points over empty space"). A search over the largest flat areas found 28 to 30 mm wide spots on the top deck, the wall, and the sloped front of the backrest; the sloped front was used.
 

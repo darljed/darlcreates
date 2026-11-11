@@ -12,7 +12,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { Matrix4, Vector3 } from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import {
-  buildName, isWatertight, meshBounds, NAME_FONTS, nameSlotSchema, parseFont, slotMatrix, suggestFont, toMesh,
+  buildName, isWatertight, meshBounds, NAME_FONTS, nameSlotSchema, parseFont, slotMatrix, slotMaxHeight, suggestFont, toMesh,
   type Font, type Mesh, type NameFontId, type NameSlot,
 } from "./name-mesh";
 
@@ -339,7 +339,8 @@ export function detectNameSlot(files: Files): DetectedName | null {
     if (c !== v) notes.push(`${what} ${v.toFixed(1)} mm was adjusted to ${c.toFixed(1)} mm to stay within limits.`);
     return Math.round(c * 100) / 100;
   };
-  let heightMm = (hi[1] - lo[1]) * sy;
+  const inkHeight = (hi[1] - lo[1]) * sy;
+  let heightMm = inkHeight;
   if (/[gjpqy]/.test(text)) {
     heightMm *= 0.78; // the example's box includes descenders; our height is the capital height
     notes.push("The example has letters with tails, so the capital height was estimated from its box.");
@@ -358,6 +359,7 @@ export function detectNameSlot(files: Files): DetectedName | null {
     up: up.toArray().map((v) => Math.round(v * 10000) / 10000),
     maxWidth: clamp((hi[0] - lo[0]) * sx, 5, 300, "Width"),
     height: clamp(heightMm, 3, 60, "Letter height"),
+    maxHeight: clamp(inkHeight, 3, 120, "Name area height"), // the designer's example box: everything inside it is known to sit on the surface
     depth: clamp(Math.max(hi[2], 0) * sz, 0.6, 5, "Depth"),
     sink: 0.4,
     font: nameFont,
@@ -474,14 +476,21 @@ export function checkFit(base: Mesh, slot: NameSlot, widthMm: number, heightMm: 
 }
 
 /**
- * The widest name (mm, whole millimetres, never below `floor`) that still sits fully on the surface at this slot with
- * its current letter height, or null if even the floor does not fit (the spot itself is wrong).
+ * How much the slot's rectangle (widest x tallest name) has to shrink, as a factor from 1 down to 0.4, to sit fully on
+ * the surface; 1 = it already fits, null = it does not fit even at 40 % (the spot itself is wrong).
  */
-export function widestThatFits(base: Mesh, slot: NameSlot, floor = 8): number | null {
-  for (let w = Math.floor(slot.maxWidth); w >= floor; w--) {
-    if (checkFit(base, slot, w, slot.height).fits) return w;
+export function fitScale(base: Mesh, slot: NameSlot): number | null {
+  const h = slotMaxHeight(slot);
+  for (let k = 1; k >= 0.4 - 1e-9; k -= 0.05) {
+    if (checkFit(base, slot, slot.maxWidth * k, h * k).fits) return Math.round(k * 100) / 100;
   }
   return null;
+}
+
+/** The same slot with its rectangle shrunk by `k` (see `fitScale`), to one decimal place. */
+export function shrinkSlot(slot: NameSlot, k: number): NameSlot {
+  const r = (v: number) => Math.floor(v * k * 10) / 10;
+  return { ...slot, maxWidth: r(slot.maxWidth), maxHeight: r(slotMaxHeight(slot)) };
 }
 
 /** Load the product's original file as one mesh in build space. */
@@ -535,7 +544,7 @@ export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"
         widthMm: built.widthMm,
         heightMm: built.heightMm,
         stemMm: built.stemMm,
-        fit: checkFit(surface, o.slot, built.widthMm, built.heightMm),
+        fit: checkFit(surface, o.slot, built.widthMm, built.inkHeightMm),
         nameBounds: meshBounds(name),
       },
     };

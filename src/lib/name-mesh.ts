@@ -54,6 +54,12 @@ export const nameSlotSchema = z.object({
   maxWidth: z.number().min(5).max(300),
   /** Capital-letter height wanted (mm). */
   height: z.number().min(PRINT_LIMITS.minCapHeightMm).max(60),
+  /**
+   * Tallest the name's ink may be (mm), counting ascenders and descenders, which differ by font and name. The name is
+   * scaled down until its whole outline fits `maxWidth` x `maxHeight`; that rectangle is what is checked against the
+   * model's surface. Omitted (older slots): 1.5 x `height`.
+   */
+  maxHeight: z.number().min(PRINT_LIMITS.minCapHeightMm).max(120).optional(),
   /** How far the letters stand out (mm). */
   depth: z.number().min(PRINT_LIMITS.minDepthMm).max(PRINT_LIMITS.maxDepthMm),
   /** How far the letters sink into the surface so the shells overlap (mm). */
@@ -120,7 +126,12 @@ export function personalizedName(
   return null;
 }
 
-export const DEFAULT_SLOT_SIZES = { maxWidth: 40, height: 6, depth: 1.2, sink: 0.4, font: "bold" } as const;
+/** The tallest ink allowed for a slot: its own setting, or 1.5 x the capital height for slots saved before it existed. */
+export function slotMaxHeight(slot: Pick<NameSlot, "height" | "maxHeight">): number {
+  return slot.maxHeight ?? Math.round(slot.height * 1.5 * 100) / 100;
+}
+
+export const DEFAULT_SLOT_SIZES = { maxWidth: 40, height: 6, maxHeight: 9, depth: 1.2, sink: 0.4, font: "bold" } as const;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Text -> geometry
@@ -134,8 +145,9 @@ export type NameBuild =
       ok: true;
       /** Extruded letters in model coordinates, with normals (for display). */
       geometry: BufferGeometry;
-      /** Final size of the name in mm (width, capital height) and the thinnest stroke. */
+      /** Final size of the name in mm: ink width and height (with ascenders and descenders), capital height, stroke width. */
       widthMm: number;
+      inkHeightMm: number;
       heightMm: number;
       stemMm: number;
       /** True when the name was too wide and shrank to fit `maxWidth`. */
@@ -224,14 +236,13 @@ export function buildName(font: Font, textIn: string, slot: NameSlot): NameBuild
   const path = font.getPath(text, 0, 0, EM);
   const box = path.getBoundingBox();
   const widthUnits = box.x2 - box.x1;
-  if (!(widthUnits > 0)) return { ok: false, error: "Nothing to print" };
+  const inkUnits = box.y2 - box.y1;
+  if (!(widthUnits > 0) || !(inkUnits > 0)) return { ok: false, error: "Nothing to print" };
 
-  let scale = slot.height / capUnits;
-  let scaledDown = false;
-  if (widthUnits * scale > slot.maxWidth) {
-    scale = slot.maxWidth / widthUnits;
-    scaledDown = true;
-  }
+  // wanted size, then shrink until the whole outline (ascenders and descenders included) fits the slot's rectangle
+  const wanted = slot.height / capUnits;
+  const scale = Math.min(wanted, slot.maxWidth / widthUnits, slotMaxHeight(slot) / inkUnits);
+  const scaledDown = scale < wanted - 1e-9;
   const heightMm = capUnits * scale;
   const shapes = pathToShapes(path);
   const stemMm = strokeWidth(shapes, scale);
@@ -244,13 +255,14 @@ export function buildName(font: Font, textIn: string, slot: NameSlot): NameBuild
     bevelEnabled: false,
     curveSegments: 5,
   });
-  // centre: horizontally on the ink, vertically on the capital-height band (so "Ana" and "Gigi" share a baseline)
-  geometry.translate(-(box.x1 + box.x2) / 2, -capUnits / 2, 0);
+  // centre the ink box on the slot, both ways, so the checked rectangle (maxWidth x maxHeight) always contains the name
+  // (opentype's y points down and was flipped above, so the ink spans -y2..-y1)
+  geometry.translate(-(box.x1 + box.x2) / 2, (box.y1 + box.y2) / 2, 0);
   geometry.scale(scale, scale, scale);
   geometry.translate(0, 0, -slot.sink);
   geometry.applyMatrix4(slotMatrix(slot));
 
-  return { ok: true, geometry, widthMm: widthUnits * scale, heightMm, stemMm, scaledDown };
+  return { ok: true, geometry, widthMm: widthUnits * scale, inkHeightMm: inkUnits * scale, heightMm, stemMm, scaledDown };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

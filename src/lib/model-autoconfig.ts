@@ -14,8 +14,8 @@ import { db } from "@/db";
 import { productOptions, productOptionValues, products } from "@/db/schema";
 import { zipSync } from "fflate";
 import { colorName } from "./color-name";
-import { fontChoices, type NameSlot } from "./name-mesh";
-import { checkFit, detectNameSlot, open3mf, projectFilaments, stripPlaceholder, threeMfSurface, widestThatFits } from "./name-3mf";
+import { fontChoices, slotMaxHeight, type NameSlot } from "./name-mesh";
+import { checkFit, detectNameSlot, fitScale, open3mf, projectFilaments, shrinkSlot, stripPlaceholder, threeMfSurface } from "./name-3mf";
 import { buildKey, getObject, putObject } from "./storage";
 
 export type AutoConfig = {
@@ -64,11 +64,12 @@ export async function autoConfigureModel(productId: string, key: string): Promis
       const clean = stripPlaceholder(files, det.componentIndex);
       const surface = threeMfSurface(clean).mesh;
       slot = det.slot;
-      if (!checkFit(surface, slot, slot.maxWidth, slot.height).fits) {
-        const w = widestThatFits(surface, slot);
-        if (w) {
-          out.notes.push(`The example hung over the edge of the surface, so the widest name was reduced from ${slot.maxWidth} mm to ${w} mm.`);
-          slot = { ...slot, maxWidth: w };
+      if (!checkFit(surface, slot, slot.maxWidth, slotMaxHeight(slot)).fits) {
+        const k = fitScale(surface, slot);
+        if (k) {
+          const smaller = shrinkSlot(slot, k);
+          out.notes.push(`The example hung over the edge of the surface, so the name area was reduced from ${slot.maxWidth} × ${slotMaxHeight(slot)} mm to ${smaller.maxWidth} × ${smaller.maxHeight} mm.`);
+          slot = smaller;
         } else {
           out.notes.push("The example text does not sit on the surface, so no name position was saved. Click the model to place it.");
           slot = null;
