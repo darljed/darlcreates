@@ -37,7 +37,16 @@ export function ProductFiles({
       const key = await uploadToS3("model", file);
       const res = await attachModelAction({ productId, key });
       if (!res.ok) throw new Error(res.error);
-      toast.success("3D model uploaded");
+      const a = res.auto;
+      if (a?.detected) {
+        toast.success(
+          `3D model uploaded. Found the example text “${a.detected.text}” (${a.detected.mode}, ${a.detected.widthMm.toFixed(1)} × ${a.detected.heightMm.toFixed(1)} mm): ` +
+            `${a.slotSaved ? "name position saved" : "position not saved"}, example removed from the model.`,
+          { duration: 9000 },
+        );
+      } else toast.success("3D model uploaded");
+      if (a?.colours.added.length) toast.success(`Colors added from the file: ${a.colours.added.join(", ")}`, { duration: 9000 });
+      for (const n of a?.notes ?? []) toast.info(n, { duration: 12000 });
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");

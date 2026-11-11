@@ -88,12 +88,14 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `cart-service.ts` | **Service.** Add to cart: normalize choices to the product schema, recompute price, verify customer image |
 | `cart.ts` | Cart reads: get or create the active cart, lines with signed image links, config summary, subtotal, item count |
 | `catalog.ts` | Cached storefront product reads (`products`, `product:<slug>` tags) |
+| `color-name.ts` | **Pure.** Plain-English name for a hex colour ("Pink", "Dark green"), used to label swatches made from filament colours |
 | `customer-images.ts` | Proof that a customer-uploaded image is theirs, exists, is small enough and is a real image |
 | `email.ts` | Order emails (placed, verified, rejected, shipped); logs instead of sending when SMTP is not set |
 | `files.ts` | Decides whether a storage key may be served publicly |
 | `image-size.ts` | **Pure.** Reads PNG/JPEG/WebP pixel size from the first bytes |
 | `legal-format.ts` | **Pure.** Legal-text parser and the editor toolbar's text transforms (rejects unsafe links) |
-| `name-3mf.ts` | **Service (server).** Print file for a named item: reads the STL, builds the name, writes a two-object 3MF; `nameProblem` for add-to-cart |
+| `model-autoconfig.ts` | **Service (server).** After a 3MF upload: example text → name slot (+ cleaned model), filament colours → Colors option |
+| `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
 | `like.ts` | Escapes `%` and `_` for SQL `LIKE` searches |
@@ -224,6 +226,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `fixtures/demo-data.ts` | Demo products, customers, review texts |
 | `fixtures/demo-images.py` | Generates the demo product photos |
 | `fixtures/base-plus-name.3mf` | Sample multi-part 3MF used by tests |
+| `fixtures/bambu-text-3mf.ts` | Builds a tiny Bambu-style 3MF with an example text element (rotated plate, optional filaments) for tests |
 | `fixtures/cube-20mm.stl` | Sample STL used by tests |
 | `test-a11y-labels.ts` | Every form label is linked to its control |
 | `test-acknowledgment.ts` | Acknowledgment content and no-registration-wording |
@@ -238,6 +241,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
+| `test-model-autoconfig.ts` | Upload auto-configuration against the DB and S3 |
 | `test-money.ts` | Money maths |
 | `test-order-lifecycle.ts` | Full order lifecycle |
 | `test-pricing.ts` | Price engine |
@@ -255,7 +259,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 |---|---|
 | `next.config.ts` | `cacheComponents`, `partialPrefetching`, dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
 | `drizzle.config.ts` | drizzle-kit config |
-| `public/fonts/` | The two name fonts (SIL Open Font License, licence files included) used by the preview and the print file |
+| `public/fonts/` | The six name fonts (OFL, Permanent Marker Apache 2.0; licence files included) used by the preview and the print file |
 | `public/sw.js`, `public/offline.html` | PWA service worker (caches build assets and logos, never pages) and its offline page |
 | `components.json` | shadcn config |
 | `eslint.config.mjs` | Lint rules |

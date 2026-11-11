@@ -37,7 +37,7 @@ export type ProductOptionInput = {
 /** A customer's selection: optionId -> chosen value. */
 export type ConfigSelection = Record<
   string,
-  { valueId?: string; text?: string; imageKey?: string }
+  { valueId?: string; text?: string; imageKey?: string; font?: string }
 >;
 
 export type PriceResult = {
@@ -131,7 +131,12 @@ export function normalizeSelection(
       if (sel.valueId) config[opt.id] = { valueId: sel.valueId };
     } else if (opt.type === "text") {
       const text = (sel.text ?? "").trim();
-      if (text) config[opt.id] = { text };
+      if (text) {
+        // a font choice is kept only if this option's name slot offers it
+        const slot = (opt.constraints.slot ?? {}) as { font?: string; fonts?: string[] };
+        const offered = new Set([slot.font, ...(slot.fonts ?? [])].filter(Boolean));
+        config[opt.id] = sel.font && offered.size > 1 && offered.has(sel.font) ? { text, font: sel.font } : { text };
+      }
     } else if (opt.type === "image") {
       if (sel.imageKey) {
         if (isOwnImageKey(sel.imageKey)) config[opt.id] = { imageKey: sel.imageKey };
@@ -155,5 +160,6 @@ export const configSelectionSchema = z.record(
     valueId: z.string().optional(),
     text: z.string().max(500).optional(),
     imageKey: z.string().max(300).optional(),
+    font: z.string().max(30).optional(),
   }),
 );

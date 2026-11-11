@@ -19,7 +19,7 @@ import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, configSelectionSchema, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
-import { slotOf } from "@/lib/name-mesh";
+import { fontChoices, NAME_FONTS, slotOf, withFont } from "@/lib/name-mesh";
 import { useNameBuild } from "@/components/use-name-build";
 import { addToCartAction } from "@/app/(shop)/cart/actions";
 
@@ -108,7 +108,9 @@ export function ProductCustomizer({
   // A text option with a name slot: show the name on the 3D model as it is typed, and block names that cannot be printed.
   const nameOpt = useMemo(() => options.find((o) => o.type === "text" && slotOf(o.constraints)) ?? null, [options]);
   const nameSlot = useMemo(() => (nameOpt ? slotOf(nameOpt.constraints) : null), [nameOpt]);
-  const nameBuild = useNameBuild(nameSlot, nameOpt ? (selection[nameOpt.id]?.text ?? "") : "");
+  const nameFonts = useMemo(() => (nameSlot ? fontChoices(nameSlot) : []), [nameSlot]);
+  const chosenSlot = useMemo(() => (nameSlot ? withFont(nameSlot, nameOpt ? selection[nameOpt.id]?.font : undefined) : null), [nameSlot, nameOpt, selection]);
+  const nameBuild = useNameBuild(chosenSlot, nameOpt ? (selection[nameOpt.id]?.text ?? "") : "");
   const nameError = nameBuild && !nameBuild.ok ? nameBuild.error : null;
 
   // The currently selected color (if any) drives the 3D model material.
@@ -151,6 +153,7 @@ export function ProductCustomizer({
         color={activeColor}
         photos={photos}
         overlay={nameBuild?.ok ? nameBuild.geometry : null}
+        overlayColor={nameSlot?.nameColor?.hex}
       />
 
       {/* Customizer form */}
@@ -221,6 +224,21 @@ export function ProductCustomizer({
                 onChange={(e) => setValue(opt.id, { text: e.target.value })}
                 aria-invalid={opt.id === nameOpt?.id && Boolean(nameError)}
               />
+            )}
+            {opt.id === nameOpt?.id && nameFonts.length > 1 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor={`font-${opt.id}`} className="text-xs font-semibold">Font</Label>
+                <select
+                  id={`font-${opt.id}`}
+                  className="h-9 rounded-md border-2 border-border bg-background px-2 text-sm"
+                  value={chosenSlot?.font ?? nameFonts[0]}
+                  onChange={(e) => setValue(opt.id, { font: e.target.value })}
+                >
+                  {nameFonts.map((f) => (
+                    <option key={f} value={f}>{NAME_FONTS[f].label}</option>
+                  ))}
+                </select>
+              </div>
             )}
             {opt.id === nameOpt?.id && (
               <p className={cn("text-xs", nameError ? "text-destructive" : "text-muted-foreground")} role={nameError ? "alert" : undefined}>

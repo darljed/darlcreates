@@ -38,6 +38,8 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 
 - **Name on the model (proof of concept)**: on products with a name slot, the customer's name is drawn on the 3D model as they type; names that cannot be printed are refused with a message ([details](./name-on-model.md))
 
+- **Font choice for the name**: when the product offers several fonts, a Font picker redraws the name on the 3D model; the choice is kept in the order
+
 ## Admin (owner) ✅
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,
   status counts, needs-attention, top products, recent orders)
@@ -50,6 +52,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Product CRUD + **customization-schema builder** (options + color/size values)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
+- **3MF upload auto-configures the product**: the example text in a Bambu Studio file becomes the name position, the example is removed, and the project's filaments become Colors
 - **Name on the model**: click the 3D model to place the customer's name; the order download becomes a 3MF with the base and the name as separate parts (proof of concept, STL products)
 - **Internal waybill** per order (A6 slip with barcode, ship-to, pack list and tick boxes) for our own tracking
 - **Search title and description** for the home page (Store & footer)

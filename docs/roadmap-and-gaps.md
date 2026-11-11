@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (name-on-model proof of concept: G-79 to G-85)
+Last updated: 2026-11-11 (name-on-model: G-79 to G-90)
 
 ---
 
@@ -94,7 +94,10 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-84 | 🟡 | **Print report not shown to the admin** | Width, thinnest stroke and watertight result are computed but only returned by `buildPrintFile` |
 | G-85 | 🟡 | **Flat surfaces only** | The name is a flat sheet on one plane; curved faces need wrapping |
 | G-86 | 🟠 | **Large models are slow in the browser** | The v2 stand (523k triangles, 44 MB of XML) takes about 12 s and 166 MB of heap to show in dev. Use a lighter preview model (decimated copy or a separate display file) for the product page; keep the full model for the print file |
-| G-87 | 🟡 | **Text-element detection is not wired to the upload step yet** | `detectNameSlot` and `stripPlaceholder` work on the real file and are tested, but the admin still sets the slot by clicking. Wire them into model upload (detect, strip, pre-fill) |
+| G-87 | ✅ 2026-11-11 | **Text-element detection wired to upload** | `attachModelAction` → `autoConfigureModel`: slot, cleaned model, Colors from filaments, fonts offered. Tested (`test-model-autoconfig.ts`) and run with the real v2 file |
+| G-88 | 🟡 | **Customer cannot choose the name's colour** | Only a fixed contrasting colour from the file (`nameColor`). A Name colour option mapped to filament slots is not built |
+| G-89 | 🟡 | **Marker-part detection (any slicer) and engraved (negative part) not built** | Engraving is next, with a negative-part sample from the owner |
+| G-90 | 🟡 | **No admin upload of custom fonts** | Fonts are files in `public/fonts`. `opentype.js` cannot read every font (Bangers failed on its GSUB table) |
 
 ### Missing from the spec (planned, not built)
 

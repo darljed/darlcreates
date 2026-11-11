@@ -19,6 +19,10 @@ import { z } from "zod";
 export const NAME_FONTS = {
   bold: { label: "Bold", file: "Poppins-ExtraBold.ttf" },
   chunky: { label: "Chunky", file: "LilitaOne-Regular.ttf" },
+  marker: { label: "Marker", file: "PermanentMarker-Regular.ttf" },
+  modern: { label: "Modern", file: "Righteous-Regular.ttf" },
+  condensed: { label: "Condensed", file: "Anton-Regular.ttf" },
+  script: { label: "Script", file: "Pacifico-Regular.ttf" },
 } as const;
 export type NameFontId = keyof typeof NAME_FONTS;
 export const NAME_FONT_IDS = Object.keys(NAME_FONTS) as [NameFontId, ...NameFontId[]];
@@ -54,9 +58,41 @@ export const nameSlotSchema = z.object({
   depth: z.number().min(PRINT_LIMITS.minDepthMm).max(PRINT_LIMITS.maxDepthMm),
   /** How far the letters sink into the surface so the shells overlap (mm). */
   sink: z.number().min(0).max(2),
+  /** The font used when the customer does not choose (or may not choose). */
   font: z.enum(NAME_FONT_IDS),
+  /** Fonts the customer may pick from. Omitted or just the default font: no picker is shown. */
+  fonts: z.array(z.enum(NAME_FONT_IDS)).min(1).max(NAME_FONT_IDS.length).optional(),
+  /**
+   * Set when the designer's example text was printed in a different filament than the model (a contrasting colour):
+   * the name is given that filament in the slicer and drawn in that colour in the preview. Omitted = same as the model.
+   */
+  nameColor: z.object({ hex: z.string().regex(/^#[0-9a-fA-F]{6}$/), filament: z.number().int().min(1).max(32) }).optional(),
 });
 export type NameSlot = z.infer<typeof nameSlotSchema>;
+
+/** The fonts a customer can choose between for this slot (always includes the default; one entry = no choice). */
+export function fontChoices(slot: Pick<NameSlot, "font" | "fonts">): NameFontId[] {
+  const list = slot.fonts?.length ? [...slot.fonts] : [];
+  if (!list.includes(slot.font)) list.unshift(slot.font);
+  return list;
+}
+
+/** The slot with the customer's font applied, if it is one they are allowed to choose; otherwise unchanged. */
+export function withFont(slot: NameSlot, requested: string | undefined): NameSlot {
+  const ok = requested && (fontChoices(slot) as string[]).includes(requested) ? (requested as NameFontId) : slot.font;
+  return ok === slot.font ? slot : { ...slot, font: ok };
+}
+
+/** A sensible font for the font name a designer used in the slicer (information only; we print with our own fonts). */
+export function suggestFont(fontName: string): NameFontId {
+  const n = fontName.toLowerCase();
+  if (/script|cursive|pacifico|signature|calligraph/.test(n)) return "script";
+  if (/marker|felt|hand|brush|sharpie|chalk/.test(n)) return "marker";
+  if (/righteous|geometric|futura|avenir|gotham|modern/.test(n)) return "modern";
+  if (/condensed|narrow|impact|anton|bebas/.test(n)) return "condensed";
+  if (/rounded|chunky|lilita|bubble|baloo|fredoka/.test(n)) return "chunky";
+  return "bold";
+}
 
 /** The valid name slot stored on a text option, or null (no slot, or a damaged one). */
 export function slotOf(constraints: { slot?: unknown } | null | undefined): NameSlot | null {
@@ -70,7 +106,7 @@ export function slotOf(constraints: { slot?: unknown } | null | undefined): Name
  */
 export function personalizedName(
   options: { id: string; type: string; constraints: { slot?: unknown } }[],
-  config: Record<string, { text?: string }>,
+  config: Record<string, { text?: string; font?: string }>,
   baseKey: string | null,
 ): { slot: NameSlot; text: string; kind: "stl" | "3mf" } | null {
   const kind = baseKey && /\.(stl|3mf)$/i.exec(baseKey)?.[1].toLowerCase();
@@ -79,7 +115,7 @@ export function personalizedName(
     if (opt.type !== "text") continue;
     const slot = slotOf(opt.constraints);
     const text = cleanName(config[opt.id]?.text ?? "");
-    if (slot && text) return { slot, text, kind };
+    if (slot && text) return { slot: withFont(slot, config[opt.id]?.font), text, kind }; // the customer's font, if they chose one
   }
   return null;
 }
@@ -121,10 +157,34 @@ export function cleanName(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Width of a plain vertical stroke in this font ("I") at `scale`: the thinnest part we must be able to print. */
-function stemOf(font: Font, scale: number): number {
-  const b = font.getPath("I", 0, 0, EM).getBoundingBox();
-  return (b.x2 - b.x1) * scale;
+/**
+ * Typical stroke width of the shaped text at `scale`: for a stroke of width w and length L the outline has area w·L and
+ * perimeter 2·L, so w ≈ 2·area / perimeter. Measured on the real outlines (holes subtracted), so it follows the actual
+ * letters and font. An average, not a minimum: hairline joins in a script font would not show up here.
+ */
+function strokeWidth(shapes: ReturnType<typeof pathToShapes>, scale: number): number {
+  let area = 0, perimeter = 0;
+  const ring = (pts: { x: number; y: number }[]) => {
+    let a = 0, p = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const u = pts[i], v = pts[(i + 1) % pts.length];
+      a += u.x * v.y - v.x * u.y;
+      p += Math.hypot(v.x - u.x, v.y - u.y);
+    }
+    return { a: Math.abs(a) / 2, p };
+  };
+  for (const s of shapes) {
+    const { shape, holes } = s.extractPoints(6);
+    const o = ring(shape);
+    area += o.a;
+    perimeter += o.p;
+    for (const h of holes) {
+      const r = ring(h);
+      area -= r.a;
+      perimeter += r.p;
+    }
+  }
+  return perimeter > 0 ? ((2 * area) / perimeter) * scale : 0;
 }
 
 function pathToShapes(path: opentype.Path) {
@@ -173,12 +233,12 @@ export function buildName(font: Font, textIn: string, slot: NameSlot): NameBuild
     scaledDown = true;
   }
   const heightMm = capUnits * scale;
-  const stemMm = stemOf(font, scale);
+  const shapes = pathToShapes(path);
+  const stemMm = strokeWidth(shapes, scale);
   if (heightMm < PRINT_LIMITS.minCapHeightMm || stemMm < PRINT_LIMITS.minStemMm) {
     return { ok: false, error: "That name is too long to print clearly in the space available. Try a shorter name." };
   }
 
-  const shapes = pathToShapes(path);
   const geometry = new ExtrudeGeometry(shapes, {
     depth: (slot.depth + slot.sink) / scale, // extruded in font units, scaled to mm below
     bevelEnabled: false,

@@ -129,6 +129,11 @@ export async function deletePrefix(prefix: string): Promise<number> {
   return deleted;
 }
 
+/** Write an object from the server (for example a model cleaned up after upload). */
+export async function putObject(key: string, body: Uint8Array, contentType: string): Promise<void> {
+  await client().send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+}
+
 export async function deleteObject(key: string): Promise<void> {
   await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }

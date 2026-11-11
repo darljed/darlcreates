@@ -16,9 +16,10 @@ import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/u
 import { productPhotos } from "@/db/schema";
 import { nameSlotSchema } from "@/lib/name-mesh";
 import { checkFit, readBaseSurface, widestThatFits } from "@/lib/name-3mf";
+import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
 import { getObject } from "@/lib/storage";
 
-type Result = { ok: true; id?: string } | { ok: false; error: string };
+type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
 
 function slugify(s: string): string {
   return s
@@ -271,7 +272,7 @@ const attachModelSchema = z.object({
  * Attach an uploaded 3D model (STL or 3MF) to a product. Verifies the object really
  * exists and is within the size limit (the client could lie), and that a .3mf is a
  * real ZIP. The previous model is NOT deleted from S3: existing orders reference it
- * via order_items.stl_key_snapshot.
+ * via order_items.stl_key_snapshot. A 3MF slicer project is also read to auto-configure the name slot and colours.
  */
 export async function attachModelAction(input: unknown): Promise<Result> {
   await requireAdmin();
@@ -295,8 +296,18 @@ export async function attachModelAction(input: unknown): Promise<Result> {
     .set({ stlKey: key, updatedAt: new Date() })
     .where(eq(products.id, productId));
 
+  // A slicer 3MF can configure the product by itself: the designer's example text becomes the name slot and the
+  // project's filament colours become the colour swatches (see lib/model-autoconfig.ts). Never blocks the upload.
+  let auto: AutoConfig | undefined;
+  try {
+    auto = await autoConfigureModel(productId, key);
+  } catch (e) {
+    auto = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false }, notes: [`Auto-configuration failed: ${e instanceof Error ? e.message : "unknown error"}. The model was attached as uploaded.`] };
+  }
+
   invalidate(await slugOf(productId));
-  return { ok: true };
+  revalidatePath(`/admin/products/${productId}`);
+  return { ok: true, auto };
 }
 
 const addPhotoSchema = z.object({

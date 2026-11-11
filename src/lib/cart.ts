@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { fileUrl, readUrl } from "./storage";
 import type { ConfigSelection, ProductOptionInput } from "./pricing";
+import { NAME_FONTS, type NameFontId } from "./name-mesh";
 
 /** Get or create the user's single active cart. */
 export async function getOrCreateCart(userId: string): Promise<string> {
@@ -45,7 +46,8 @@ export function summarizeConfig(
     const sel = config[opt.id];
     if (!sel) continue;
     if (opt.type === "text" && sel.text) {
-      out.push({ label: opt.label, value: sel.text });
+      const fontLabel = sel.font && sel.font in NAME_FONTS ? NAME_FONTS[sel.font as NameFontId].label : null;
+      out.push({ label: opt.label, value: fontLabel ? `${sel.text} (${fontLabel} font)` : sel.text });
     } else if (sel.valueId) {
       const v = opt.values.find((x) => x.id === sel.valueId);
       if (v) out.push({ label: opt.label, value: v.label });

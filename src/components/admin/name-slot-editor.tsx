@@ -13,11 +13,11 @@ import { Vector3 } from "three";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Panel } from "@/components/shell/ui";
-import { Field } from "@/components/admin/editor-bits";
+import { Check, Field } from "@/components/admin/editor-bits";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import type { PickHit } from "@/components/three/stl-viewer";
 import { useNameBuild } from "@/components/use-name-build";
-import { DEFAULT_SLOT_SIZES, NAME_FONTS, NAME_FONT_IDS, slotOf, type NameFontId, type NameSlot } from "@/lib/name-mesh";
+import { DEFAULT_SLOT_SIZES, fontChoices, NAME_FONTS, NAME_FONT_IDS, slotOf, type NameFontId, type NameSlot } from "@/lib/name-mesh";
 import { saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
 
 export type NameSlotOption = { id: string; label: string; constraints: { slot?: unknown } };
@@ -58,6 +58,17 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
     });
   }
 
+  /** Tick or untick a font customers may choose. The default font always stays; one font alone means no picker. */
+  function toggleFont(id: NameFontId, on: boolean) {
+    if (!slot || id === slot.font) return;
+    const set = new Set(fontChoices(slot));
+    if (on) set.add(id);
+    else set.delete(id);
+    const { fonts: _old, ...rest } = slot;
+    void _old;
+    setSlot(set.size > 1 ? { ...rest, fonts: NAME_FONT_IDS.filter((f) => set.has(f)) } : rest);
+  }
+
   function save(next: NameSlot | null) {
     start(async () => {
       const res = await saveNameSlotAction({ productId, optionId, slot: next });
@@ -96,7 +107,7 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
       )}
       <div className="mt-3 grid gap-4 md:grid-cols-[1fr_260px]">
         <div className="aspect-square overflow-hidden rounded-lg border-2 bg-card md:aspect-[4/3]">
-          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} onPick={onPick} />
+          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={slot?.nameColor?.hex} onPick={onPick} />
         </div>
         <div className="space-y-3">
           <Field label="Sample name" hint="to preview">
@@ -114,6 +125,23 @@ export function NameSlotEditor({ productId, modelUrl, options }: { productId: st
               ))}
             </select>
           </Field>
+          <fieldset disabled={!slot} className="space-y-1">
+            <legend className="text-xs font-medium">Fonts customers can choose <span className="font-normal text-muted-foreground">(tick two or more to show a picker)</span></legend>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {NAME_FONT_IDS.map((id) => (
+                <Check key={id} label={NAME_FONTS[id].label} checked={slot ? fontChoices(slot).includes(id) : false} onChange={(on) => toggleFont(id, on)} />
+              ))}
+            </div>
+          </fieldset>
+          {slot?.nameColor && (
+            <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-block size-4 rounded-full border" style={{ backgroundColor: slot.nameColor.hex }} aria-hidden />
+              Name prints in filament {slot.nameColor.filament} ({slot.nameColor.hex}), set from your 3MF.
+              <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => { const { nameColor: _c, ...rest } = slot; void _c; setSlot(rest); }}>
+                Same as the model
+              </Button>
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-2">
             {num("height", "Letter height", 0.5, "mm")}
             {num("maxWidth", "Widest name", 1, "mm")}

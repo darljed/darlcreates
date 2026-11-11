@@ -1,6 +1,6 @@
 # Name on the model (Phase 2, proof of concept)
 
-> Status: **proof of concept, built 2026-11-11 on branch `feat/name-personalization`.** Covers levels 2 and 3 of [personalization-and-3mf.md](./personalization-and-3mf.md): a live 3D name preview for the customer, and a print file the server builds from the saved name. Raised letters on **STL** products and on **slicer 3MF projects** (Bambu Studio style). Tried on the real Outdoor Phone Stand (3MF) the same day. Read "Limits" before relying on it.
+> Status: **proof of concept, built 2026-11-11 on branch `feat/name-personalization`; upload auto-configuration and a customer font picker added the same day.** Covers levels 2 and 3 of [personalization-and-3mf.md](./personalization-and-3mf.md): a live 3D name preview for the customer, and a print file the server builds from the saved name. Raised letters on **STL** products and on **slicer 3MF projects** (Bambu Studio style). Tried on the real Outdoor Phone Stand (3MF) the same day. Read "Limits" before relying on it.
 
 ## What it does
 
@@ -35,7 +35,7 @@ The letters are sunk a little (default 0.4 mm) so a slicer merges them with the 
 
 ### Printability rules (`PRINT_LIMITS`)
 
-- Capital height ≥ 3 mm and thinnest stroke ≥ 0.8 mm (two lines of a 0.4 mm nozzle). The stroke is measured as the width of the font's "I" at the final scale, so it shrinks as a long name is squeezed into `maxWidth`.
+- Capital height ≥ 3 mm and stroke width ≥ 0.8 mm (two lines of a 0.4 mm nozzle). The stroke is the **average stroke width of the actual letters**, 2 × area ÷ perimeter of the outlines (holes subtracted), at the final scale, so it shrinks as a long name is squeezed into `maxWidth`. It is an average, not a minimum: hairline joins in a script font would not show up. The Script font is the thinnest ("Ana" at 6 mm is 0.81 mm), and it refuses a name such as "Maria Cruz" at 40 mm wide.
 - Stand-out between 0.6 and 5 mm.
 - The name mesh is checked to be watertight (every edge shared by two triangles); the check result is in the build report.
 
@@ -56,6 +56,28 @@ Checked against the real Outdoor Phone Stand: reads in 0.24 s (111,530 triangles
 At save time the server casts rays down onto the model from nine points over the widest name allowed (centre, corners, edge midpoints). Each must find the surface within 0.7 mm of the slot plane, otherwise the name would hang over an edge, over a hole, or start inside a wall. If it fails the admin is told the widest name that does fit (`widestThatFits`), for example "Set Widest name to 24 mm or less". This is conservative: shorter names are narrower and always fit if the widest does.
 
 On the stand the default 40 mm × 6 mm box hung off the surface at the first spot tried ("3 of 9 points over empty space"). A search over the largest flat areas found 28 to 30 mm wide spots on the top deck, the wall, and the sloped front of the backrest; the sloped front was used.
+
+## Upload auto-configuration
+
+When the owner uploads a **3MF** (Admin → Products → Files), `attachModelAction` calls `autoConfigureModel` (`src/lib/model-autoconfig.ts`) and reports what it did in toasts. Nothing blocks the upload; if anything cannot be read the file is attached as uploaded and a note says why.
+
+| It reads | It does | If it cannot |
+|---|---|---|
+| The designer's text element (`text_info` in `model_settings.config`) | Saves its spot, size, depth and facing as the **name slot** on the product's first text option (creates a "Name" text option, optional, max 12 letters, letters/digits/space, if there is none); removes the example from the model and attaches the cleaned copy (`models/<id>-name-ready.3mf`; the original upload stays in storage); picks the closest of our fonts to the designer's font and offers it plus Bold and Chunky; shrinks the widest name if the example hung over the edge | Notes it and leaves the slot for the admin to click |
+| The project's filament colours (`project_settings.config`) | If the product has **no colour option**, creates "Colors" with one swatch per distinct filament (Pink, Cream, Red…), named by `colorName()` | Existing colour options are never touched |
+| Which filament the example uses vs the model | If different, the slot keeps `nameColor` (hex + filament number): the preview draws the name in that colour and the print file gives the name part that filament | Same filament = no own colour: the name follows the model |
+
+A second upload to the same product refreshes the slot and does not duplicate options. STL uploads are not changed (no parts, no text element, no filament list).
+
+Checked: `scripts/test-model-autoconfig.ts` (DB + S3, synthetic Bambu-style file), and by uploading the owner's real `phonestand_v2_name.3mf` through the admin in a browser: it reported the example "Cams" (raised, 23.6 × 10.3 mm), saved the position, removed the example, added Colors Pink / Cream / Red and offered 3 fonts.
+
+## Fonts
+
+Six heavy fonts are bundled in `public/fonts` (Bold = Poppins ExtraBold, Chunky = Lilita One, Marker = Permanent Marker, Modern = Righteous, Condensed = Anton, Script = Pacifico), all OFL except Permanent Marker (Apache 2.0); licence files are alongside. Bangers was tried and dropped: `opentype.js` cannot read its GSUB table. A font that `opentype.js` cannot parse must not be added; test it with `test-name-mesh.ts`.
+- **Admin:** "Name on the model" has the default Font and "Fonts customers can choose". Two or more ticked fonts show a picker; one means no choice.
+- **Customer:** a **Font** select under the Name box redraws the name on the model immediately. The choice is stored in the cart/order config (`font`), validated against the slot's offered list (anything else is dropped), shown in the order summary ("Maria (Chunky font)"), checked for printability with that font on add-to-cart, and used for the print file.
+- Verified with a real order: the Chunky name part has 1,772 triangles against 1,080 for Bold.
+- Latin letters only (`opentype.js` does no complex-script shaping). A font used in the slicer cannot be reproduced unless its file is added here.
 
 ## Tests
 
@@ -100,7 +122,7 @@ Today the position is set by clicking in the admin and is stored in our database
 - Known Bambu quirk: colour painting inside negative text can misbehave (BambuStudio issue #8984); not relevant unless text is also multi-coloured.
 
 ### Suggested order
-A. Wire text-element detection (done) and marker-part detection into the upload step: detect, strip the example, pre-fill the slot, show "Detected: Cams, raised, 23.6 × 10.3 mm" for the admin to confirm. B. Engraved mode (negative part, wall-thickness check, decal preview). C. More fonts, per-product allow-list, customer font picker. D. Name colour mapped to filament slots. E. A negative-part sample, to confirm the engraved subtype. A lighter preview model for big files. Snapshot the slot per order (G-80) before real orders depend on any of it.
+A. ~~Wire text-element detection into the upload step~~ (done 2026-11-11, with fonts and colours). Marker-part detection (any slicer) is still to do. B. Engraved mode (negative part, wall-thickness check, decal preview). C. ~~More fonts, allow-list, customer font picker~~ (done). D. Customer-chosen name colour mapped to filament slots (a fixed contrasting colour from the file is done). E. A negative-part sample, to confirm the engraved subtype. A lighter preview model for big files. Snapshot the slot per order (G-80) before real orders depend on any of it.
 
 ## Limits (what this proof of concept does not do)
 
@@ -115,7 +137,7 @@ A. Wire text-element detection (done) and marker-part detection into the upload 
 | **One name per product, one text option** | `personalizedName` uses the first text option that has a slot |
 | **No moderation, no per-character price** | Allowed characters still come from the option's pattern; price is the option's flat add-on |
 | **Admin order page shows no print report** | Width, stroke and watertight results are computed (`buildPrintFile().report`) but not displayed yet |
-| **Fonts** | Two heavy Latin fonts. Letters outside them are refused with a message. More fonts = drop a file in `public/fonts` and add it to `NAME_FONTS` |
+| **Fonts** | Six heavy Latin fonts. Letters outside them are refused with a message. More fonts = drop a file in `public/fonts` and add it to `NAME_FONTS` (an admin upload of the owner's own font is not built) |
 
 ## Questions that decide the next step
 

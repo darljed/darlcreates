@@ -103,12 +103,14 @@ type SceneProps = {
   autoRotate: boolean;
   onUserInteract: () => void;
   overlay?: BufferGeometry | null;
+  /** Colour of the letters when they print in their own filament; otherwise they follow the model, a shade darker. */
+  overlayColor?: string;
   onPick?: (hit: PickHit) => void;
 };
 
 /** Raised letters drawn on the model. Slightly darker than the model so they read, and ignored by click picking. */
-function NameMesh({ geometry, color }: { geometry: BufferGeometry; color: string }) {
-  const tint = useMemo(() => new Color(color).offsetHSL(0, 0, -0.14), [color]);
+function NameMesh({ geometry, color, own }: { geometry: BufferGeometry; color: string; own?: string }) {
+  const tint = useMemo(() => (own ? new Color(own) : new Color(color).offsetHSL(0, 0, -0.14)), [color, own]);
   return (
     <mesh geometry={geometry} raycast={() => null}>
       <meshStandardMaterial color={tint} roughness={0.45} metalness={0.05} />
@@ -126,7 +128,7 @@ function hitOf(e: ThreeEvent<MouseEvent>, root: Object3D, offset: Vector3): Pick
 }
 
 /** STL: one mesh, uses the customer's chosen color. */
-function StlScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: SceneProps) {
+function StlScene({ url, color, autoRotate, onUserInteract, overlay, overlayColor, onPick }: SceneProps) {
   const raw = useLoader(STLLoader, url);
   // useLoader caches the parsed geometry; clone before mutating (centering).
   const { geometry, radius, center } = useMemo(() => centerGeometry(raw.clone()), [raw]);
@@ -151,7 +153,7 @@ function StlScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: S
       {/* the slot is in file coordinates; the geometry above was shifted by -center to sit on the origin */}
       {overlay && (
         <group position={[-center.x, -center.y, -center.z]}>
-          <NameMesh geometry={overlay} color={color} />
+          <NameMesh geometry={overlay} color={color} own={overlayColor} />
         </group>
       )}
     </Stage>
@@ -162,7 +164,7 @@ function StlScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: S
  * 3MF: may hold several parts with their own colors. Colors in the file are kept; the
  * customer's chosen color is applied only to parts that have none.
  */
-function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: SceneProps) {
+function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, overlayColor, onPick }: SceneProps) {
   const loaded = useLoader(ThreeMFLoader, url);
   const { object, center, radius } = useMemo(() => {
     const object = prepareMultiPart(loaded, color, (m) => m.name === DEFAULT_3MF_MATERIAL);
@@ -187,7 +189,7 @@ function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, onPick 
               : undefined
           }
         />
-        {overlay && <NameMesh geometry={overlay} color={color} />}
+        {overlay && <NameMesh geometry={overlay} color={color} own={overlayColor} />}
       </group>
     </Stage>
   );
@@ -199,6 +201,7 @@ export type StlViewerProps = {
   className?: string;
   /** Raised letters to show on the model (from `buildName`), in file coordinates. */
   overlay?: BufferGeometry | null;
+  overlayColor?: string;
   /** When set, clicking the model reports where (admin: placing a name). */
   onPick?: (hit: PickHit) => void;
 };
@@ -207,9 +210,9 @@ export type StlViewerProps = {
  * Interactive 3D model viewer (STL or 3MF, chosen from the file extension). `key={url}` remounts the inner viewer for a new model,
  * which resets its state (failed / spinning) without effects.
  */
-export default function StlViewer({ url, color = "#9ca3af", className, overlay, onPick }: StlViewerProps) {
+export default function StlViewer({ url, color = "#9ca3af", className, overlay, overlayColor, onPick }: StlViewerProps) {
   if (!url) return <Placeholder className={className} />;
-  return <Viewer key={url} url={url} color={color} className={className} overlay={overlay} onPick={onPick} />;
+  return <Viewer key={url} url={url} color={color} className={className} overlay={overlay} overlayColor={overlayColor} onPick={onPick} />;
 }
 
 function Placeholder({ className }: { className?: string }) {
@@ -241,7 +244,7 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
   return null;
 }
 
-function Viewer({ url, color, className, overlay, onPick }: { url: string; color: string; className?: string; overlay?: BufferGeometry | null; onPick?: (hit: PickHit) => void }) {
+function Viewer({ url, color, className, overlay, overlayColor, onPick }: { url: string; color: string; className?: string; overlay?: BufferGeometry | null; overlayColor?: string; onPick?: (hit: PickHit) => void }) {
   const reduced = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -264,6 +267,7 @@ function Viewer({ url, color, className, overlay, onPick }: { url: string; color
     autoRotate: spinning && !reduced && !onPick,
     onUserInteract: () => setSpinning(false),
     overlay,
+    overlayColor,
     onPick,
   };
 

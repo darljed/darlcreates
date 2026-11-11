@@ -11,7 +11,7 @@ import {
   normalizeSelection,
 } from "./pricing";
 import { isOwnCustomerKey } from "./uploads";
-import { slotOf } from "./name-mesh";
+import { slotOf, withFont } from "./name-mesh";
 import { nameProblem } from "./name-3mf";
 
 /** Framework-free so it can be tested with the real DB/S3. The action wrapper does auth + revalidation. */
@@ -48,10 +48,10 @@ export async function addToCart(
   // A name that goes on the 3D model must be printable at its slot (checked here, with the server's own font,
   // so an order never reaches the workshop with a name that cannot be made).
   for (const opt of product.options) {
-    const slot = opt.type === "text" ? slotOf(opt.constraints) : null;
+    const base = opt.type === "text" ? slotOf(opt.constraints) : null;
     const text = config[opt.id]?.text?.trim();
-    if (!slot || !text) continue;
-    const problem = await nameProblem(slot, text);
+    if (!base || !text) continue;
+    const problem = await nameProblem(withFont(base, config[opt.id]?.font), text); // check with the font they chose
     if (problem) return { ok: false, error: `${opt.label}: ${problem}` };
   }
 

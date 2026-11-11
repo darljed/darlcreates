@@ -23,6 +23,7 @@ export function ProductGallery({
   color,
   photos,
   overlay,
+  overlayColor,
 }: {
   productName: string;
   modelUrl: string | null;
@@ -30,6 +31,8 @@ export function ProductGallery({
   photos: GalleryPhoto[];
   /** The customer's name as raised letters, drawn on the 3D model (see use-name-build.ts). */
   overlay?: BufferGeometry | null;
+  /** The name's own colour when it prints in a different filament than the model. */
+  overlayColor?: string;
 }) {
   // -1 = the 3D model; 0..n-1 = photo index. Default to 3D when there is one.
   const [active, setActive] = useState<number>(modelUrl ? -1 : 0);
@@ -46,7 +49,7 @@ export function ProductGallery({
         aria-live="polite"
       >
         {showing3d ? (
-          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} />
+          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} overlayColor={overlayColor} />
         ) : photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

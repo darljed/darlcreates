@@ -12,7 +12,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { Matrix4, Vector3 } from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import {
-  buildName, isWatertight, meshBounds, NAME_FONTS, nameSlotSchema, parseFont, slotMatrix, toMesh,
+  buildName, isWatertight, meshBounds, NAME_FONTS, nameSlotSchema, parseFont, slotMatrix, suggestFont, toMesh,
   type Font, type Mesh, type NameFontId, type NameSlot,
 } from "./name-mesh";
 
@@ -188,7 +188,7 @@ export function threeMfSurface(files: Files, opts: { skipComponents?: number[] }
  * Only the common layout is handled (one plate item whose object is made of components, as Bambu Studio, Orca and
  * PrusaSlicer write it); anything else is refused with a message instead of guessing.
  */
-export function addNameTo3mf(files: Files, nameBuild: Mesh, label: string): Files {
+export function addNameTo3mf(files: Files, nameBuild: Mesh, label: string, filament?: number): Files {
   const { item } = threeMfSurface(files);
   let root = strFromU8(files["3D/3dmodel.model"]);
 
@@ -228,11 +228,13 @@ export function addNameTo3mf(files: Files, nameBuild: Mesh, label: string): File
     const objCfg = new RegExp(`(<object\\s+id="${item.objectId}">[\\s\\S]*?)(</object>)`).exec(cfg);
     if (objCfg) {
       const partCount = (objCfg[1].match(/<part\b/g) ?? []).length;
+      // the name takes the designer's contrasting filament if there is one, otherwise the object's own
+      const objFilament = /<metadata\s+key="extruder"\s+value="(\d+)"/.exec(objCfg[1].split(/<part\b/)[0])?.[1] ?? "1";
       const part =
         `  <part id="${partCount + 1}" subtype="normal_part">\n` +
         `      <metadata key="name" value="${esc(label)}"/>\n` +
         `      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n` +
-        `      <metadata key="extruder" value="1"/>\n` +
+        `      <metadata key="extruder" value="${filament ?? objFilament}"/>\n` +
         `    </part>\n  `;
       cfg = cfg.replace(objCfg[0], objCfg[1] + part + objCfg[2]);
       out[cfgPath] = strToU8(cfg);
@@ -251,6 +253,18 @@ function flipWinding(ix: Uint32Array): Uint32Array {
 // Detecting the designer's example text (Bambu Studio / Orca text element) and turning it into a slot
 // ---------------------------------------------------------------------------------------------------------------------
 
+/** Filament colours (hex) listed in a Bambu/Orca project, in filament-number order (filament 1 first). */
+export function projectFilaments(files: Files): string[] {
+  const f = files["Metadata/project_settings.config"];
+  if (!f) return [];
+  try {
+    const list = (JSON.parse(strFromU8(f)) as { filament_colour?: unknown }).filament_colour;
+    return Array.isArray(list) ? list.filter((c): c is string => typeof c === "string" && /^#[0-9a-fA-F]{6}$/.test(c)) : [];
+  } catch {
+    return [];
+  }
+}
+
 export type DetectedName = {
   /** The example text the designer typed (for the admin to see). */
   text: string;
@@ -262,6 +276,10 @@ export type DetectedName = {
   slot: NameSlot;
   /** Index of the placeholder among the plate object's components. */
   componentIndex: number;
+  /** The project's filament colours (hex), filament 1 first, and which filament the example text and the model use. */
+  filaments: string[];
+  nameFilament: number | null;
+  bodyFilament: number | null;
   /** Things the admin should know (size clamped, descenders, engraved not supported yet, ...). */
   notes: string[];
 };
@@ -326,6 +344,14 @@ export function detectNameSlot(files: Files): DetectedName | null {
     heightMm *= 0.78; // the example's box includes descenders; our height is the capital height
     notes.push("The example has letters with tails, so the capital height was estimated from its box.");
   }
+  // filaments: the example's own colour only matters when it differs from the model's (a contrasting name)
+  const filaments = projectFilaments(files);
+  const ext = (xml: string) => Number(/<metadata\s+key="extruder"\s+value="(\d+)"/.exec(xml)?.[1]) || null;
+  const nameFilament = ext(part[2]);
+  const bodyFilament = ext(objCfg[1].split(/<part\b/)[0]);
+  const contrast = nameFilament && bodyFilament && nameFilament !== bodyFilament ? filaments[nameFilament - 1] : undefined;
+  const nameFont = suggestFont(fontName);
+
   const slot = nameSlotSchema.parse({
     position: pos.toArray().map((v) => Math.round(v * 1000) / 1000),
     normal: normal.toArray().map((v) => Math.round(v * 10000) / 10000),
@@ -334,9 +360,13 @@ export function detectNameSlot(files: Files): DetectedName | null {
     height: clamp(heightMm, 3, 60, "Letter height"),
     depth: clamp(Math.max(hi[2], 0) * sz, 0.6, 5, "Depth"),
     sink: 0.4,
-    font: "bold",
+    font: nameFont,
+    // offer the closest match plus two sturdy all-rounders; the admin can change the list
+    fonts: [...new Set([nameFont, "bold", "chunky"])],
+    ...(contrast ? { nameColor: { hex: contrast, filament: nameFilament! } } : {}),
   });
-  return { text, fontName, mode, slot, componentIndex: idx, notes };
+  if (contrast) notes.push(`The example text uses filament ${nameFilament} (${contrast}), different from the model's, so the name keeps that colour.`);
+  return { text, fontName, mode, slot, componentIndex: idx, filaments, nameFilament, bodyFilament, notes };
 }
 
 /**
@@ -494,7 +524,7 @@ export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"
     } else {
       const files = open3mf(o.base);
       surface = threeMfSurface(files).mesh;
-      file = zipSync(addNameTo3mf(files, name, label), { level: 1 });
+      file = zipSync(addNameTo3mf(files, name, label, o.slot.nameColor?.filament), { level: 1 });
     }
     return {
       ok: true,

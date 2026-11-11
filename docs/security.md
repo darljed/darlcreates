@@ -87,7 +87,8 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - The print file is rebuilt on the server from the saved text and the stored slot; a mesh or coordinates from the browser are never used. The slot can only be written by `saveNameSlotAction` (admin, Zod-validated, finite numbers, bounded sizes).
 - The customer's text is checked twice for printability (browser for feedback, server on add-to-cart). Allowed characters still come from the option's pattern; XML special characters in the name are escaped in the 3MF.
 - The download route is admin-only; the generated file is `private, no-store` and not kept anywhere.
-- Fonts are open (SIL OFL) files in `public/fonts`; they are public by nature.
+- Fonts are open (SIL OFL / Apache 2.0) files in `public/fonts`; they are public by nature. The customer's font choice is validated against the slot's offered list in `normalizeSelection` and again in `withFont`; any other value is dropped.
+- Auto-configuration opens an uploaded 3MF on the server: the zip is capped at 120 MB unzipped and 3 million triangles, nesting depth is limited, and any failure leaves the file attached as uploaded.
 
 ## 9. Secrets
 

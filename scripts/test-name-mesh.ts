@@ -6,9 +6,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
-import { buildName, cleanName, isWatertight, meshBounds, nameSlotSchema, personalizedName, slotOf, toMesh, type NameSlot } from "../src/lib/name-mesh";
+import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotOf, suggestFont, toMesh, withFont, type NameSlot } from "../src/lib/name-mesh";
+import { colorName } from "../src/lib/color-name";
+import { normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
 import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, widestThatFits } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
+import { withText } from "./fixtures/bambu-text-3mf";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -27,7 +30,7 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("a good slot passes", nameSlotSchema.safeParse(topSlot).success);
   assert("a normal that is not unit length is refused", !nameSlotSchema.safeParse({ ...topSlot, normal: [0, 0, 2] }).success);
   assert("letters thinner than 0.6 mm tall are refused", !nameSlotSchema.safeParse({ ...topSlot, depth: 0.2 }).success);
-  assert("an unknown font is refused", !nameSlotSchema.safeParse({ ...topSlot, font: "comic" }).success);
+  assert("an unknown font is refused", !nameSlotSchema.safeParse({ ...topSlot, font: "wingdings" }).success);
   assert("NaN / Infinity positions are refused", !nameSlotSchema.safeParse({ ...topSlot, position: [NaN, 0, 0] }).success && !nameSlotSchema.safeParse({ ...topSlot, position: [Infinity, 0, 0] }).success);
 
   console.log("\nreading the slot back from product options");
@@ -40,6 +43,25 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("other file types cannot take a name", personalizedName([opt], { o1: { text: "Ana" } }, "models/a.obj") === null);
   assert("a color option or a text option without a slot is ignored", personalizedName([{ id: "c", type: "color", constraints: {} }, { id: "t", type: "text", constraints: {} }], { t: { text: "Ana" } }, "x.stl") === null);
   assert("nameProblem: fine name -> null; too long -> a plain message; missing letter -> names it", (await nameProblem(topSlot, "Ana")) === null && /too long/.test((await nameProblem(topSlot, "W".repeat(30))) ?? "") && /"日"/.test((await nameProblem(topSlot, "日")) ?? ""));
+
+  console.log("\nfonts");
+  for (const id of NAME_FONT_IDS) {
+    const r = buildName(await loadFont(id), "Ana", { ...topSlot, font: id, height: 7 });
+    assert(`${id}: builds "Ana", watertight, printable strokes`, r.ok && isWatertight(toMesh(r.geometry)) && r.stemMm >= 0.8, r.ok ? `stroke ${r.stemMm.toFixed(2)}` : r.error);
+  }
+  assert("there are six fonts to choose from", NAME_FONT_IDS.length === 6);
+  assert("fontChoices: no list = just the default; the default is always included", fontChoices({ font: "bold" }).join() === "bold" && fontChoices({ font: "bold", fonts: ["chunky", "marker"] }).join() === "bold,chunky,marker");
+  assert("withFont applies an offered font and ignores one that is not offered", withFont({ ...topSlot, fonts: ["bold", "chunky"] }, "chunky").font === "chunky" && withFont({ ...topSlot, fonts: ["bold", "chunky"] }, "script").font === "bold" && withFont(topSlot, "chunky").font === "bold" && withFont(topSlot, undefined).font === "bold");
+  assert("suggestFont maps a designer's font name to the closest of ours", suggestFont("Marker Felt") === "marker" && suggestFont("Brush Script MT") === "script" && suggestFont("Arial Narrow") === "condensed" && suggestFont("Arial") === "bold");
+  assert("personalizedName uses the customer's font when allowed", (() => { const o = { id: "o1", type: "text", constraints: { slot: { ...topSlot, fonts: ["bold", "chunky"] } } }; return personalizedName([o], { o1: { text: "Ana", font: "chunky" } }, "a.stl")?.slot.font === "chunky" && personalizedName([o], { o1: { text: "Ana", font: "script" } }, "a.stl")?.slot.font === "bold"; })());
+  assert("a hostile font name in a cart selection is dropped by normalizeSelection", (() => {
+    const opt: ProductOptionInput = { id: "t", type: "text", label: "Name", required: false, priceDeltaCents: 0, constraints: { slot: { ...topSlot, fonts: ["bold", "chunky"] } }, values: [] };
+    const keep = normalizeSelection([opt], { t: { text: "Ana", font: "chunky" } }, () => true).config.t;
+    const drop = normalizeSelection([opt], { t: { text: "Ana", font: "../../etc/passwd" } }, () => true).config.t;
+    const none = normalizeSelection([{ ...opt, constraints: { slot: topSlot } }], { t: { text: "Ana", font: "chunky" } }, () => true).config.t;
+    return keep.font === "chunky" && drop.font === undefined && none.font === undefined;
+  })());
+  assert("colorName: plain names for filament colours", colorName("#FF0000") === "Red" && colorName("#F95D73") === "Pink" && colorName("#000000") === "Black" && colorName("#FFFFFF") === "White" && colorName("#F7E6DE") === "Cream" && colorName("#0077A5") === "Blue" && colorName("#22C55E") === "Green" && colorName("zzz") === "zzz");
 
   console.log("\ntext rules");
   assert("spaces are collapsed and trimmed", cleanName("  Ana   Cruz ") === "Ana Cruz");
@@ -150,11 +172,11 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   const sb = meshBounds(surf.mesh);
   assert("the surface is read in BUILD space (item translation applied to both components)", near(sb[0], 128) && near(sb[3], 158) && near(sb[2], 5) && near(sb[5], 15), `${sb}`);
   // top of the first cube is z = 15 in build space; its top face spans x 128..138, y 128..138
-  const bambuSlot: NameSlot = { ...topSlot, position: [133, 133, 15], maxWidth: 8, height: 3 };
-  const bambuFit = checkFit(surf.mesh, bambuSlot, 6, 3);
+  const bambuSlot: NameSlot = { ...topSlot, position: [133, 133, 15], maxWidth: 9, height: 4 };
+  const bambuFit = checkFit(surf.mesh, bambuSlot, 7, 4);
   assert("a small name on the first cube's top fits", bambuFit.fits, JSON.stringify(bambuFit.gaps));
   assert("a wide name over both cubes and the gap between them does not", !checkFit(surf.mesh, { ...bambuSlot, position: [143, 133, 15] }, 25, 3).fits);
-  const bambuPf = await buildPrintFile({ base: bambuBuf, kind: "3mf", text: "Al", slot: { ...bambuSlot, maxWidth: 8, height: 3 } });
+  const bambuPf = await buildPrintFile({ base: bambuBuf, kind: "3mf", text: "Al", slot: bambuSlot });
   assert("builds a Bambu-style 3MF with the name", bambuPf.ok, bambuPf.ok ? "" : bambuPf.error);
   if (!bambuPf.ok) throw new Error("cannot continue");
   const out = unzipSync(bambuPf.file);
@@ -177,30 +199,6 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("a file that is not a 3MF is refused", (() => { try { open3mf(new TextEncoder().encode("nope").buffer as ArrayBuffer); return false; } catch { return true; } })());
 
   console.log("\ndetecting the designer's example text (Bambu text element)");
-  const boxObj = (id: number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
-    const v = [[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]].map(([x, y, z]) => `<vertex x="${x}" y="${y}" z="${z}"/>`).join("");
-    const t = [[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]].map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join("");
-    return `<object id="${id}" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
-  };
-  // a 20 mm cube plus a text part 10 x 4 x 1 lying on its top face (object space z = 20), the plate item rotated 90 degrees about Y
-  const withText = (subtype: string, text: string, textFaces = 12) => {
-    const bytes = zipSync({
-      "3D/3dmodel.model": strToU8(`<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><resources>
- <object id="3" type="model"><components>
-  <component p:path="/3D/Objects/o.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
-  <component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 10 10 20"/>
- </components></object>
-</resources><build><item objectid="3" transform="0 0 -1 0 1 0 1 0 0 100 100 50" printable="1"/></build></model>`),
-      "3D/Objects/o.model": strToU8(`<model><resources>${boxObj(1, 0, 20, 0, 20, 0, 20)}${boxObj(2, -5, 5, -2, 2, 0, 1)}</resources></model>`),
-      "Metadata/model_settings.config": strToU8(`<config>
-  <object id="3">
-    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><mesh_stat face_count="12"/></part>
-    <part id="2" subtype="${subtype}"><metadata key="name" value="text_shape"/><text_info text="${text}" font_name="Marker Felt" thickness="1" embeded_depth="0" /><mesh_stat face_count="${textFaces}"/></part>
-  </object>
-</config>`),
-    });
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  };
   const textFiles = open3mf(withText("normal_part", "Cams"));
   const det = detectNameSlot(textFiles);
   assert("finds the text element and reads its text and font", det?.text === "Cams" && det.fontName === "Marker Felt" && det.componentIndex === 1);
@@ -211,6 +209,12 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("the example is a valid slot as-is", nameSlotSchema.safeParse(det!.slot).success);
   assert("a negative part is reported as engraved, with a note that it is not supported yet", (() => { const d = detectNameSlot(open3mf(withText("negative_part", "Cams"))); return d?.mode === "engraved" && /not supported yet/.test(d.notes.join(" ")); })());
   assert("an example with letters that have tails gets its height estimated, with a note", (() => { const d = detectNameSlot(open3mf(withText("normal_part", "gym"))); return !!d && d.notes.some((n) => /tails/.test(n)) && near(d.slot.height, 4 * 0.78 < 3 ? 3 : 4 * 0.78, 0.01); })());
+  assert("the font name is mapped to the closest of our fonts, and a short list is offered", det?.slot.font === "marker" && det.slot.fonts?.join() === "marker,bold,chunky");
+  const sameColour = detectNameSlot(open3mf(withText("normal_part", "Cams", 12, { filaments: ["#F95D73", "#00FF00"] })));
+  assert("example in the same filament as the model: the name follows the model (no own colour)", sameColour?.slot.nameColor === undefined && sameColour?.filaments.length === 2 && sameColour?.nameFilament === 1 && sameColour?.bodyFilament === 1);
+  const contrast = detectNameSlot(open3mf(withText("normal_part", "Cams", 12, { textExt: 2, filaments: ["#F95D73", "#00FF00"] })));
+  assert("example in a different filament: the name keeps that colour and filament number", contrast?.slot.nameColor?.hex === "#00FF00" && contrast.slot.nameColor.filament === 2 && /filament 2/.test(contrast.notes.join(" ")));
+  assert("a damaged project_settings.config is ignored, not fatal", (() => { const f = open3mf(withText("normal_part", "Cams")); f["Metadata/project_settings.config"] = strToU8("{not json"); return detectNameSlot(f)?.filaments.length === 0; })());
   assert("no text element -> null", detectNameSlot(open3mf(bambuBuf)) === null);
   assert("a face count that does not match the mesh -> null (never guess)", detectNameSlot(open3mf(withText("normal_part", "Cams", 99))) === null);
   const before = threeMfSurface(textFiles).mesh;
@@ -220,7 +224,11 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("and from the plate object, the geometry file and the slicer's part list", (strFromU8(cleaned["3D/3dmodel.model"]).match(/<component /g) ?? []).length === 1 && !strFromU8(cleaned["3D/Objects/o.model"]).includes('id="2"') && !strFromU8(cleaned["Metadata/model_settings.config"]).includes("text_info"));
   assert("the cleaned model still reads and the detected spot sits on its surface (fit)", checkFit(stripped, det!.slot, det!.slot.maxWidth, det!.slot.height).fits);
   const cleanedZip = zipSync(cleaned);
-  const named = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: det!.slot });
+  const pfColour = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: { ...det!.slot, font: "bold", nameColor: { hex: "#00FF00", filament: 2 } } });
+  assert("the added part is assigned to the name's own filament in the slicer's part list", pfColour.ok && /Name: Al[\s\S]*?key="extruder" value="2"/.test(strFromU8(unzipSync(pfColour.file)["Metadata/model_settings.config"])));
+  const pfSame = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: { ...det!.slot, font: "bold" } });
+  assert("without an own colour the added part uses the object's filament", pfSame.ok && /Name: Al[\s\S]*?key="extruder" value="1"/.test(strFromU8(unzipSync(pfSame.file)["Metadata/model_settings.config"])));
+  const named = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: { ...det!.slot, font: "bold" } });
   assert("a customer's name prints at the detected spot, and the example text is gone", named.ok && named.report.fit.fits && !strFromU8(unzipSync(named.file)["3D/3dmodel.model"]).includes("Cams"), named.ok ? "" : named.error);
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }

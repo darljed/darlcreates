@@ -50,6 +50,14 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 - Changing a product never changes orders already placed. They keep what the customer bought and paid.
 - Changes appear on the storefront right away.
 
+### Uploading a 3MF from Bambu Studio sets most of this up for you
+
+If the 3MF has a **text element** (Bambu Studio's text tool) as an example, uploading it does the rest: the name position, size and depth are taken from the example, the example is removed from the model (so customers and the print file never show it), a "Name" option is added if the product has none, and the closest font is chosen. If the product has no colour option, **Colors** is created from the project's filaments. Toasts tell you what it did; check it under "Name on the model" and adjust if needed. A normal part is raised text. (Engraved text is not supported yet.) An STL upload changes nothing, and options you already have are never overwritten.
+
+### Fonts
+
+Under "Name on the model", pick the default **Font** and tick the fonts **customers can choose** (two or more shows a Font picker above the name preview). Bold, Chunky and Marker print sturdiest; Script has thin strokes and refuses longer names.
+
 ### Putting the customer's name on a product
 
 For a product with an **STL or 3MF** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:
