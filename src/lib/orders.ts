@@ -15,6 +15,7 @@ import { randomInt } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getProductById } from "./catalog";
 import { summarizeConfig } from "./cart";
+import { personalizedName } from "./name-mesh";
 import { readUrl } from "./storage";
 import type { ConfigSelection } from "./pricing";
 
@@ -72,6 +73,8 @@ export type OrderDetail = {
     unitPriceCents: number;
     summary: { label: string; value: string }[];
     stlKey: string | null;
+    /** The customer's name that is added to the model at download time (see name-3mf.ts), if this product has a name slot. */
+    nameText: string | null;
     imageUrl: string | null;
   }[];
   latestPayment: {
@@ -106,6 +109,7 @@ async function assembleOrderDetail(
       unitPriceCents: it.unitPriceCents,
       summary: product ? summarizeConfig(product.options, config) : [],
       stlKey: it.stlKeySnapshot,
+      nameText: product ? (personalizedName(product.options, config, it.stlKeySnapshot)?.text ?? null) : null,
       imageUrl: await readUrl(it.imageKey),
     });
   }

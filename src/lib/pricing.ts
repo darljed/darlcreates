@@ -11,6 +11,8 @@ export type OptionConstraints = {
   maxLen?: number;
   pattern?: string;
   fonts?: string[];
+  /** Text options only: where the name sits on the 3D model (see name-mesh.ts). Unvalidated here; use `slotOf`. */
+  slot?: unknown;
   formats?: string[];
   maxBytes?: number;
   minW?: number;

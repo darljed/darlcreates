@@ -8,10 +8,14 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { inArray, like } from "drizzle-orm";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { refreshStorefrontCache } from "./lib/revalidate";
 
 const PREFIX = "TEST-E2E-";
 const IDS = { customer: `${PREFIX}customer`, admin: `${PREFIX}admin` };
+/** The 20 mm cube fixture is uploaded here for the "name on the model" product (removed again by cleanup). */
+const NAMETAG_KEY = "models/test-e2e-nametag.stl";
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("never run test tooling in production");
@@ -33,6 +37,7 @@ async function main() {
     await db.delete(s.users).where(inArray(s.users.id, uids));
     if (storage.isStorageConfigured()) {
       for (const id of uids) await storage.deletePrefix(`customer/${id}/`).catch(() => 0);
+      await storage.deleteObject(NAMETAG_KEY).catch(() => undefined);
     }
   }
 
@@ -78,6 +83,21 @@ async function main() {
   ]);
   await db.insert(s.productOptions).values({ productId: p.id, type: "text", label: "Name", required: true, priceDeltaCents: 2000, constraints: { maxLen: 10, pattern: "^[A-Za-z0-9 ]*$" }, sort: 1 });
   await db.insert(s.productOptions).values({ productId: p.id, type: "image", label: "Logo", required: false, priceDeltaCents: 500, sort: 2 });
+
+  // Product with an STL model and one text option, for the "name on the model" flow. The admin places the slot in the UI.
+  if (storage.isStorageConfigured()) {
+    const put = await fetch(await storage.presignUpload(NAMETAG_KEY, "model/stl", 60), {
+      method: "PUT",
+      headers: { "content-type": "model/stl" },
+      body: readFileSync(join(__dirname, "fixtures", "cube-20mm.stl")),
+    });
+    if (!put.ok) throw new Error(`fixture upload failed: ${put.status}`);
+    const [np] = await db.insert(s.products).values({
+      slug: "test-e2e-nametag", name: "TEST E2E Name Cube", description: "Throwaway product: a 20 mm cube to put a name on.",
+      category: "test", basePriceCents: 15000, status: "published", stlKey: NAMETAG_KEY,
+    }).returning();
+    await db.insert(s.productOptions).values({ productId: np.id, type: "text", label: "Name", required: true, constraints: { maxLen: 12, pattern: "^[A-Za-z0-9 ]*$" }, sort: 0 });
+  }
 
   console.log(JSON.stringify({
     customer: await cookieFor(IDS.customer),

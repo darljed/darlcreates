@@ -15,11 +15,12 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { Canvas, useLoader } from "@react-three/fiber";
+import { Canvas, useLoader, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
 import { Box, RotateCcw } from "lucide-react";
+import { Color, Matrix4, Vector3, type BufferGeometry, type Object3D } from "three";
 import {
   centerGeometry,
   DEFAULT_3MF_MATERIAL,
@@ -93,23 +94,66 @@ function Stage({
   );
 }
 
+/** A click on the model, in the model file's own coordinates (mm). Used by the admin to place a name. */
+export type PickHit = { position: [number, number, number]; normal: [number, number, number] };
+
 type SceneProps = {
   url: string;
   color: string;
   autoRotate: boolean;
   onUserInteract: () => void;
+  overlay?: BufferGeometry | null;
+  onPick?: (hit: PickHit) => void;
 };
 
+/** Raised letters drawn on the model. Slightly darker than the model so they read, and ignored by click picking. */
+function NameMesh({ geometry, color }: { geometry: BufferGeometry; color: string }) {
+  const tint = useMemo(() => new Color(color).offsetHSL(0, 0, -0.14), [color]);
+  return (
+    <mesh geometry={geometry} raycast={() => null}>
+      <meshStandardMaterial color={tint} roughness={0.45} metalness={0.05} />
+    </mesh>
+  );
+}
+
+/** Click -> model coordinates. `root` is the object whose local space is the file's space; `offset` is added after. */
+function hitOf(e: ThreeEvent<MouseEvent>, root: Object3D, offset: Vector3): PickHit | null {
+  if (!e.face || e.delta > 4) return null; // a drag (orbiting), not a click
+  const p = root.worldToLocal(e.point.clone()).add(offset);
+  const inv = new Matrix4().copy(root.matrixWorld).invert();
+  const n = e.face.normal.clone().transformDirection(e.object.matrixWorld).transformDirection(inv);
+  return { position: [p.x, p.y, p.z], normal: [n.x, n.y, n.z] };
+}
+
 /** STL: one mesh, uses the customer's chosen color. */
-function StlScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
+function StlScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: SceneProps) {
   const raw = useLoader(STLLoader, url);
   // useLoader caches the parsed geometry; clone before mutating (centering).
-  const { geometry, radius } = useMemo(() => centerGeometry(raw.clone()), [raw]);
+  const { geometry, radius, center } = useMemo(() => centerGeometry(raw.clone()), [raw]);
   return (
     <Stage radius={radius} autoRotate={autoRotate} onUserInteract={onUserInteract}>
-      <mesh geometry={geometry}>
+      <mesh
+        geometry={geometry}
+        onClick={
+          onPick
+            ? (e) => {
+                const hit = hitOf(e, e.object, center);
+                if (hit) {
+                  e.stopPropagation();
+                  onPick(hit);
+                }
+              }
+            : undefined
+        }
+      >
         <meshStandardMaterial color={color} roughness={0.45} metalness={0.05} />
       </mesh>
+      {/* the slot is in file coordinates; the geometry above was shifted by -center to sit on the origin */}
+      {overlay && (
+        <group position={[-center.x, -center.y, -center.z]}>
+          <NameMesh geometry={overlay} color={color} />
+        </group>
+      )}
     </Stage>
   );
 }
@@ -118,7 +162,7 @@ function StlScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
  * 3MF: may hold several parts with their own colors. Colors in the file are kept; the
  * customer's chosen color is applied only to parts that have none.
  */
-function ThreeMfScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
+function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, onPick }: SceneProps) {
   const loaded = useLoader(ThreeMFLoader, url);
   const { object, center, radius } = useMemo(() => {
     const object = prepareMultiPart(loaded, color, (m) => m.name === DEFAULT_3MF_MATERIAL);
@@ -129,7 +173,21 @@ function ThreeMfScene({ url, color, autoRotate, onUserInteract }: SceneProps) {
     <Stage radius={radius} autoRotate={autoRotate} onUserInteract={onUserInteract}>
       {/* translate in model space so the model's own center sits on the origin */}
       <group position={[-center.x, -center.y, -center.z]}>
-        <primitive object={object} />
+        <primitive
+          object={object}
+          onClick={
+            onPick
+              ? (e: ThreeEvent<MouseEvent>) => {
+                  const hit = hitOf(e, object, new Vector3());
+                  if (hit) {
+                    e.stopPropagation();
+                    onPick(hit);
+                  }
+                }
+              : undefined
+          }
+        />
+        {overlay && <NameMesh geometry={overlay} color={color} />}
       </group>
     </Stage>
   );
@@ -139,15 +197,19 @@ export type StlViewerProps = {
   url: string | null;
   color?: string;
   className?: string;
+  /** Raised letters to show on the model (from `buildName`), in file coordinates. */
+  overlay?: BufferGeometry | null;
+  /** When set, clicking the model reports where (admin: placing a name). */
+  onPick?: (hit: PickHit) => void;
 };
 
 /**
  * Interactive 3D model viewer (STL or 3MF, chosen from the file extension). `key={url}` remounts the inner viewer for a new model,
  * which resets its state (failed / spinning) without effects.
  */
-export default function StlViewer({ url, color = "#9ca3af", className }: StlViewerProps) {
+export default function StlViewer({ url, color = "#9ca3af", className, overlay, onPick }: StlViewerProps) {
   if (!url) return <Placeholder className={className} />;
-  return <Viewer key={url} url={url} color={color} className={className} />;
+  return <Viewer key={url} url={url} color={color} className={className} overlay={overlay} onPick={onPick} />;
 }
 
 function Placeholder({ className }: { className?: string }) {
@@ -179,7 +241,7 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
   return null;
 }
 
-function Viewer({ url, color, className }: { url: string; color: string; className?: string }) {
+function Viewer({ url, color, className, overlay, onPick }: { url: string; color: string; className?: string; overlay?: BufferGeometry | null; onPick?: (hit: PickHit) => void }) {
   const reduced = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -199,8 +261,10 @@ function Viewer({ url, color, className }: { url: string; color: string; classNa
   const sceneProps = {
     url,
     color,
-    autoRotate: spinning && !reduced,
+    autoRotate: spinning && !reduced && !onPick,
     onUserInteract: () => setSpinning(false),
+    overlay,
+    onPick,
   };
 
   return (

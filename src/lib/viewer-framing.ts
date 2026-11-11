@@ -17,6 +17,8 @@ export function centerGeometry(geometry: BufferGeometry): {
   geometry: BufferGeometry;
   size: Vector3;
   radius: number;
+  /** Where the box centre was before centering, i.e. the offset between file coordinates and the centered geometry. */
+  center: Vector3;
 } {
   geometry.computeBoundingBox();
   const box = geometry.boundingBox as Box3;
@@ -26,6 +28,7 @@ export function centerGeometry(geometry: BufferGeometry): {
   geometry.computeBoundingSphere();
   return {
     geometry,
+    center,
     size: (geometry.boundingBox as Box3).getSize(new Vector3()),
     // Sphere centered on the (now origin-centered) box; radius is rotation-invariant.
     radius: Math.max(geometry.boundingSphere?.radius ?? 1, 1e-6),

@@ -11,6 +11,8 @@ import {
   normalizeSelection,
 } from "./pricing";
 import { isOwnCustomerKey } from "./uploads";
+import { slotOf } from "./name-mesh";
+import { nameProblem } from "./name-3mf";
 
 /** Framework-free so it can be tested with the real DB/S3. The action wrapper does auth + revalidation. */
 export const addToCartSchema = z.object({
@@ -42,6 +44,16 @@ export async function addToCart(
 
   const { unitPriceCents, errors } = computeUnitPrice(product.basePriceCents, product.options, config);
   if (errors.length) return { ok: false, error: errors[0] };
+
+  // A name that goes on the 3D model must be printable at its slot (checked here, with the server's own font,
+  // so an order never reaches the workshop with a name that cannot be made).
+  for (const opt of product.options) {
+    const slot = opt.type === "text" ? slotOf(opt.constraints) : null;
+    const text = config[opt.id]?.text?.trim();
+    if (!slot || !text) continue;
+    const problem = await nameProblem(slot, text);
+    if (problem) return { ok: false, error: `${opt.label}: ${problem}` };
+  }
 
   // The file must really exist and really be an image.
   for (const sel of Object.values(config)) {

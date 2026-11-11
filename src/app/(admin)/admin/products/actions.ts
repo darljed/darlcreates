@@ -14,6 +14,7 @@ import { parsePesoInput } from "@/lib/money";
 import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
+import { nameSlotSchema } from "@/lib/name-mesh";
 
 type Result = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -186,6 +187,39 @@ export async function deleteOptionAction(input: unknown): Promise<Result> {
   await db.delete(productOptions).where(eq(productOptions.id, parsed.data.optionId));
   const slug = await slugOf(parsed.data.productId);
   invalidate(slug);
+  return { ok: true };
+}
+
+const slotActionSchema = z.object({
+  productId: z.string().uuid(),
+  optionId: z.string().uuid(),
+  /** null removes the slot */
+  slot: nameSlotSchema.nullable(),
+});
+
+/**
+ * Put the customer's name on the 3D model: save (or remove) the name slot on a text option. Only for products whose
+ * model is an STL (the print file is built from it, see lib/name-3mf.ts).
+ */
+export async function saveNameSlotAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = slotActionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid name position" };
+  const { productId, optionId, slot } = parsed.data;
+
+  const [product] = await db.select({ slug: products.slug, stlKey: products.stlKey }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) return { ok: false, error: "Product not found" };
+  if (slot && !(product.stlKey && /\.stl$/i.test(product.stlKey))) {
+    return { ok: false, error: "Adding a name to the model needs an STL model file (3MF is not supported yet)." };
+  }
+  const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, optionId)).limit(1);
+  if (!opt || opt.productId !== productId || opt.type !== "text") return { ok: false, error: "Choose a text option of this product" };
+
+  const { slot: _old, ...rest } = (opt.constraints ?? {}) as Record<string, unknown>;
+  void _old;
+  await db.update(productOptions).set({ constraints: slot ? { ...rest, slot } : rest }).where(eq(productOptions.id, optionId));
+  invalidate(product.slug);
+  revalidatePath(`/admin/products/${productId}`);
   return { ok: true };
 }
 

@@ -19,6 +19,8 @@ import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, configSelectionSchema, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
+import { slotOf } from "@/lib/name-mesh";
+import { useNameBuild } from "@/components/use-name-build";
 import { addToCartAction } from "@/app/(shop)/cart/actions";
 
 export function ProductCustomizer({
@@ -103,6 +105,12 @@ export function ProductCustomizer({
     [basePriceCents, options, selection],
   );
 
+  // A text option with a name slot: show the name on the 3D model as it is typed, and block names that cannot be printed.
+  const nameOpt = useMemo(() => options.find((o) => o.type === "text" && slotOf(o.constraints)) ?? null, [options]);
+  const nameSlot = useMemo(() => (nameOpt ? slotOf(nameOpt.constraints) : null), [nameOpt]);
+  const nameBuild = useNameBuild(nameSlot, nameOpt ? (selection[nameOpt.id]?.text ?? "") : "");
+  const nameError = nameBuild && !nameBuild.ok ? nameBuild.error : null;
+
   // The currently selected color (if any) drives the 3D model material.
   const activeColor = useMemo(() => {
     for (const opt of options) {
@@ -128,6 +136,10 @@ export function ProductCustomizer({
       toast.error(errors[0]);
       return;
     }
+    if (nameError) {
+      toast.error(nameError);
+      return;
+    }
     addNow(selection);
   }
 
@@ -138,6 +150,7 @@ export function ProductCustomizer({
         modelUrl={stlUrl}
         color={activeColor}
         photos={photos}
+        overlay={nameBuild?.ok ? nameBuild.geometry : null}
       />
 
       {/* Customizer form */}
@@ -206,7 +219,16 @@ export function ProductCustomizer({
                 placeholder={`Up to ${opt.constraints.maxLen ?? 50} characters`}
                 value={selection[opt.id]?.text ?? ""}
                 onChange={(e) => setValue(opt.id, { text: e.target.value })}
+                aria-invalid={opt.id === nameOpt?.id && Boolean(nameError)}
               />
+            )}
+            {opt.id === nameOpt?.id && (
+              <p className={cn("text-xs", nameError ? "text-destructive" : "text-muted-foreground")} role={nameError ? "alert" : undefined}>
+                {nameError ??
+                  (nameBuild?.ok && nameBuild.scaledDown
+                    ? "Long name: the letters are made smaller to fit."
+                    : "Your name appears on the model so you can see it before you order.")}
+              </p>
             )}
 
             {opt.type === "image" && (
@@ -232,7 +254,7 @@ export function ProductCustomizer({
         <Button
           size="lg"
           className="w-full bg-primary text-primary-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0"
-          disabled={pending || errors.length > 0}
+          disabled={pending || errors.length > 0 || Boolean(nameError)}
           onClick={onAddToCart}
         >
           {pending ? (

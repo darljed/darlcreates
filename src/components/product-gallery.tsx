@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { Box } from "lucide-react";
+import type { BufferGeometry } from "three";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import { cn } from "@/lib/utils";
 
@@ -21,11 +22,14 @@ export function ProductGallery({
   modelUrl,
   color,
   photos,
+  overlay,
 }: {
   productName: string;
   modelUrl: string | null;
   color: string;
   photos: GalleryPhoto[];
+  /** The customer's name as raised letters, drawn on the 3D model (see use-name-build.ts). */
+  overlay?: BufferGeometry | null;
 }) {
   // -1 = the 3D model; 0..n-1 = photo index. Default to 3D when there is one.
   const [active, setActive] = useState<number>(modelUrl ? -1 : 0);
@@ -42,7 +46,7 @@ export function ProductGallery({
         aria-live="polite"
       >
         {showing3d ? (
-          <StlViewer url={modelUrl} color={color} className="size-full" />
+          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} />
         ) : photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
