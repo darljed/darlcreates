@@ -93,6 +93,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-83 | 🟡 | **No moderation or per-character price for names** | Same as the earlier personalization questions |
 | G-84 | 🟡 | **Print report not shown to the admin** | Width, thinnest stroke and watertight result are computed but only returned by `buildPrintFile` |
 | G-85 | 🟡 | **Flat surfaces only** | The name is a flat sheet on one plane; curved faces need wrapping |
+| G-86 | 🟠 | **Large models are slow in the browser** | The v2 stand (523k triangles, 44 MB of XML) takes about 12 s and 166 MB of heap to show in dev. Use a lighter preview model (decimated copy or a separate display file) for the product page; keep the full model for the print file |
+| G-87 | 🟡 | **Text-element detection is not wired to the upload step yet** | `detectNameSlot` and `stripPlaceholder` work on the real file and are tested, but the admin still sets the slot by clicking. Wire them into model upload (detect, strip, pre-fill) |
 
 ### Missing from the spec (planned, not built)
 

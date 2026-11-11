@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { buildName, cleanName, isWatertight, meshBounds, nameSlotSchema, personalizedName, slotOf, toMesh, type NameSlot } from "../src/lib/name-mesh";
-import { addNameTo3mf, buildPrintFile, checkFit, loadFont, nameProblem, open3mf, readStlMesh, threeMfSurface, widestThatFits } from "../src/lib/name-3mf";
+import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, widestThatFits } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
 
 let failures = 0;
@@ -175,6 +175,53 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
     try { const plain = zipSync({ "3D/3dmodel.model": strToU8(`<model xmlns:p="x"><resources>${cubeObj(1, 0)}</resources><build><item objectid="1"/></build></model>`) }); addNameTo3mf(open3mf(plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength) as ArrayBuffer), mesh, "Name: x"); return false; } catch (e) { return /not supported yet/.test((e as Error).message); }
   })());
   assert("a file that is not a 3MF is refused", (() => { try { open3mf(new TextEncoder().encode("nope").buffer as ArrayBuffer); return false; } catch { return true; } })());
+
+  console.log("\ndetecting the designer's example text (Bambu text element)");
+  const boxObj = (id: number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+    const v = [[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]].map(([x, y, z]) => `<vertex x="${x}" y="${y}" z="${z}"/>`).join("");
+    const t = [[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]].map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join("");
+    return `<object id="${id}" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
+  };
+  // a 20 mm cube plus a text part 10 x 4 x 1 lying on its top face (object space z = 20), the plate item rotated 90 degrees about Y
+  const withText = (subtype: string, text: string, textFaces = 12) => {
+    const bytes = zipSync({
+      "3D/3dmodel.model": strToU8(`<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><resources>
+ <object id="3" type="model"><components>
+  <component p:path="/3D/Objects/o.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
+  <component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 10 10 20"/>
+ </components></object>
+</resources><build><item objectid="3" transform="0 0 -1 0 1 0 1 0 0 100 100 50" printable="1"/></build></model>`),
+      "3D/Objects/o.model": strToU8(`<model><resources>${boxObj(1, 0, 20, 0, 20, 0, 20)}${boxObj(2, -5, 5, -2, 2, 0, 1)}</resources></model>`),
+      "Metadata/model_settings.config": strToU8(`<config>
+  <object id="3">
+    <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><mesh_stat face_count="12"/></part>
+    <part id="2" subtype="${subtype}"><metadata key="name" value="text_shape"/><text_info text="${text}" font_name="Marker Felt" thickness="1" embeded_depth="0" /><mesh_stat face_count="${textFaces}"/></part>
+  </object>
+</config>`),
+    });
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  };
+  const textFiles = open3mf(withText("normal_part", "Cams"));
+  const det = detectNameSlot(textFiles);
+  assert("finds the text element and reads its text and font", det?.text === "Cams" && det.fontName === "Marker Felt" && det.componentIndex === 1);
+  assert("a normal part means raised letters", det?.mode === "raised" && det.notes.length === 0);
+  assert("position: the text's centre on the cube top, in BUILD space after the plate rotation (object (10,10,20) -> (120,110,40))", !!det && det.slot.position.every((v, i) => near(v, [120, 110, 40][i], 0.01)), JSON.stringify(det?.slot.position));
+  assert("facing and up follow the rotation (out of the top face = +X in build space; up stays +Y)", !!det && det.slot.normal.every((v, i) => near(v, [1, 0, 0][i], 0.001)) && det.slot.up.every((v, i) => near(v, [0, 1, 0][i], 0.001)), JSON.stringify([det?.slot.normal, det?.slot.up]));
+  assert("size and depth come from the example's mesh (10 wide, 4 tall, 1 deep)", near(det!.slot.maxWidth, 10, 0.01) && near(det!.slot.height, 4, 0.01) && near(det!.slot.depth, 1, 0.01));
+  assert("the example is a valid slot as-is", nameSlotSchema.safeParse(det!.slot).success);
+  assert("a negative part is reported as engraved, with a note that it is not supported yet", (() => { const d = detectNameSlot(open3mf(withText("negative_part", "Cams"))); return d?.mode === "engraved" && /not supported yet/.test(d.notes.join(" ")); })());
+  assert("an example with letters that have tails gets its height estimated, with a note", (() => { const d = detectNameSlot(open3mf(withText("normal_part", "gym"))); return !!d && d.notes.some((n) => /tails/.test(n)) && near(d.slot.height, 4 * 0.78 < 3 ? 3 : 4 * 0.78, 0.01); })());
+  assert("no text element -> null", detectNameSlot(open3mf(bambuBuf)) === null);
+  assert("a face count that does not match the mesh -> null (never guess)", detectNameSlot(open3mf(withText("normal_part", "Cams", 99))) === null);
+  const before = threeMfSurface(textFiles).mesh;
+  const cleaned = stripPlaceholder(textFiles, det!.componentIndex);
+  const stripped = threeMfSurface(cleaned).mesh;
+  assert("stripping removes the placeholder from the geometry (24 -> 12 triangles)", before.indices.length / 3 === 24 && stripped.indices.length / 3 === 12);
+  assert("and from the plate object, the geometry file and the slicer's part list", (strFromU8(cleaned["3D/3dmodel.model"]).match(/<component /g) ?? []).length === 1 && !strFromU8(cleaned["3D/Objects/o.model"]).includes('id="2"') && !strFromU8(cleaned["Metadata/model_settings.config"]).includes("text_info"));
+  assert("the cleaned model still reads and the detected spot sits on its surface (fit)", checkFit(stripped, det!.slot, det!.slot.maxWidth, det!.slot.height).fits);
+  const cleanedZip = zipSync(cleaned);
+  const named = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: det!.slot });
+  assert("a customer's name prints at the detected spot, and the example text is gone", named.ok && named.report.fit.fits && !strFromU8(unzipSync(named.file)["3D/3dmodel.model"]).includes("Cams"), named.ok ? "" : named.error);
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }
   console.log("\nAll name-mesh checks passed.");

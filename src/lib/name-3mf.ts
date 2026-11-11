@@ -12,7 +12,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { Matrix4, Vector3 } from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import {
-  buildName, isWatertight, meshBounds, NAME_FONTS, parseFont, slotMatrix, toMesh,
+  buildName, isWatertight, meshBounds, NAME_FONTS, nameSlotSchema, parseFont, slotMatrix, toMesh,
   type Font, type Mesh, type NameFontId, type NameSlot,
 } from "./name-mesh";
 
@@ -133,8 +133,8 @@ function parseObjects(xml: string): Map<string, ObjectDef> {
   return out;
 }
 
-/** The whole model flattened into one mesh in BUILD space (item and component transforms applied). */
-export function threeMfSurface(files: Files): { mesh: Mesh; item: { objectId: string; transform: Matrix4 } } {
+/** The whole model flattened into one mesh in BUILD space (item and component transforms applied). `skipComponents` leaves out parts of the plate object by position (used to ignore a placeholder). */
+export function threeMfSurface(files: Files, opts: { skipComponents?: number[] } = {}): { mesh: Mesh; item: { objectId: string; transform: Matrix4 } } {
   const rootXml = strFromU8(files["3D/3dmodel.model"]);
   const items = [...(/<build\b[^>]*>([\s\S]*?)<\/build>/.exec(rootXml)?.[1] ?? "").matchAll(/<item\b([^>]*?)\/?>/g)];
   if (items.length !== 1) throw new Error("Only 3MF files with a single object on the plate are supported");
@@ -171,10 +171,11 @@ export function threeMfSurface(files: Files): { mesh: Mesh; item: { objectId: st
       }
       if (idx.length / 3 > MAX_TRIANGLES) throw new Error("The model has too many triangles");
     }
-    for (const c of def.components) {
+    def.components.forEach((c, i) => {
+      if (depth === 0 && opts.skipComponents?.includes(i)) return; // e.g. the designer's placeholder text
       const target = c.path ? c.path.replace(/^\//, "") : file;
       walk(target, c.id, m.clone().multiply(c.transform), depth + 1);
-    }
+    });
   };
   walk("3D/3dmodel.model", item.objectId, item.transform.clone(), 0);
   if (idx.length === 0) throw new Error("The 3MF has no geometry");
@@ -244,6 +245,135 @@ function flipWinding(ix: Uint32Array): Uint32Array {
   const o = Uint32Array.from(ix);
   for (let i = 0; i < o.length; i += 3) [o[i + 1], o[i + 2]] = [o[i + 2], o[i + 1]];
   return o;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Detecting the designer's example text (Bambu Studio / Orca text element) and turning it into a slot
+// ---------------------------------------------------------------------------------------------------------------------
+
+export type DetectedName = {
+  /** The example text the designer typed (for the admin to see). */
+  text: string;
+  /** The slicer's font for the example (only for information: we print with our own fonts). */
+  fontName: string;
+  /** raised = a normal part; engraved = a negative part. */
+  mode: "raised" | "engraved";
+  /** Ready to save as the product's name slot (font is our default; the admin may change it). */
+  slot: NameSlot;
+  /** Index of the placeholder among the plate object's components. */
+  componentIndex: number;
+  /** Things the admin should know (size clamped, descenders, engraved not supported yet, ...). */
+  notes: string[];
+};
+
+/**
+ * Find a slicer text element on the plate object and read where it sits. Bambu Studio stores a text part with a
+ * `<text_info text=".." font_name=".." thickness=".." embeded_depth=".."/>` entry in Metadata/model_settings.config;
+ * the geometry itself is an ordinary mesh part whose transform (item x component) places it on the model. The text
+ * lies on the part's local XY plane (reads along +X, up is +Y) and is extruded along +Z, so the facing, up direction,
+ * size and depth all come from that mesh and transform. Returns null when there is no text element.
+ */
+export function detectNameSlot(files: Files): DetectedName | null {
+  const cfg = files["Metadata/model_settings.config"];
+  if (!cfg) return null;
+  const root = strFromU8(files["3D/3dmodel.model"]);
+  const { item } = threeMfSurface(files, { skipComponents: [] });
+  const objCfg = new RegExp(`<object\\s+id="${item.objectId}">([\\s\\S]*?)</object>`).exec(strFromU8(cfg));
+  if (!objCfg) return null;
+  const parts = [...objCfg[1].matchAll(/<part\b([^>]*)>([\s\S]*?)<\/part>/g)];
+  const idx = parts.findIndex((p) => /<text_info\b/.test(p[2]));
+  if (idx < 0) return null;
+  const part = parts[idx];
+  const info = /<text_info\b([^>]*?)\/?>/.exec(part[2])![1];
+  const notes: string[] = [];
+
+  // the part list and the object's components are in the same order; the face count confirms it is the right one
+  const rootDefs = parseObjects(root);
+  const plate = rootDefs.get(item.objectId);
+  if (!plate || plate.components.length !== parts.length) return null;
+  const comp = plate.components[idx];
+  const file = comp.path ? comp.path.replace(/^\//, "") : "3D/3dmodel.model";
+  if (!files[file]) return null;
+  const def = parseObjects(strFromU8(files[file])).get(comp.id);
+  if (!def?.mesh) return null;
+  const faces = Number(attr(part[2], "face_count") ?? /face_count="(\d+)"/.exec(part[2])?.[1]);
+  if (faces && faces !== def.mesh.indices.length / 3) return null;
+
+  // text mesh: bounding box in its own frame (x along the text, y up, z out of the surface)
+  const P = def.mesh.positions;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < P.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], P[i + k]); hi[k] = Math.max(hi[k], P[i + k]); }
+  const W = item.transform.clone().multiply(comp.transform);
+  const sx = new Vector3().setFromMatrixColumn(W, 0).length(), sy = new Vector3().setFromMatrixColumn(W, 1).length(), sz = new Vector3().setFromMatrixColumn(W, 2).length();
+  const dir = (x: number, y: number, z: number) => new Vector3(x, y, z).transformDirection(W).normalize();
+  const pos = new Vector3((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, 0).applyMatrix4(W);
+  const normal = dir(0, 0, 1), up = dir(0, 1, 0);
+
+  const text = /\btext="([^"]*)"/.exec(info)?.[1] ?? "";
+  const fontName = /font_name="([^"]*)"/.exec(info)?.[1] ?? "";
+  const subtype = attr(part[1], "subtype");
+  const mode = subtype === "negative_part" ? "engraved" : "raised";
+  if (mode === "engraved") notes.push("The example is a negative part (engraved). Engraved names are not supported yet, so it is treated as raised.");
+  if (subtype && !["normal_part", "negative_part"].includes(subtype)) notes.push(`The example's part type is "${subtype}"; expected a normal or negative part.`);
+
+  const clamp = (v: number, a: number, b: number, what: string) => {
+    const c = Math.min(b, Math.max(a, v));
+    if (c !== v) notes.push(`${what} ${v.toFixed(1)} mm was adjusted to ${c.toFixed(1)} mm to stay within limits.`);
+    return Math.round(c * 100) / 100;
+  };
+  let heightMm = (hi[1] - lo[1]) * sy;
+  if (/[gjpqy]/.test(text)) {
+    heightMm *= 0.78; // the example's box includes descenders; our height is the capital height
+    notes.push("The example has letters with tails, so the capital height was estimated from its box.");
+  }
+  const slot = nameSlotSchema.parse({
+    position: pos.toArray().map((v) => Math.round(v * 1000) / 1000),
+    normal: normal.toArray().map((v) => Math.round(v * 10000) / 10000),
+    up: up.toArray().map((v) => Math.round(v * 10000) / 10000),
+    maxWidth: clamp((hi[0] - lo[0]) * sx, 5, 300, "Width"),
+    height: clamp(heightMm, 3, 60, "Letter height"),
+    depth: clamp(Math.max(hi[2], 0) * sz, 0.6, 5, "Depth"),
+    sink: 0.4,
+    font: "bold",
+  });
+  return { text, fontName, mode, slot, componentIndex: idx, notes };
+}
+
+/**
+ * The model without the designer's example text: the placeholder component, its mesh object and its entry in
+ * model_settings.config are removed, so neither the preview nor the print file shows the example.
+ */
+export function stripPlaceholder(files: Files, componentIndex: number): Files {
+  const { item } = threeMfSurface(files);
+  const rootXml = strFromU8(files["3D/3dmodel.model"]);
+  const plate = parseObjects(rootXml).get(item.objectId);
+  const comp = plate?.components[componentIndex];
+  if (!plate || !comp) throw new Error("Placeholder text not found");
+  const file = comp.path ? comp.path.replace(/^\//, "") : "3D/3dmodel.model";
+
+  // 1) drop the <component> (the n-th one inside the plate object)
+  let n = -1;
+  const objRe = new RegExp(`(<object\\b[^>]*\\bid="${item.objectId}"[^>]*>)([\\s\\S]*?)(</object>)`);
+  const out: Files = { ...files };
+  const root2 = rootXml.replace(objRe, (_m, a, body, c) => a + body.replace(/\s*<component\b[^>]*?\/>/g, (t: string) => (++n === componentIndex ? "" : t)) + c);
+  out["3D/3dmodel.model"] = strToU8(root2);
+
+  // 2) drop the placeholder's mesh object, unless another component still uses it
+  const stillUsed = plate.components.some((c, i) => i !== componentIndex && c.id === comp.id && (c.path ?? "") === (comp.path ?? ""));
+  if (!stillUsed) {
+    const src = strFromU8(out[file] ?? files[file]);
+    out[file] = strToU8(src.replace(new RegExp(`\\s*<object\\b[^>]*\\bid="${comp.id}"[^>]*>[\\s\\S]*?</object>`), ""));
+  }
+
+  // 3) drop its part from the slicer's part list
+  const cfgPath = "Metadata/model_settings.config";
+  if (files[cfgPath]) {
+    let k = -1;
+    const cfg = strFromU8(files[cfgPath]).replace(new RegExp(`(<object\\s+id="${item.objectId}">)([\\s\\S]*?)(</object>)`), (_m, a, body, c) =>
+      a + body.replace(/\s*<part\b[\s\S]*?<\/part>/g, (t: string) => (++k === componentIndex ? "" : t)) + c);
+    out[cfgPath] = strToU8(cfg);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
