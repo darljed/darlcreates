@@ -54,7 +54,7 @@ export default async function EditProductPage({
         <SchemaBuilder productId={product.id} options={product.options} />
       </div>
 
-      {product.stlKey && /\.stl$/i.test(product.stlKey) && product.options.some((o) => o.type === "text") && (
+      {product.stlKey && /\.(stl|3mf)$/i.test(product.stlKey) && product.options.some((o) => o.type === "text") && (
         <NameSlotEditor
           productId={product.id}
           modelUrl={fileUrl(product.stlKey) ?? ""}

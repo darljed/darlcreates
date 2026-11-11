@@ -15,6 +15,8 @@ import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
 import { nameSlotSchema } from "@/lib/name-mesh";
+import { checkFit, readBaseSurface, widestThatFits } from "@/lib/name-3mf";
+import { getObject } from "@/lib/storage";
 
 type Result = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -199,7 +201,8 @@ const slotActionSchema = z.object({
 
 /**
  * Put the customer's name on the 3D model: save (or remove) the name slot on a text option. Only for products whose
- * model is an STL (the print file is built from it, see lib/name-3mf.ts).
+ * model is an STL or 3MF (the print file is built from it, see lib/name-3mf.ts), and only if a name of the widest
+ * allowed size sits fully on the surface there.
  */
 export async function saveNameSlotAction(input: unknown): Promise<Result> {
   await requireAdmin();
@@ -209,11 +212,34 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
 
   const [product] = await db.select({ slug: products.slug, stlKey: products.stlKey }).from(products).where(eq(products.id, productId)).limit(1);
   if (!product) return { ok: false, error: "Product not found" };
-  if (slot && !(product.stlKey && /\.stl$/i.test(product.stlKey))) {
-    return { ok: false, error: "Adding a name to the model needs an STL model file (3MF is not supported yet)." };
+  const ext = product.stlKey ? /\.(stl|3mf)$/i.exec(product.stlKey)?.[1].toLowerCase() : undefined;
+  const kind = ext === "stl" || ext === "3mf" ? ext : null;
+  if (slot && !kind) {
+    return { ok: false, error: "Adding a name to the model needs an STL or 3MF model file." };
   }
   const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, optionId)).limit(1);
   if (!opt || opt.productId !== productId || opt.type !== "text") return { ok: false, error: "Choose a text option of this product" };
+
+  if (slot && kind && product.stlKey) {
+    // A name of the widest size allowed must sit fully on the surface here, or some names would print floating or buried.
+    const obj = await getObject(product.stlKey);
+    if (!obj) return { ok: false, error: "The model file could not be read from storage" };
+    try {
+      const surface = readBaseSurface(await new Response(obj.stream).arrayBuffer(), kind);
+      const fit = checkFit(surface, slot, slot.maxWidth, slot.height);
+      if (!fit.fits) {
+        const w = widestThatFits(surface, slot);
+        return {
+          ok: false,
+          error: w
+            ? `A ${slot.maxWidth} mm wide name would hang off the surface here. Set "Widest name" to ${w} mm or less (or move the spot).`
+            : (fit.problem ?? "The name does not fit on the surface here. Try another spot or smaller letters."),
+        };
+      }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+    }
+  }
 
   const { slot: _old, ...rest } = (opt.constraints ?? {}) as Record<string, unknown>;
   void _old;

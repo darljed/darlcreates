@@ -66,19 +66,20 @@ export function slotOf(constraints: { slot?: unknown } | null | undefined): Name
 
 /**
  * The name to put on an order item's model, if any: the text option that has a slot, the customer's text for it, and
- * only when the base file is an STL (3MF bases are not supported yet).
+ * the kind of base file (STL or 3MF; anything else cannot take a name).
  */
 export function personalizedName(
   options: { id: string; type: string; constraints: { slot?: unknown } }[],
   config: Record<string, { text?: string }>,
   baseKey: string | null,
-): { slot: NameSlot; text: string } | null {
-  if (!baseKey || !/\.stl$/i.test(baseKey)) return null;
+): { slot: NameSlot; text: string; kind: "stl" | "3mf" } | null {
+  const kind = baseKey && /\.(stl|3mf)$/i.exec(baseKey)?.[1].toLowerCase();
+  if (kind !== "stl" && kind !== "3mf") return null;
   for (const opt of options) {
     if (opt.type !== "text") continue;
     const slot = slotOf(opt.constraints);
     const text = cleanName(config[opt.id]?.text ?? "");
-    if (slot && text) return { slot, text };
+    if (slot && text) return { slot, text, kind };
   }
   return null;
 }

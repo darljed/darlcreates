@@ -10,8 +10,8 @@ import { buildPrintFile } from "@/lib/name-3mf";
 
 /**
  * Admin-only: the print-ready file for an order item. Normally a redirect to a signed download of the product's model.
- * When the product has a name slot and the customer typed a name, the file is built here instead: the original STL
- * plus the name as a second object, in a 3MF (see lib/name-3mf.ts). Rebuilt from the saved text every time, never from
+ * When the product has a name slot and the customer typed a name, the file is built here instead: the original model
+ * (STL or 3MF) plus the name as one more part of the same object, in a 3MF (see lib/name-3mf.ts). Rebuilt from the saved text every time, never from
  * anything the browser supplied. RBAC-gated; never exposes the raw bucket.
  */
 export async function GET(
@@ -42,8 +42,8 @@ export async function GET(
   if (personal) {
     const obj = await getObject(item.stlKey);
     if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
-    const baseStl = await new Response(obj.stream).arrayBuffer();
-    const built = await buildPrintFile({ baseStl, text: personal.text, slot: personal.slot });
+    const base = await new Response(obj.stream).arrayBuffer();
+    const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot });
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     const safe = personal.text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "name";
     return new Response(Buffer.from(built.file), {
