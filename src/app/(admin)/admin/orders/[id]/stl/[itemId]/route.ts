@@ -6,7 +6,9 @@ import { requireAdmin } from "@/lib/session";
 import { readUrl, isStorageConfigured, getObject } from "@/lib/storage";
 import { getProductById } from "@/lib/catalog";
 import { personalizedName } from "@/lib/name-mesh";
-import { buildPrintFile } from "@/lib/name-3mf";
+import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
+import { filamentAssignments } from "@/lib/part-colors";
+import type { ConfigSelection } from "@/lib/pricing";
 
 /**
  * Admin-only: the print-ready file for an order item. Normally a redirect to a signed download of the product's model.
@@ -38,12 +40,27 @@ export async function GET(
   }
 
   const product = await getProductById(item.productId);
-  const personal = product ? personalizedName(product.options, (item.config ?? {}) as Record<string, { text?: string }>, item.stlKey) : null;
+  const config = (item.config ?? {}) as ConfigSelection;
+  const personal = product ? personalizedName(product.options, config, item.stlKey) : null;
+  // the customer's colour for each part of a multi-colour model (3MF slicer projects only)
+  const colors = product && /\.3mf$/i.test(item.stlKey) ? filamentAssignments(product.options, config) : [];
+  if (!personal && colors.length) {
+    const obj = await getObject(item.stlKey);
+    if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
+    try {
+      const file = buildColoredFile(await new Response(obj.stream).arrayBuffer(), colors);
+      return new Response(Buffer.from(file), {
+        headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-colours.3mf"`, "Cache-Control": "private, no-store" },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read the model file" }, { status: 422 });
+    }
+  }
   if (personal) {
     const obj = await getObject(item.stlKey);
     if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
     const base = await new Response(obj.stream).arrayBuffer();
-    const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot });
+    const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot, colors });
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     const safe = personal.text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "name";
     return new Response(Buffer.from(built.file), {

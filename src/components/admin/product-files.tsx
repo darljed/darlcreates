@@ -45,7 +45,8 @@ export function ProductFiles({
           { duration: 9000 },
         );
       } else toast.success("3D model uploaded");
-      if (a?.colours.added.length) toast.success(`Colors added from the file: ${a.colours.added.join(", ")}`, { duration: 9000 });
+      if (a?.colours.parts.length) toast.success(`Colour options added for each part: ${a.colours.parts.join(", ")}`, { duration: 9000 });
+      else if (a?.colours.added.length) toast.success(`Colors added from the file: ${a.colours.added.join(", ")}`, { duration: 9000 });
       for (const n of a?.notes ?? []) toast.info(n, { duration: 12000 });
       router.refresh();
     } catch (e) {

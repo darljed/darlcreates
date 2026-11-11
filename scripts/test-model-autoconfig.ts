@@ -47,6 +47,7 @@ async function main() {
     assert("detected the example text", r1.detected?.text === "Cams" && r1.detected.mode === "raised" && r1.slotSaved);
     assert("a Name text option was created with the slot", r1.textOptionCreated);
     const opts1 = await optionsOf(p1.id);
+    const o1c = opts1;
     const nameOpt = opts1.find((o) => o.type === "text");
     const slot = slotOf(nameOpt?.constraints as { slot?: unknown });
     assert("the slot is valid, at the detected spot, with the sensible defaults for the text option", !!slot && Math.abs(slot.position[0] - 120) < 0.01 && slot.normal[0] > 0.99 && (nameOpt!.constraints as { maxLen?: number }).maxLen === 12 && nameOpt!.required === false);
@@ -63,6 +64,43 @@ async function main() {
     const cleaned = unzipSync(new Uint8Array(await new Response(obj!.stream).arrayBuffer()));
     assert("the cleaned model has no example text left", !strFromU8(cleaned["Metadata/model_settings.config"]).includes("text_info") && (strFromU8(cleaned["3D/3dmodel.model"]).match(/<component /g) ?? []).length === 1);
     assert("the original upload is kept in storage", (await storage.headObject(key1)) !== null);
+
+
+    console.log("\nmodel made of two parts in different filaments: one colour option per part");
+    const p4 = await newProduct("test-autocfg-4");
+    const key6 = await upload(withText("normal_part", "Cams", 12, { second: true, filaments: ["#F95D73", "#00FF00", "#0000FF"] }), "two-part.3mf");
+    const r6 = await autoConfigureModel(p4.id, key6);
+    keys.push(r6.modelKey);
+    const o4 = await optionsOf(p4.id);
+    const colourOpts = o4.filter((o) => o.type === "color").sort((a, b) => a.sort - b.sort);
+    type PartCons = { partName?: string; parts?: { objectId: string; partId: string }[]; filaments?: Record<string, number>; defaultHex?: string };
+    assert("two colour options: Body colour and Lid colour", colourOpts.map((o) => o.label).join() === "Body colour,Lid colour" && r6.colours.parts.length === 2, colourOpts.map((o) => o.label).join());
+    const c0 = colourOpts[0].constraints as PartCons, c1 = colourOpts[1].constraints as PartCons;
+    assert("each carries its mesh name, slicer parts, the filament map and the designer's colour", c0.partName === "dc-slot-0" && c1.partName === "dc-slot-1" && c0.parts?.[0].objectId === "3" && c1.parts?.[0].objectId === "4" && c0.defaultHex === "#F95D73" && c1.defaultHex === "#0000FF" && c1.filaments?.["#0000FF"] === 3, JSON.stringify([c0, c1]));
+    const v4 = await db.select().from(s.productOptionValues).where(eq(s.productOptionValues.optionId, colourOpts[1].id));
+    assert("both offer the project's three colours", v4.map((v) => v.value).sort().join() === "#0000FF,#00FF00,#F95D73");
+    assert("the stored copy is a new file whose meshes are named for the viewer", r6.modelKey !== key6 && await (async () => {
+      const o = await storage.getObject(r6.modelKey);
+      const f = unzipSync(new Uint8Array(await new Response(o!.stream).arrayBuffer()));
+      const m = strFromU8(f["3D/Objects/o.model"]);
+      return m.includes('name="dc-slot-0"') && m.includes('name="dc-slot-1"');
+    })());
+    assert("the name option and slot are still created", r6.slotSaved && o4.some((o) => o.type === "text"));
+    const single = (o1c.find((o) => o.type === "color")?.constraints ?? {}) as PartCons;
+    assert("a one-group model keeps ONE Colors option (whole model), with its filament map for the print file", o1c.filter((o) => o.type === "color").length === 1 && !single.partName && single.parts?.length === 1 && single.defaultHex === "#F95D73", JSON.stringify(single));
+
+    console.log("\n3MF whose example is a negative part: engraved");
+    const p5 = await newProduct("test-autocfg-5");
+    const key7 = await upload(withText("negative_part", "Cams", 12, { engraved: true, filaments: ["#F95D73", "#00FF00"] }), "engraved.3mf");
+    const r7 = await autoConfigureModel(p5.id, key7);
+    keys.push(r7.modelKey);
+    const slot7 = slotOf((await optionsOf(p5.id)).find((o) => o.type === "text")?.constraints as { slot?: unknown });
+    assert("detected as engraved; the slot is engraved, 1.5 mm deep, with no name colours (a cut has no colour)", r7.detected?.mode === "engraved" && slot7?.mode === "engraved" && Math.abs(slot7.depth - 1.5) < 0.01 && !slot7.nameColors && slot7.object === "3", JSON.stringify(slot7));
+    assert("the example is gone from the stored model", await (async () => {
+      const o = await storage.getObject(r7.modelKey);
+      const f = unzipSync(new Uint8Array(await new Response(o!.stream).arrayBuffer()));
+      return !strFromU8(f["Metadata/model_settings.config"]).includes("text_info");
+    })());
 
     console.log("\nsecond upload to the same product: keeps its options, replaces the slot");
     const key2 = await upload(withText("normal_part", "Cams", 12, { filaments: ["#00FF00"] }), "stand2.3mf");

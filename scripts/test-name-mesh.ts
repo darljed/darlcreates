@@ -6,15 +6,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
-import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, withNameColor, type NameSlot } from "../src/lib/name-mesh";
+import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, withNameColor, type Mesh, type NameSlot } from "../src/lib/name-mesh";
 import { colorName } from "../src/lib/color-name";
 import { SPACE_TOLERANCE_MM, SurfaceProbe, measureSpace } from "../src/lib/name-space";
 import { clampToSpace, maxHeightFor, maxWidthFor, spaceLimits } from "../src/lib/name-mesh";
 import { normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
 import { summarizeConfig } from "../src/lib/config-summary";
-import { addNameTo3mf, buildPrintFile, checkFit, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot, FIT_TOLERANCE_MM } from "../src/lib/name-3mf";
+import { addNameTo3mf, buildColoredFile, buildPrintFile, checkFit, engraveProblem, wallThickness, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot, FIT_TOLERANCE_MM } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
 import { withText } from "./fixtures/bambu-text-3mf";
+import { annotateGroups, colorGroups, plateObjectNear, readConfigObjects, setFilaments } from "../src/lib/threemf";
+import { defaultPartSelection, filamentAssignments, partColorsFor, wholeModelColor } from "../src/lib/part-colors";
+import { prepareMultiPart, HIDDEN_PART_NAME } from "../src/lib/viewer-framing";
+import { Group, Mesh as ThreeMesh, MeshStandardMaterial, BoxGeometry } from "three";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -320,6 +324,76 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("without an own colour the added part uses the object's filament", pfSame.ok && /Name: Al[\s\S]*?key="extruder" value="1"/.test(strFromU8(unzipSync(pfSame.file)["Metadata/model_settings.config"])));
   const named = await buildPrintFile({ base: cleanedZip.buffer.slice(cleanedZip.byteOffset, cleanedZip.byteOffset + cleanedZip.byteLength) as ArrayBuffer, kind: "3mf", text: "Al", slot: { ...det!.slot, font: "bold" } });
   assert("a customer's name prints at the detected spot, and the example text is gone", named.ok && named.report.fit.fits && !strFromU8(unzipSync(named.file)["3D/3dmodel.model"]).includes("Cams"), named.ok ? "" : named.error);
+
+
+  console.log("\nengraved names (negative parts)");
+  const engSlot: NameSlot = { ...topSlot, mode: "engraved", sink: 0, depth: 1.2 };
+  const engBuilt = buildName(font, "Ana", engSlot);
+  assert("an engraved name spans from `depth` below the surface to a little above it (clean cut)", engBuilt.ok && (() => { const b = meshBounds(toMesh(engBuilt.geometry)); return near(b[2], 20 - 1.2, 0.01) && near(b[5], 20.2, 0.01); })());
+  assert("and is watertight like a raised one", engBuilt.ok && isWatertight(toMesh(engBuilt.geometry)));
+  assert("an engraved slot needs no sink, and the mode is validated", nameSlotSchema.safeParse(engSlot).success && !nameSlotSchema.safeParse({ ...engSlot, mode: "carved" }).success);
+  assert("an STL cannot take an engraved name (nothing to subtract with)", await (async () => { const r = await buildPrintFile({ base: cubeStl, kind: "stl", text: "Ana", slot: engSlot }); return !r.ok && /3MF/.test(r.error); })());
+  assert("wall behind the name on the 20 mm cube is 20 mm; a 1.2 mm cut leaves plenty", near(wallThickness(base, topSlot, 12, 5) ?? 0, 20, 0.05) && engraveProblem(base, engSlot, 12, 5) === null);
+  const boxMesh = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): Mesh => ({
+    positions: Float32Array.from([[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]].flat()),
+    indices: Uint32Array.from([[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]].flat()),
+  });
+  const plate2 = boxMesh(0, 30, 0, 30, 0, 1.5); // a 1.5 mm plate
+  const thinSlot: NameSlot = { ...engSlot, position: [15, 15, 1.5], depth: 1.2 };
+  assert("a 1.5 mm plate is too thin for a 1.2 mm cut (needs 0.8 mm left): refused with the depth that would work", (() => { const p = engraveProblem(plate2, thinSlot, 10, 4); return !!p && /only 1.5 mm thick/.test(p) && /0\.7 mm or less/.test(p); })());
+  assert("a 0.6 mm cut in that plate is fine", engraveProblem(plate2, { ...thinSlot, depth: 0.6 }, 10, 4) === null);
+  assert("raised names are never checked for wall", engraveProblem(plate2, { ...thinSlot, mode: undefined }, 10, 4) === null);
+  assert("an open mesh (nothing behind the name) cannot be judged and says so", /closed solid/.test(engraveProblem({ positions: Float32Array.from([0,0,0, 30,0,0, 30,30,0]), indices: Uint32Array.from([0,1,2]) }, { ...thinSlot, position: [15, 5, 0.5] }, 4, 2) ?? ""));
+  {
+    const two = open3mf(withText("normal_part", "Cams", 12, { second: true, engraved: false }));
+    const withNeg = open3mf(withText("negative_part", "Cams", 12, { engraved: true }));
+    const out = addNameTo3mf(withNeg, toMesh((engBuilt as { geometry: Parameters<typeof toMesh>[0] }).geometry), "Name: Ana", { engraved: true, objectId: "3" });
+    const model = strFromU8(out["3D/3dmodel.model"]), cfg = strFromU8(out["Metadata/model_settings.config"]);
+    assert("an engraved name is added as a NEGATIVE part: object type other + subtype negative_part", /name="Name: Ana" type="other"/.test(model) && /subtype="negative_part">\s*<metadata key="name" value="Name: Ana"/.test(cfg));
+    assert("and it is left out of the product surface (the slicer subtracts it)", threeMfSurface(out).mesh.indices.length / 3 === threeMfSurface(withNeg).mesh.indices.length / 3);
+    const raised = addNameTo3mf(two, toMesh((engBuilt as { geometry: Parameters<typeof toMesh>[0] }).geometry), "Name: Ana", { objectId: "3" });
+    assert("a raised name is an ordinary part", /name="Name: Ana" type="model"/.test(strFromU8(raised["3D/3dmodel.model"])));
+  }
+  assert("plateObjectNear: with two objects on the plate, a click goes to the nearest; with one there is nothing to choose", (() => {
+    const f = open3mf(withText("normal_part", "Cams", 12, { second: true }));
+    const surf = threeMfSurface(f).mesh;
+    return plateObjectNear(surf, [100, 100, 40]) === "3" && plateObjectNear(surf, [302, 3, 3]) === "4" && plateObjectNear(threeMfSurface(open3mf(withText("normal_part", "Cams"))).mesh, [0, 0, 0]) === null;
+  })());
+
+  console.log("\nparts coloured on their own (colour groups)");
+  const multi = open3mf(withText("normal_part", "Cams", 12, { second: true, filaments: ["#F95D73", "#00FF00", "#0000FF"] }));
+  const groups = colorGroups(multi);
+  assert("ordinary parts are grouped by filament (the example text is not a part): Body on 1, Lid on 3", groups.length === 2 && groups[0].label === "Body" && groups[0].filament === 1 && groups[1].label === "Lid" && groups[1].filament === 3, JSON.stringify(groups));
+  assert("a negative part (the engraved example) is not a group: only the body is", colorGroups(open3mf(withText("negative_part", "Cams", 12, { engraved: true }))).map((g) => g.label).join() === "Body");
+  const ann = annotateGroups(multi, groups);
+  assert("each group's mesh is named for the viewer, only names change", ann.named.join() === "0,1" && strFromU8(ann.files["3D/Objects/o.model"]).includes('name="dc-slot-0"') && strFromU8(ann.files["3D/Objects/o.model"]).includes('name="dc-slot-1"') && threeMfSurface(ann.files).mesh.indices.length === threeMfSurface(multi).mesh.indices.length);
+  assert("negative parts are named dc-hide so the preview does not draw them", annotateGroups(open3mf(withText("negative_part", "Cams", 12, { engraved: true })), []).hidden === 1);
+  assert("the viewer colours named parts, hides dc-hide and leaves the rest on the product colour", (() => {
+    const mk = (name: string) => { const m = new ThreeMesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial({ name: "default" })); m.name = name; return m; };
+    const g = new Group(); const a = mk("dc-slot-0"), b = mk("dc-slot-1"), c = mk("other"), h = mk(HIDDEN_PART_NAME); g.add(a, b, c, h);
+    const out = prepareMultiPart(g, "#ff0000", (m) => m.name === "default", { "dc-slot-0": "#00ff00" });
+    const col = (n: string) => ((out.getObjectByName(n) as ThreeMesh).material as MeshStandardMaterial).color.getHexString();
+    return col("dc-slot-0") === "00ff00" && col("dc-slot-1") === "ff0000" && col("other") === "ff0000" && out.getObjectByName(HIDDEN_PART_NAME)!.visible === false;
+  })());
+  const re = setFilaments(multi, [{ objectId: "4", partId: "1", filament: 2 }, { objectId: "3", partId: "1", filament: 3 }]);
+  const cfgObjs = readConfigObjects(re);
+  assert("setFilaments changes the part (and the object when all its ordinary parts agree), nothing else", cfgObjs.find((o) => o.id === "4")!.parts[0].extruder === 2 && cfgObjs.find((o) => o.id === "4")!.extruder === 2 && cfgObjs.find((o) => o.id === "3")!.parts[0].extruder === 3 && cfgObjs.find((o) => o.id === "3")!.parts[1].extruder === 1);
+  const coloured = buildColoredFile(zipSync(multi).buffer.slice(0) as ArrayBuffer, [{ objectId: "4", partId: "1", filament: 2 }]);
+  assert("a colours-only print file (no name) reads back with the new filament", readConfigObjects(open3mf(coloured.buffer.slice(coloured.byteOffset, coloured.byteOffset + coloured.byteLength) as ArrayBuffer)).find((o) => o.id === "4")!.parts[0].extruder === 2);
+  const colOpt = (id: string, partName: string, objectId: string, defaultHex: string): ProductOptionInput => ({
+    id, type: "color", label: `${partName} colour`, required: true, priceDeltaCents: 0,
+    constraints: { partName, parts: [{ objectId, partId: "1" }], filaments: { "#F95D73": 1, "#00FF00": 2, "#0000FF": 3 }, defaultHex },
+    values: [{ id: `${id}a`, label: "Pink", value: "#F95D73", priceDeltaCents: 0 }, { id: `${id}b`, label: "Green", value: "#00FF00", priceDeltaCents: 0 }, { id: `${id}c`, label: "Blue", value: "#0000FF", priceDeltaCents: 0 }],
+  });
+  const partOpts = [colOpt("c0", "dc-slot-0", "3", "#F95D73"), colOpt("c1", "dc-slot-1", "4", "#0000FF")];
+  assert("part options start on the designer's colours", JSON.stringify(defaultPartSelection(partOpts)) === JSON.stringify({ c0: { valueId: "c0a" }, c1: { valueId: "c1c" } }));
+  assert("the viewer gets mesh name -> chosen hex (default when nothing is chosen)", JSON.stringify(partColorsFor(partOpts, { c1: { valueId: "c1b" } })) === JSON.stringify({ "dc-slot-0": "#F95D73", "dc-slot-1": "#00FF00" }));
+  assert("the print file gets filament numbers per slicer part", JSON.stringify(filamentAssignments(partOpts, { c0: { valueId: "c0c" }, c1: { valueId: "c1b" } })) === JSON.stringify([{ objectId: "3", partId: "1", filament: 3 }, { objectId: "4", partId: "1", filament: 2 }]));
+  assert("an option that colours the whole model sets the single-colour look; part options do not", wholeModelColor([...partOpts, { ...colOpt("w", "", "3", ""), constraints: {} }], { w: { valueId: "wb" }, c0: { valueId: "c0c" } }) === "#00FF00");
+  assert("an engraved name drops any name colour the client sent", (() => {
+    const o: ProductOptionInput = { id: "t", type: "text", label: "Name", required: false, priceDeltaCents: 0, values: [], constraints: { slot: { font: "bold", mode: "engraved", nameColors: [{ hex: "#FF0000" }] } } };
+    return normalizeSelection([o], { t: { text: "Ana", nameColor: "#FF0000" } }, () => false).config.t.nameColor === undefined;
+  })());
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }
   console.log("\nAll name-mesh checks passed.");

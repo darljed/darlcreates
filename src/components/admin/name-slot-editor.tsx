@@ -25,7 +25,7 @@ import {
   clampToSpace, DEFAULT_SLOT_SIZES, fontChoices, maxHeightFor, maxWidthFor, NAME_FONTS, NAME_FONT_IDS, slotMaxHeight, slotOf, spaceLimits,
   type NameFontId, type NameSlot, type SpaceTable,
 } from "@/lib/name-mesh";
-import { measureNameSpaceAction, saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
+import { measureNameSpaceAction, measureWallAction, saveNameSlotAction } from "@/app/(admin)/admin/products/actions";
 
 export type NameSlotOption = { id: string; label: string; constraints: { slot?: unknown } };
 /** The product's colour swatches, offered as quick additions to the name colours. */
@@ -43,7 +43,12 @@ function rotateUp(slot: NameSlot, degrees: number): [number, number, number] {
 
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
-export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { productId: string; modelUrl: string; options: NameSlotOption[]; colors?: ColorSwatch[] }) {
+/** Wall the slicer needs left behind an engraving (mm); the same number as MIN_WALL_BEHIND_MM in name-3mf.ts (server only). */
+const WALL_BEHIND_MM = 0.8;
+/** Colour of an engraved name in the preview: a dark cut, not a filament. */
+const ENGRAVED_PREVIEW = "#1f2937";
+
+export function NameSlotEditor({ productId, modelUrl, options, colors = [], canEngrave = false }: { productId: string; modelUrl: string; options: NameSlotOption[]; colors?: ColorSwatch[]; canEngrave?: boolean }) {
   const router = useRouter();
   const [optionId, setOptionId] = useState(options.find((o) => slotOf(o.constraints))?.id ?? options[0]?.id ?? "");
   const [slots, setSlots] = useState<Record<string, NameSlot | null>>(() => Object.fromEntries(options.map((o) => [o.id, slotOf(o.constraints)])));
@@ -89,6 +94,28 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
     }, 250);
     return () => clearTimeout(timer);
   }, [spotKey, productId, optionId]);
+
+  // --- engraving: how thick the wall is behind the name ----------------------------------------------------------
+  const engraved = slot?.mode === "engraved";
+  const wallKey = slot && engraved ? JSON.stringify([slot.position, slot.normal, slot.up, slot.maxWidth, slotMaxHeight(slot)]) : "";
+  const [wall, setWall] = useState<{ key: string; mm: number | null } | null>(null);
+  const wallMm = wall && wall.key === wallKey ? wall.mm : undefined; // undefined = not measured yet
+  useEffect(() => {
+    if (!wallKey || !slot) return;
+    let live = true;
+    const probe = slot;
+    const timer = setTimeout(async () => {
+      const res = await measureWallAction({ productId, slot: probe });
+      if (live && res.ok) setWall({ key: wallKey, mm: res.wallMm });
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- wallKey already encodes everything the measurement depends on
+  }, [wallKey, productId]);
+  const maxDepth = wallMm ? Math.max(0.6, Math.floor((wallMm - WALL_BEHIND_MM) * 10) / 10) : undefined;
+  const tooDeep = Boolean(engraved && slot && wallMm && slot.depth + WALL_BEHIND_MM > wallMm + 1e-9);
   const dirty = useMemo(() => JSON.stringify(slot) !== JSON.stringify(slotOf(options.find((o) => o.id === optionId)?.constraints)), [slot, options, optionId]);
 
   function onPick(hit: PickHit) {
@@ -148,13 +175,14 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
     if (key === "maxWidth") return maxWidthFor(table, slotMaxHeight(slot));
     if (key === "maxHeight") return maxHeightFor(table, slot.maxWidth);
     if (key === "height") return slotMaxHeight(slot);
+    if (key === "depth" && engraved) return maxDepth;
     return undefined;
   };
 
   const num = (key: "height" | "maxWidth" | "maxHeight" | "depth" | "sink", label: string, step: number, hint: string) => {
     const max = maxOf(key);
     return (
-      <Field label={label} hint={max !== undefined ? `max ${max} mm here` : hint}>
+      <Field label={key === "depth" && engraved ? "Cut depth" : label} hint={max !== undefined ? `max ${max} mm here` : hint}>
         <Input
           type="number"
           step={step}
@@ -194,11 +222,27 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
       )}
       <div className="mt-3 grid gap-4 md:grid-cols-[1fr_260px]">
         <div className="aspect-square overflow-hidden rounded-lg border-2 bg-card md:aspect-[4/3]">
-          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={previewColor} onPick={onPick} />
+          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={engraved ? ENGRAVED_PREVIEW : previewColor} onPick={onPick} />
         </div>
         <div className="space-y-3">
           <Field label="Sample name" hint="to preview">
             <Input value={sample} maxLength={20} onChange={(e) => setSample(e.target.value)} />
+          </Field>
+          <Field label="Style" hint={canEngrave ? undefined : "engraved needs a 3MF slicer project"}>
+            <select
+              className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+              disabled={!slot || (!canEngrave && slot.mode !== "engraved")}
+              value={slot?.mode ?? "raised"}
+              onChange={(e) => {
+                if (!slot) return;
+                const { mode: _m, nameColor: _c, nameColors: _cs, ...rest } = slot;
+                void _m; void _c; void _cs;
+                setSlot(e.target.value === "engraved" ? { ...rest, mode: "engraved", sink: 0 } : { ...rest, ...(slot.sink ? {} : { sink: 0.4 }) });
+              }}
+            >
+              <option value="raised">Raised (letters stand out)</option>
+              <option value="engraved">Engraved (letters cut in)</option>
+            </select>
           </Field>
           <Field label="Font">
             <select
@@ -220,7 +264,7 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
               ))}
             </div>
           </fieldset>
-          {slot?.nameColor && (
+          {slot?.nameColor && !engraved && (
             <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-block size-4 rounded-full border" style={{ backgroundColor: slot.nameColor.hex }} aria-hidden />
               Name prints in {slot.nameColor.filament ? `filament ${slot.nameColor.filament} ` : ""}({slot.nameColor.hex}) unless the customer picks another colour.
@@ -229,7 +273,7 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
               </Button>
             </p>
           )}
-          <fieldset disabled={!slot} className="space-y-1.5">
+          {!engraved && <fieldset disabled={!slot} className="space-y-1.5">
             <legend className="text-xs font-medium">Name colours customers can choose <span className="font-normal text-muted-foreground">(none = the name follows the product colour)</span></legend>
             {nameColors.map((c, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -277,7 +321,7 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
                 </Button>
               )}
             </div>
-          </fieldset>
+          </fieldset>}
           {measuring && (
             <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
               <Loader2 className="size-3.5 animate-spin" /> Measuring the room for a name here…
@@ -299,8 +343,13 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
             {num("maxWidth", "Widest name", 1, "mm")}
             {num("maxHeight", "Tallest name", 0.5, "mm, with tails")}
             {num("depth", "Stands out", 0.1, "mm")}
-            {num("sink", "Sunk in", 0.1, "mm")}
+            {!engraved && num("sink", "Sunk in", 0.1, "mm")}
           </div>
+          {engraved && (
+            <p className={`text-xs ${tooDeep ? "text-destructive" : "text-muted-foreground"}`} role={tooDeep ? "alert" : undefined}>
+              {wallMm === undefined ? "Measuring the wall behind the name…" : wallMm === null ? "Could not measure the wall behind the name." : `The model is ${wallMm} mm thick behind the name${tooDeep ? `, so a cut this deep would break through. Use ${maxDepth} mm or less.` : `, so the cut can be up to ${maxDepth} mm deep.`}`}
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium">Rotate</span>
             <Button type="button" size="icon" variant="outline" disabled={!slot} aria-label="Rotate the name 15 degrees left" onClick={() => slot && setSlot({ ...slot, up: rotateUp(slot, 15) })}>
@@ -321,7 +370,7 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [] }: { 
                 : (build?.error ?? "")}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" disabled={!slot || !dirty || pending || measuring || noRoom} onClick={() => save(slot)}>
+            <Button type="button" size="sm" disabled={!slot || !dirty || pending || measuring || noRoom || tooDeep} onClick={() => save(slot)}>
               {pending && <Loader2 className="mr-1 size-4 animate-spin" />} Save position
             </Button>
             <Button type="button" size="sm" variant="outline" disabled={pending || !slotOf(options.find((o) => o.id === optionId)?.constraints)} onClick={() => { setSlot(null); save(null); }}>

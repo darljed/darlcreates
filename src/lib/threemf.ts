@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { strFromU8, strToU8, unzipSync } from "fflate";
 import { Matrix4, Vector3 } from "three";
 import type { Mesh } from "./name-mesh";
+import { HIDDEN_PART_NAME } from "./viewer-framing";
 
 export type Files = Record<string, Uint8Array>;
 const MAX_UNZIPPED = 120 * 1024 * 1024; // zip-bomb guard: refuse packages that expand past this
@@ -97,6 +98,28 @@ export function parseObjects(xml: string): Map<string, ObjectDef> {
 
 export type PlateItem = { objectId: string; transform: Matrix4 };
 
+/** A flattened surface that remembers which triangles came from which plate object. */
+export type SurfaceMesh = Mesh & { parts?: { objectId: string; from: number; to: number }[] };
+
+/**
+ * The plate object nearest to a point (the one whose vertices come closest), so a name placed by clicking goes into the
+ * object that was clicked. null when the surface has fewer than two plate objects (no choice to make).
+ */
+export function plateObjectNear(surface: SurfaceMesh, point: [number, number, number]): string | null {
+  if (!surface.parts || surface.parts.length < 2) return null;
+  let best: string | null = null, bestD = Infinity;
+  for (const part of surface.parts) {
+    for (let t = part.from; t < part.to; t++) {
+      for (let k = 0; k < 3; k++) {
+        const o = surface.indices[t * 3 + k] * 3;
+        const d = (surface.positions[o] - point[0]) ** 2 + (surface.positions[o + 1] - point[1]) ** 2 + (surface.positions[o + 2] - point[2]) ** 2;
+        if (d < bestD) { bestD = d; best = part.objectId; }
+      }
+    }
+  }
+  return best;
+}
+
 /** Everything placed on the plate (`<build><item …/>`). */
 export function plateItems(files: Files): PlateItem[] {
   const root = strFromU8(files["3D/3dmodel.model"]);
@@ -116,7 +139,7 @@ export function componentTarget(c: { path: string | undefined; id: string }): { 
  * (negative parts, modifiers) are not part of the product. `skip` leaves out components of a plate object by
  * `[objectId, componentIndex]` (used to ignore a placeholder).
  */
-export function threeMfSurface(files: Files, opts: { skip?: [string, number][] } = {}): { mesh: Mesh; items: PlateItem[] } {
+export function threeMfSurface(files: Files, opts: { skip?: [string, number][] } = {}): { mesh: SurfaceMesh; items: PlateItem[] } {
   const items = plateItems(files);
   if (items.length === 0) throw new Error("The 3MF has nothing on the plate");
   const cache = new Map<string, Map<string, ObjectDef>>();
@@ -157,9 +180,14 @@ export function threeMfSurface(files: Files, opts: { skip?: [string, number][] }
       walk(t.file, t.id, m.clone().multiply(c.transform), depth + 1, plateId);
     });
   };
-  for (const item of items) walk("3D/3dmodel.model", item.objectId, item.transform.clone(), 0, item.objectId);
+  const parts: NonNullable<SurfaceMesh["parts"]> = [];
+  for (const item of items) {
+    const from = idx.length / 3;
+    walk("3D/3dmodel.model", item.objectId, item.transform.clone(), 0, item.objectId);
+    parts.push({ objectId: item.objectId, from, to: idx.length / 3 });
+  }
   if (idx.length === 0) throw new Error("The 3MF has no geometry");
-  return { mesh: { positions: Float32Array.from(pos), indices: Uint32Array.from(idx) }, items };
+  return { mesh: { positions: Float32Array.from(pos), indices: Uint32Array.from(idx), parts }, items };
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -256,11 +284,22 @@ export function colorGroups(files: Files): ColorGroup[] {
 /** The name a group's meshes carry in the stored preview model, so the 3D viewer can colour them. */
 export const groupMeshName = (i: number) => `dc-slot-${i}`;
 
+/** Name given to negative parts and modifiers in the stored preview model, so the 3D viewer hides them. */
+export const HIDDEN_MESH_NAME = HIDDEN_PART_NAME;
+
+/** `<object …>` opening tag with its `name` attribute set (added when missing). */
+function withObjectName(tag: string, inner: string, name: string): string {
+  return /\sname="[^"]*"/.test(inner) ? tag.replace(/\sname="[^"]*"/, ` name="${name}"`) : tag.replace(inner, `${inner} name="${name}"`);
+}
+
 /**
- * Give the mesh objects of each colour group a name (`dc-slot-<n>`), which the 3D viewer reads back to colour the group.
- * A mesh shared by parts of different groups cannot be told apart, so that group is skipped (and reported).
+ * Prepare the stored copy of a model for the 3D viewer: the mesh objects of each colour group get a name
+ * (`dc-slot-<n>`) that the viewer reads back to colour the group, and negative parts / modifiers (objects of type
+ * "other", which a slicer subtracts or ignores but the viewer would draw as solid) are named `dc-hide`. Only names
+ * change; geometry and the slicer settings are untouched, so the file still prints as designed. A mesh shared by parts
+ * of different groups cannot be told apart, so that group is skipped (and reported).
  */
-export function annotateGroups(files: Files, groups: ColorGroup[]): { files: Files; named: number[]; skipped: number[] } {
+export function annotateGroups(files: Files, groups: ColorGroup[]): { files: Files; named: number[]; skipped: number[]; hidden: number } {
   const rootXml = strFromU8(files["3D/3dmodel.model"]);
   const rootDefs = parseObjects(rootXml);
   const cfg = readConfigObjects(files);
@@ -287,23 +326,32 @@ export function annotateGroups(files: Files, groups: ColorGroup[]): { files: Fil
       skipped.add(t.group);
       continue;
     }
-    const src = texts.get(t.file) ?? strFromU8(out[t.file] ?? files[t.file]);
-    const re = new RegExp(`<object\\b([^>]*\\bid="${t.id}"[^>]*)>`);
-    const m = re.exec(src);
+    const src = texts.get(t.file) ?? strFromU8(files[t.file]);
+    const m = new RegExp(`<object\\b([^>]*\\bid="${t.id}"[^>]*)>`).exec(src);
     if (!m) continue;
-    const tag = /\sname="[^"]*"/.test(m[1]) ? m[0].replace(/\sname="[^"]*"/, ` name="${groupMeshName(t.group)}"`) : m[0].replace(m[1], `${m[1]} name="${groupMeshName(t.group)}"`);
-    texts.set(t.file, src.replace(m[0], tag));
+    texts.set(t.file, src.replace(m[0], withObjectName(m[0], m[1], groupMeshName(t.group))));
     named.add(t.group);
   }
+  let hidden = 0;
+  for (const file of Object.keys(files)) {
+    if (!/\.model$/.test(file)) continue;
+    const src = texts.get(file) ?? strFromU8(files[file]);
+    const next = src.replace(/<object\b([^>]*\btype="other"[^>]*)>/g, (m, inner: string) => {
+      hidden++;
+      return withObjectName(m, inner, HIDDEN_MESH_NAME);
+    });
+    if (next !== src) texts.set(file, next);
+  }
   for (const [file, text] of texts) out[file] = strToU8(text);
-  return { files: out, named: [...named].filter((g) => !skipped.has(g)), skipped: [...skipped] };
+  return { files: out, named: [...named].filter((g) => !skipped.has(g)), skipped: [...skipped], hidden };
 }
 
 /**
  * Change which filament parts print with, in the slicer's own part list. When every ordinary part of an object ends up
  * on the same filament the object's own filament is set too, so the slicer shows it consistently.
  */
-export function setFilaments(files: Files, assigns: { objectId: string; partId: string; filament: number }[]): Files {
+export type FilamentAssign = { objectId: string; partId: string; filament: number };
+export function setFilaments(files: Files, assigns: FilamentAssign[]): Files {
   if (!files[CFG] || assigns.length === 0) return files;
   let cfg = strFromU8(files[CFG]);
   const byObject = new Map<string, Map<string, number>>();

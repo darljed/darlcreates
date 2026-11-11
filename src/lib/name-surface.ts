@@ -3,15 +3,15 @@
  * or more, and the admin editor asks about the same model many times in a row (every click and rotation), so the parsed
  * surface is kept for 10 minutes, at most two models at a time. Server only (reads S3).
  */
-import type { Mesh } from "./name-mesh";
 import { readBaseSurface } from "./name-3mf";
+import type { SurfaceMesh } from "./threemf";
 import { getObject } from "./storage";
 
 const TTL_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 2;
-const cache = new Map<string, { at: number; surface: Promise<Mesh> }>();
+const cache = new Map<string, { at: number; surface: Promise<SurfaceMesh> }>();
 
-export function loadSurface(key: string): Promise<Mesh> {
+export function loadSurface(key: string): Promise<SurfaceMesh> {
   const now = Date.now();
   for (const [k, v] of cache) if (now - v.at > TTL_MS) cache.delete(k);
   const hit = cache.get(key);

@@ -13,6 +13,15 @@ export type OptionConstraints = {
   fonts?: string[];
   /** Text options only: where the name sits on the 3D model (see name-mesh.ts). Unvalidated here; use `slotOf`. */
   slot?: unknown;
+  /**
+   * Colour options only: this option colours one part of a multi-colour model (see part-colors.ts). `partName` is the
+   * mesh name the 3D viewer colours (`dc-slot-<n>`), `parts` the slicer parts it covers, `filaments` the filament
+   * number for each choosable colour (hex -> number), `defaultHex` the colour the designer printed it in.
+   */
+  partName?: string;
+  parts?: { objectId: string; partId: string }[];
+  filaments?: Record<string, number>;
+  defaultHex?: string;
   formats?: string[];
   maxBytes?: number;
   minW?: number;
@@ -133,14 +142,14 @@ export function normalizeSelection(
       const text = (sel.text ?? "").trim();
       if (text) {
         // a font choice is kept only if this option's name slot offers it
-        const slot = (opt.constraints.slot ?? {}) as { font?: string; fonts?: string[] };
+        const slot = (opt.constraints.slot ?? {}) as { font?: string; fonts?: string[]; mode?: string };
         const offered = new Set([slot.font, ...(slot.fonts ?? [])].filter(Boolean));
         const entry: { text: string; font?: string; nameColor?: string } = { text };
         if (sel.font && offered.size > 1 && offered.has(sel.font)) entry.font = sel.font;
         // a name colour is kept only if this option's name slot offers it (stored as the offered spelling)
         const colours = ((opt.constraints.slot ?? {}) as { nameColors?: { hex: string }[] }).nameColors ?? [];
         const colour = sel.nameColor ? colours.find((c) => c.hex.toLowerCase() === sel.nameColor!.toLowerCase()) : undefined;
-        if (colour) entry.nameColor = colour.hex;
+        if (colour && slot.mode !== "engraved") entry.nameColor = colour.hex; // an engraved name is a cut, it has no colour
         config[opt.id] = entry;
       }
     } else if (opt.type === "image") {

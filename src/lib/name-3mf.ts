@@ -16,8 +16,8 @@ import {
   type Font, type Mesh, type NameFontId, type NameSlot,
 } from "./name-mesh";
 import {
-  addPartTo3mf, componentTarget, esc, meshXml, open3mf, parseObjects, projectFilaments, readConfigObjects, threeMfSurface,
-  type ConfigPart, type Files, type ObjectDef,
+  addPartTo3mf, componentTarget, esc, meshXml, open3mf, parseObjects, projectFilaments, readConfigObjects, setFilaments, threeMfSurface,
+  type ConfigPart, type FilamentAssign, type Files, type ObjectDef, type SurfaceMesh,
 } from "./threemf";
 
 export { open3mf, projectFilaments, threeMfSurface };
@@ -316,8 +316,44 @@ export function shrinkSlot(slot: NameSlot, k: number): NameSlot {
   return { ...slot, maxWidth: r(slot.maxWidth), maxHeight: r(slotMaxHeight(slot)) };
 }
 
+/** Thinnest wall the slicer can print behind an engraving (mm): the name's depth plus this must fit in the wall. */
+export const MIN_WALL_BEHIND_MM = 0.8;
+
+/**
+ * How thick the model is behind the name area: from the slot plane straight into the model to the first surface on the
+ * far side, at the nine sample points of a `widthMm` × `heightMm` area; the thinnest is returned. null when nothing is
+ * behind a point (open mesh), which cannot be judged. An engraving must be at least `MIN_WALL_BEHIND_MM` shallower.
+ */
+export function wallThickness(base: Mesh, slot: NameSlot, widthMm: number, heightMm: number): number | null {
+  const m = slotMatrix(slot);
+  const n = new Vector3(...slot.normal).normalize();
+  const hw = widthMm / 2, hh = heightMm / 2;
+  const pts: [number, number][] = [[0, 0], [-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh], [0, -hh], [0, hh], [-hw, 0], [hw, 0]];
+  const START = 0.8; // begin this far inside the model, past any surface roughness at the plane
+  let thin: number | null = null;
+  for (const [x, y] of pts) {
+    const on = new Vector3(x, y, 0).applyMatrix4(m);
+    const d = firstHit(base, on.clone().addScaledVector(n, -START), n.clone().negate());
+    if (d === null) return null;
+    thin = Math.min(thin ?? Infinity, d + START);
+  }
+  return thin === null ? null : Math.round(thin * 100) / 100;
+}
+
+/** Plain-language reason an engraving of this depth does not leave enough wall behind it, or null. */
+export function engraveProblem(base: Mesh, slot: NameSlot, widthMm: number, heightMm: number): string | null {
+  if (slot.mode !== "engraved") return null;
+  const wall = wallThickness(base, slot, widthMm, heightMm);
+  if (wall === null) return "Could not tell how thick the model is behind the name. Check that the model is a closed solid.";
+  if (slot.depth + MIN_WALL_BEHIND_MM > wall + 1e-9) {
+    const ok = Math.floor((wall - MIN_WALL_BEHIND_MM) * 10) / 10;
+    return `The model is only ${wall} mm thick behind the name. An engraving that deep would break through: set the depth to ${Math.max(ok, 0)} mm or less, or choose a thicker spot.`;
+  }
+  return null;
+}
+
 /** Load the product's original file as one mesh in build space. */
-export function readBaseSurface(data: ArrayBuffer, kind: "stl" | "3mf"): Mesh {
+export function readBaseSurface(data: ArrayBuffer, kind: "stl" | "3mf"): SurfaceMesh {
   return kind === "stl" ? readStlMesh(data) : threeMfSurface(open3mf(data)).mesh;
 }
 
@@ -331,6 +367,11 @@ export async function nameProblem(slot: NameSlot, text: string): Promise<string 
   return r.error;
 }
 
+/** The base 3MF with the customer's part colours applied (which filament each part prints with); no name. */
+export function buildColoredFile(base: ArrayBuffer, colors: FilamentAssign[]): Uint8Array {
+  return zipSync(setFilaments(open3mf(base), colors), { level: 1 });
+}
+
 export type PrintFile =
   | { ok: false; error: string }
   | {
@@ -341,7 +382,7 @@ export type PrintFile =
     };
 
 /** Original model (STL or 3MF) + the name at `slot`, as a 3MF. Refuses names that cannot be printed (see `buildName`). */
-export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"; text: string; slot: NameSlot }): Promise<PrintFile> {
+export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"; text: string; slot: NameSlot; colors?: FilamentAssign[] }): Promise<PrintFile> {
   if (o.slot.mode === "engraved" && o.kind !== "3mf") return { ok: false, error: "Engraved names need a 3MF slicer project (an STL has no way to cut a part out)" };
   const font = await loadFont(o.slot.font);
   const built = buildName(font, o.text, o.slot);
@@ -355,7 +396,7 @@ export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"
       surface = readStlMesh(o.base);
       file = writeThreeMf(`Personalized: ${o.text}`, surface, name, label);
     } else {
-      const files = open3mf(o.base);
+      const files = setFilaments(open3mf(o.base), o.colors ?? []); // the customer's part colours, then the name
       surface = threeMfSurface(files).mesh;
       file = zipSync(addNameTo3mf(files, name, label, { filament: o.slot.nameColor?.filament, engraved: o.slot.mode === "engraved", objectId: o.slot.object }), { level: 1 });
     }

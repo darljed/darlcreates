@@ -15,7 +15,8 @@ import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
 import { nameSlotSchema, slotMaxHeight } from "@/lib/name-mesh";
-import { checkFit, fitScale, shrinkSlot } from "@/lib/name-3mf";
+import { checkFit, engraveProblem, fitScale, shrinkSlot, wallThickness } from "@/lib/name-3mf";
+import { plateObjectNear } from "@/lib/threemf";
 import { loadSurface } from "@/lib/name-surface";
 import { measureSpace } from "@/lib/name-space";
 import type { SpaceTable } from "@/lib/name-mesh";
@@ -223,6 +224,10 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
   const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, optionId)).limit(1);
   if (!opt || opt.productId !== productId || opt.type !== "text") return { ok: false, error: "Choose a text option of this product" };
 
+  if (slot?.mode === "engraved" && kind !== "3mf") {
+    return { ok: false, error: "Engraved names need a 3MF slicer project (Bambu Studio / Orca). An STL cannot hold a part that is cut out." };
+  }
+  let toSave = slot;
   if (slot && kind && product.stlKey) {
     // A name area of the size allowed must sit fully on the surface here, or some names would print floating or buried.
     try {
@@ -238,6 +243,12 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
             : (fit.problem ?? "The name does not fit on the surface here. Try another spot or smaller letters."),
         };
       }
+      // with several objects on the plate the name goes into the one that was clicked
+      const near = plateObjectNear(surface, slot.position);
+      if (near) toSave = { ...slot, object: near };
+      // an engraving needs wall behind it
+      const deep = engraveProblem(surface, slot, slot.maxWidth, slotMaxHeight(slot));
+      if (deep) return { ok: false, error: deep };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
     }
@@ -245,7 +256,7 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
 
   const { slot: _old, ...rest } = (opt.constraints ?? {}) as Record<string, unknown>;
   void _old;
-  await db.update(productOptions).set({ constraints: slot ? { ...rest, slot } : rest }).where(eq(productOptions.id, optionId));
+  await db.update(productOptions).set({ constraints: toSave ? { ...rest, slot: toSave } : rest }).where(eq(productOptions.id, optionId));
   invalidate(product.slug);
   revalidatePath(`/admin/products/${productId}`);
   return { ok: true };
@@ -270,6 +281,23 @@ export async function measureNameSpaceAction(input: unknown): Promise<{ ok: true
   if (!product?.stlKey || !/\.(stl|3mf)$/i.test(product.stlKey)) return { ok: false, error: "This product has no STL or 3MF model" };
   try {
     return { ok: true, table: measureSpace(await loadSurface(product.stlKey), parsed.data) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+  }
+}
+
+const wallSchema = z.object({ productId: z.string().uuid(), slot: nameSlotSchema });
+
+/** How thick the model is behind the name area (mm), so the editor can limit an engraving's depth. null = could not tell. */
+export async function measureWallAction(input: unknown): Promise<{ ok: true; wallMm: number | null } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = wallSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid position" };
+  const [product] = await db.select({ stlKey: products.stlKey }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
+  if (!product?.stlKey || !/\.(stl|3mf)$/i.test(product.stlKey)) return { ok: false, error: "This product has no STL or 3MF model" };
+  try {
+    const { slot } = parsed.data;
+    return { ok: true, wallMm: wallThickness(await loadSurface(product.stlKey), slot, slot.maxWidth, slotMaxHeight(slot)) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
   }
@@ -327,7 +355,7 @@ export async function attachModelAction(input: unknown): Promise<Result> {
   try {
     auto = await autoConfigureModel(productId, key);
   } catch (e) {
-    auto = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false }, notes: [`Auto-configuration failed: ${e instanceof Error ? e.message : "unknown error"}. The model was attached as uploaded.`] };
+    auto = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false, parts: [] }, notes: [`Auto-configuration failed: ${e instanceof Error ? e.message : "unknown error"}. The model was attached as uploaded.`] };
   }
 
   invalidate(await slugOf(productId));

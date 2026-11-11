@@ -106,6 +106,8 @@ type SceneProps = {
   /** Colour of the letters when they print in their own filament; otherwise they follow the model, a shade darker. */
   overlayColor?: string;
   onPick?: (hit: PickHit) => void;
+  /** Colours for named parts of a multi-colour 3MF (mesh name -> hex). */
+  partColors?: Record<string, string>;
 };
 
 /** Raised letters drawn on the model. Slightly darker than the model so they read, and ignored by click picking. */
@@ -164,13 +166,13 @@ function StlScene({ url, color, autoRotate, onUserInteract, overlay, overlayColo
  * 3MF: may hold several parts with their own colors. Colors in the file are kept; the
  * customer's chosen color is applied only to parts that have none.
  */
-function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, overlayColor, onPick }: SceneProps) {
+function ThreeMfScene({ url, color, autoRotate, onUserInteract, overlay, overlayColor, onPick, partColors }: SceneProps) {
   const loaded = useLoader(ThreeMFLoader, url);
   const { object, center, radius } = useMemo(() => {
-    const object = prepareMultiPart(loaded, color, (m) => m.name === DEFAULT_3MF_MATERIAL);
+    const object = prepareMultiPart(loaded, color, (m) => m.name === DEFAULT_3MF_MATERIAL, partColors);
     const { center, radius } = measureObject(object);
     return { object, center, radius };
-  }, [loaded, color]);
+  }, [loaded, color, partColors]);
   return (
     <Stage radius={radius} autoRotate={autoRotate} onUserInteract={onUserInteract}>
       {/* translate in model space so the model's own center sits on the origin */}
@@ -204,15 +206,17 @@ export type StlViewerProps = {
   overlayColor?: string;
   /** When set, clicking the model reports where (admin: placing a name). */
   onPick?: (hit: PickHit) => void;
+  /** Colours for named parts of a multi-colour 3MF (mesh name -> hex), e.g. the ball and the holder of a clicker. */
+  partColors?: Record<string, string>;
 };
 
 /**
  * Interactive 3D model viewer (STL or 3MF, chosen from the file extension). `key={url}` remounts the inner viewer for a new model,
  * which resets its state (failed / spinning) without effects.
  */
-export default function StlViewer({ url, color = "#9ca3af", className, overlay, overlayColor, onPick }: StlViewerProps) {
+export default function StlViewer({ url, color = "#9ca3af", className, overlay, overlayColor, onPick, partColors }: StlViewerProps) {
   if (!url) return <Placeholder className={className} />;
-  return <Viewer key={url} url={url} color={color} className={className} overlay={overlay} overlayColor={overlayColor} onPick={onPick} />;
+  return <Viewer key={url} url={url} color={color} className={className} overlay={overlay} overlayColor={overlayColor} onPick={onPick} partColors={partColors} />;
 }
 
 function Placeholder({ className }: { className?: string }) {
@@ -244,7 +248,7 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
   return null;
 }
 
-function Viewer({ url, color, className, overlay, overlayColor, onPick }: { url: string; color: string; className?: string; overlay?: BufferGeometry | null; overlayColor?: string; onPick?: (hit: PickHit) => void }) {
+function Viewer({ url, color, className, overlay, overlayColor, onPick, partColors }: { url: string; color: string; className?: string; overlay?: BufferGeometry | null; overlayColor?: string; onPick?: (hit: PickHit) => void; partColors?: Record<string, string> }) {
   const reduced = usePrefersReducedMotion();
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -269,6 +273,7 @@ function Viewer({ url, color, className, overlay, overlayColor, onPick }: { url:
     overlay,
     overlayColor,
     onPick,
+    partColors,
   };
 
   return (
