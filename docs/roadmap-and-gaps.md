@@ -86,9 +86,9 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail |
 |---|---|---|---|
-| G-79 | 🟠 | **No check that the name stays on the surface** | A wide name can overhang a small face. Fix: sample the name's footprint against the model, warn the admin and shrink or refuse. See [name-on-model.md](./name-on-model.md) |
+| G-79 | ✅ 2026-11-11 | **Name hanging off the surface** | Fixed at save time: nine ray samples over the widest name, with a suggested width (`checkFit`, `widestThatFits`). Not re-checked per order. See [name-on-model.md](./name-on-model.md) |
 | G-80 | 🟠 | **Slot is not snapshotted per order** | The print file uses the product's current slot, so moving the slot later changes old orders' files. Fix: copy slot + font to the order item at placement (immutable snapshot rule) |
-| G-81 | 🟠 | **3MF products cannot take a name** | The Outdoor Phone Stand is a Bambu 3MF. Needs a server-side 3MF reader and merging into the package |
+| G-81 | 🟠 | **3MF print file not yet confirmed in a real slicer** | 3MF products now take a name (Outdoor Phone Stand is live with one). The output is well-formed and loads in `trimesh` with the name in the right place, but has not been opened in Bambu Studio / Orca. Plain-mesh 3MFs and several plate objects are refused |
 | G-82 | 🟡 | **Raised text only** | Engraving needs CSG (for example `manifold-3d`) |
 | G-83 | 🟡 | **No moderation or per-character price for names** | Same as the earlier personalization questions |
 | G-84 | 🟡 | **Print report not shown to the admin** | Width, thinnest stroke and watertight result are computed but only returned by `buildPrintFile` |

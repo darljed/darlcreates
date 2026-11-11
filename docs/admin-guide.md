@@ -52,12 +52,12 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 
 ### Putting the customer's name on a product
 
-For a product with an **STL** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:
+For a product with an **STL or 3MF** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:
 - **Letter height** and **Widest name** (mm). A longer name is made smaller to fit; a name so long its letters would be too thin is refused for the customer with a message.
 - **Stands out** (how far the letters rise, about 1.2 mm) and **Sunk in** (leave at 0.4 so the letters fuse to the surface).
 - **Font** (Bold or Chunky) and **Rotate**.
 
-Type a sample name to see it; the line under it shows the real size and the thinnest stroke. **Save position.** Customers now see their name on the model as they type. In an order, the item's download is a **3MF with two parts: the base and the name**. Open it in your slicer and give the name its own filament if you want a contrasting colour. Check that the name sits fully on the surface: the app does not check that yet (see [name-on-model.md](./name-on-model.md)).
+Type a sample name to see it; the line under it shows the real size and the thinnest stroke. **Save position.** Customers now see their name on the model as they type. In an order, the item's download is a **3MF with two parts: the base and the name**. Open it in your slicer and give the name its own filament if you want a contrasting colour. If the name would hang off the surface, saving is refused and the message tells you the widest name that fits; lower "Widest name" (or move the spot) and save again. The name is a part of the model's object, so you can still give it its own filament in the slicer.
 
 ## Users
 
