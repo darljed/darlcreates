@@ -6,27 +6,29 @@
  */
 import { strToU8, zipSync } from "fflate";
 
-export const boxObj = (id: number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+export const boxObj = (id: number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, type = "model") => {
   const v = [[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]].map(([x, y, z]) => `<vertex x="${x}" y="${y}" z="${z}"/>`).join("");
   const t = [[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]].map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}"/>`).join("");
-  return `<object id="${id}" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
+  return `<object id="${id}" type="${type}"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
 };
 // a 20 mm cube plus a text part 10 x 4 x 1 lying on its top face (object space z = 20), the plate item rotated 90 degrees about Y
-export const withText = (subtype: string, text: string, textFaces = 12, extra: { textExt?: number; filaments?: string[] } = {}) => {
+export const withText = (subtype: string, text: string, textFaces = 12, extra: { textExt?: number; filaments?: string[]; engraved?: boolean; second?: boolean } = {}) => {
   const bytes = zipSync({
     "3D/3dmodel.model": strToU8(`<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><resources>
  <object id="3" type="model"><components>
 <component p:path="/3D/Objects/o.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>
 <component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 10 10 20"/>
  </components></object>
-</resources><build><item objectid="3" transform="0 0 -1 0 1 0 1 0 0 100 100 50" printable="1"/></build></model>`),
-    "3D/Objects/o.model": strToU8(`<model><resources>${boxObj(1, 0, 20, 0, 20, 0, 20)}${boxObj(2, -5, 5, -2, 2, 0, 1)}</resources></model>`),
+${extra.second ? `<object id="4" type="model"><components><component p:path="/3D/Objects/o.model" objectid="5" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>` : ""}
+</resources><build><item objectid="3" transform="0 0 -1 0 1 0 1 0 0 100 100 50" printable="1"/>${extra.second ? `<item objectid="4" transform="1 0 0 0 1 0 0 0 1 300 0 0" printable="1"/>` : ""}</build></model>`),
+    "3D/Objects/o.model": strToU8(`<model><resources>${boxObj(1, 0, 20, 0, 20, 0, 20)}${extra.engraved ? boxObj(2, -5, 5, -2, 2, -1.5, 0.01, "other") : boxObj(2, -5, 5, -2, 2, 0, 1)}${extra.second ? boxObj(5, 0, 10, 0, 10, 0, 10) : ""}</resources></model>`),
     "Metadata/model_settings.config": strToU8(`<config>
 <object id="3">
   <metadata key="extruder" value="1"/>
   <part id="1" subtype="normal_part"><metadata key="name" value="Body"/><mesh_stat face_count="12"/></part>
   <part id="2" subtype="${subtype}"><metadata key="name" value="text_shape"/><metadata key="extruder" value="${extra.textExt ?? 1}"/><text_info text="${text}" font_name="Marker Felt" thickness="1" embeded_depth="0" /><mesh_stat face_count="${textFaces}"/></part>
-</object>
+</object>${extra.second ? `
+<object id="4"><metadata key="name" value="Second"/><metadata key="extruder" value="3"/><part id="1" subtype="normal_part"><metadata key="name" value="Lid.stl"/><mesh_stat face_count="12"/></part></object>` : ""}
 </config>`),
     ...(extra.filaments ? { "Metadata/project_settings.config": strToU8(JSON.stringify({ filament_colour: extra.filaments })) } : {}),
   });

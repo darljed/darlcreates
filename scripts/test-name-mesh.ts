@@ -267,8 +267,11 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("after adding, the plate has more triangles", after.indices.length > surf.mesh.indices.length);
   const ab = meshBounds(after);
   assert("and the name sits in BUILD space where the slot said (on top of the first cube, not at the origin)", ab[5] > 16 && ab[5] < 16.5 && ab[0] >= 127.9, `${ab}`);
-  assert("a 3MF whose plate has two objects is refused with a clear message", (() => {
-    try { const bad = zipSync({ "3D/3dmodel.model": strToU8(`<model><resources>${cubeObj(1, 0)}${cubeObj(2, 0)}</resources><build><item objectid="1"/><item objectid="2"/></build></model>`) }); threeMfSurface(open3mf(bad.buffer.slice(bad.byteOffset, bad.byteOffset + bad.byteLength) as ArrayBuffer)); return false; } catch (e) { return /single object/.test((e as Error).message); }
+  assert("a plate with two objects reads as one surface (24 triangles) and a negative part (type other) is left out of it", (() => {
+    const two = zipSync({ "3D/3dmodel.model": strToU8(`<model><resources>${cubeObj(1, 0)}${cubeObj(2, 0)}</resources><build><item objectid="1"/><item objectid="2"/></build></model>`) });
+    const surface = threeMfSurface(open3mf(two.buffer.slice(two.byteOffset, two.byteOffset + two.byteLength) as ArrayBuffer));
+    const neg = zipSync({ "3D/3dmodel.model": strToU8(`<model><resources>${cubeObj(1, 0)}<object id="3" type="model"><components><component objectid="1"/><component objectid="2"/></components></object>${cubeObj(2, 0).replace('type="model"', 'type="other"')}</resources><build><item objectid="3"/></build></model>`) });
+    return surface.mesh.indices.length / 3 === 24 && surface.items.length === 2 && threeMfSurface(open3mf(neg.buffer.slice(neg.byteOffset, neg.byteOffset + neg.byteLength) as ArrayBuffer)).mesh.indices.length / 3 === 12;
   })());
   assert("a plate object that is a plain mesh (no parts) is refused rather than guessed", (() => {
     try { const plain = zipSync({ "3D/3dmodel.model": strToU8(`<model xmlns:p="x"><resources>${cubeObj(1, 0)}</resources><build><item objectid="1"/></build></model>`) }); addNameTo3mf(open3mf(plain.buffer.slice(plain.byteOffset, plain.byteOffset + plain.byteLength) as ArrayBuffer), mesh, "Name: x"); return false; } catch (e) { return /not supported yet/.test((e as Error).message); }
@@ -284,7 +287,17 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("facing and up follow the rotation (out of the top face = +X in build space; up stays +Y)", !!det && det.slot.normal.every((v, i) => near(v, [1, 0, 0][i], 0.001)) && det.slot.up.every((v, i) => near(v, [0, 1, 0][i], 0.001)), JSON.stringify([det?.slot.normal, det?.slot.up]));
   assert("size and depth come from the example's mesh (10 wide, 4 tall, 1 deep)", near(det!.slot.maxWidth, 10, 0.01) && near(det!.slot.height, 4, 0.01) && near(det!.slot.depth, 1, 0.01));
   assert("the example is a valid slot as-is", nameSlotSchema.safeParse(det!.slot).success);
-  assert("a negative part is reported as engraved, with a note that it is not supported yet", (() => { const d = detectNameSlot(open3mf(withText("negative_part", "Cams"))); return d?.mode === "engraved" && /not supported yet/.test(d.notes.join(" ")); })());
+  const eng = detectNameSlot(open3mf(withText("negative_part", "Cams", 12, { engraved: true })));
+  assert("a negative part is reported as engraved: slot mode engraved, depth = how far the example goes into the model (1.5), pointing out of the face", eng?.mode === "engraved" && eng.slot.mode === "engraved" && near(eng.slot.depth, 1.5, 0.01) && eng.slot.normal.every((v, i) => near(v, [1, 0, 0][i], 0.001)), JSON.stringify(eng?.slot));
+  const twoObj = open3mf(withText("normal_part", "Cams", 12, { second: true }));
+  const det2 = detectNameSlot(twoObj);
+  assert("with two objects on the plate the text is found on the right one and the slot remembers it", det2?.objectId === "3" && det2.slot.object === "3" && threeMfSurface(twoObj).items.length === 2);
+  assert("a name added to a chosen plate object lands in that object's part list (not the other's)", (() => {
+    const out = addNameTo3mf(twoObj, mesh, "Name: x", { objectId: "4" });
+    const cfg = strFromU8(out["Metadata/model_settings.config"]);
+    const second = /<object id="4">[\s\S]*?<\/object>/.exec(cfg)![0];
+    return second.includes("Name: x") && !/<object id="3">[\s\S]*?<\/object>/.exec(cfg)![0].includes("Name: x");
+  })());
   assert("an example with letters that have tails gets its height estimated, with a note", (() => { const d = detectNameSlot(open3mf(withText("normal_part", "gym"))); return !!d && d.notes.some((n) => /tails/.test(n)) && near(d.slot.height, 4 * 0.78 < 3 ? 3 : 4 * 0.78, 0.01); })());
   assert("the font name is mapped to the closest of our fonts, and a short list is offered", det?.slot.font === "marker" && det.slot.fonts?.join() === "marker,bold,chunky");
   const sameColour = detectNameSlot(open3mf(withText("normal_part", "Cams", 12, { filaments: ["#F95D73", "#00FF00"] })));
@@ -295,7 +308,7 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("no text element -> null", detectNameSlot(open3mf(bambuBuf)) === null);
   assert("a face count that does not match the mesh -> null (never guess)", detectNameSlot(open3mf(withText("normal_part", "Cams", 99))) === null);
   const before = threeMfSurface(textFiles).mesh;
-  const cleaned = stripPlaceholder(textFiles, det!.componentIndex);
+  const cleaned = stripPlaceholder(textFiles, det!.objectId, det!.componentIndex);
   const stripped = threeMfSurface(cleaned).mesh;
   assert("stripping removes the placeholder from the geometry (24 -> 12 triangles)", before.indices.length / 3 === 24 && stripped.indices.length / 3 === 12);
   assert("and from the plate object, the geometry file and the slicer's part list", (strFromU8(cleaned["3D/3dmodel.model"]).match(/<component /g) ?? []).length === 1 && !strFromU8(cleaned["3D/Objects/o.model"]).includes('id="2"') && !strFromU8(cleaned["Metadata/model_settings.config"]).includes("text_info"));

@@ -5,7 +5,8 @@
  *
  * Coordinates are the model file's own (millimetres, Z up), because that is what the slicer prints. The letters are
  * raised from the surface and sunk a little into it, so a slicer merges the two shells: no boolean/CSG needed.
- * Engraved (cut-in) text is not supported; it would need a CSG library.
+ * Engraved (cut-in) text is NOT cut here: it is a separate mesh that goes into the 3MF as a negative part, which the
+ * slicer subtracts, so no CSG library is needed here either.
  */
 import * as opentype from "opentype.js";
 import { BufferGeometry, ExtrudeGeometry, Matrix4, ShapePath, Vector3 } from "three";
@@ -60,7 +61,11 @@ export const nameSlotSchema = z.object({
    * model's surface. Omitted (older slots): 1.5 x `height`.
    */
   maxHeight: z.number().min(PRINT_LIMITS.minCapHeightMm).max(120).optional(),
-  /** How far the letters stand out (mm). */
+  /** raised (default): letters stand out of the surface. engraved: letters are cut into it (a negative part in the 3MF). */
+  mode: z.enum(["raised", "engraved"]).optional(),
+  /** The plate object (3MF object id) the name is added to, when the project has several. Omitted: the first one. */
+  object: z.string().max(20).optional(),
+  /** How far the letters stand out, or (engraved) cut in (mm). */
   depth: z.number().min(PRINT_LIMITS.minDepthMm).max(PRINT_LIMITS.maxDepthMm),
   /** How far the letters sink into the surface so the shells overlap (mm). */
   sink: z.number().min(0).max(2),
@@ -189,6 +194,9 @@ export function slotMaxHeight(slot: Pick<NameSlot, "height" | "maxHeight">): num
   return slot.maxHeight ?? Math.round(slot.height * 1.5 * 100) / 100;
 }
 
+/** How far an engraved name pokes out of the surface so the cut is clean (mm). */
+export const ENGRAVE_OVERSHOOT_MM = 0.2;
+
 export const DEFAULT_SLOT_SIZES = { maxWidth: 40, height: 6, maxHeight: 9, depth: 1.2, sink: 0.4, font: "bold" } as const;
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -308,8 +316,12 @@ export function buildName(font: Font, textIn: string, slot: NameSlot): NameBuild
     return { ok: false, error: "That name is too long to print clearly in the space available. Try a shorter name." };
   }
 
+  // raised letters stand `depth` out and sink a little in; engraved letters go `depth` in and poke a little out, so the
+  // slicer's subtraction leaves no skin
+  const engraved = slot.mode === "engraved";
+  const behind = engraved ? slot.depth : slot.sink;
   const geometry = new ExtrudeGeometry(shapes, {
-    depth: (slot.depth + slot.sink) / scale, // extruded in font units, scaled to mm below
+    depth: (engraved ? slot.depth + ENGRAVE_OVERSHOOT_MM : slot.depth + slot.sink) / scale, // extruded in font units, scaled to mm below
     bevelEnabled: false,
     curveSegments: 5,
   });
@@ -317,7 +329,7 @@ export function buildName(font: Font, textIn: string, slot: NameSlot): NameBuild
   // (opentype's y points down and was flipped above, so the ink spans -y2..-y1)
   geometry.translate(-(box.x1 + box.x2) / 2, (box.y1 + box.y2) / 2, 0);
   geometry.scale(scale, scale, scale);
-  geometry.translate(0, 0, -slot.sink);
+  geometry.translate(0, 0, -behind);
   geometry.applyMatrix4(slotMatrix(slot));
 
   return { ok: true, geometry, widthMm: widthUnits * scale, inkHeightMm: inkUnits * scale, heightMm, stemMm, scaledDown };

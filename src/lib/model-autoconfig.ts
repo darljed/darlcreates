@@ -61,7 +61,7 @@ export async function autoConfigureModel(productId: string, key: string): Promis
         depthMm: det.slot.depth,
       };
       out.notes.push(...det.notes);
-      const clean = stripPlaceholder(files, det.componentIndex);
+      const clean = stripPlaceholder(files, det.objectId, det.componentIndex);
       const surface = threeMfSurface(clean).mesh;
       slot = det.slot;
       // with two or more filaments the customer can pick the name's colour from them (filament number kept for the print file)
