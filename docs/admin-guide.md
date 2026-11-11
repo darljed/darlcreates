@@ -58,6 +58,11 @@ If the 3MF has a **text element** (Bambu Studio's text tool) as an example, uplo
 
 Under "Name on the model", pick the default **Font** and tick the fonts **customers can choose** (two or more shows a Font picker above the name preview). Bold, Chunky and Marker print sturdiest; Script has thin strokes and refuses longer names.
 
+### Engraved names, part colours and bulk orders
+- **Style** (under Name on the model): Raised or Engraved. Engraved needs a 3MF project and cuts the name in; set **Cut depth** (the editor shows how thick the model is behind the name and limits the depth). Uploading a 3MF whose example text is a **negative part** sets this up by itself.
+- A 3MF made of parts in different filaments (for example a ball and its holder) gets one colour option per part on upload. Customers colour each part; the print file uses their choices.
+- Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
+
 ### Putting the customer's name on a product
 
 For a product with an **STL or 3MF** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:

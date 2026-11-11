@@ -21,6 +21,7 @@ prices and state transitions.
 | Action | File | Notes |
 |---|---|---|
 | `addToCartAction` | `(shop)/cart/actions.ts` | **Does not redirect.** Uses `getAccess()`; when sign-in or privacy consent is missing it returns `{ ok:false, needs:"sign_in"\|"consent" }` so the product page keeps the customer's choices, sends them through sign-in / consent, and finishes the add on return (D-35). Otherwise a wrapper over `addToCart` (`lib/cart-service.ts`): normalizes the selection to the product schema, recomputes price, **checks a name that goes on the model is printable (`nameProblem`)**, verifies any customer image (owner, exists, size, magic bytes) |
+| `addManyToCartAction` | same | Several names at once (bulk order). Same access handling as `addToCartAction`. Every row (own text, font, name colour, part colours, quantity; at most 20 rows) is validated and priced first; nothing is added unless all rows are valid, then all lines go in with one insert. Errors are prefixed with the row ("Name 2: …") |
 | `updateQtyAction`, `removeItemAction` | same | Scoped to the user's own cart |
 | `placeOrderAction` | `(shop)/checkout/actions.ts` | Thin wrapper over `placeOrder` (service). Returns `{error}` for `useActionState`; redirects on success. Optional "save address" |
 | `submitPaymentAction` | same | Wrapper over `submitGcashReference`. Amount is the order total from the DB; reference normalized; duplicates and a 2nd pending payment are refused |
@@ -33,6 +34,7 @@ prices and state transitions.
 | `createProductAction`, `updateProductAction` | `(admin)/admin/products/actions.ts` | Slug auto-generated; invalidates `products` + `product:<slug>` tags |
 | `addOptionAction`, `deleteOptionAction`, `addOptionValueAction` | same | No edit/reorder/value-delete yet (G-19) |
 | `saveNameSlotAction` | same | Save or remove the **name slot** on a text option (Zod `nameSlotSchema`). Refused unless the product's model is an STL or 3MF, and unless a name of the widest allowed size sits fully on the surface there (the error says the widest width that does). Invalidates the product caches. `attachModelAction` additionally auto-configures from a 3MF (name slot from the designer's example text, Colors from the project's filaments) and returns what it did in `auto` |
+| `measureWallAction` | same | Admin: how thick the model is behind the name area (mm), so the editor can limit an engraving's depth (needs 0.8 mm left). `saveNameSlotAction` checks it again |
 | `measureNameSpaceAction` | same | Admin: how much room a name has at a spot (position, normal, up) on the product's model, as a table of widest-area-per-height. Powers the size limits in "Name on the model" |
 | `attachModelAction`, `addPhotoAction`, `deletePhotoAction` | same | Take an S3 key from the presign flow; verify the object exists (HEAD) and size; a `.3mf` must start with the ZIP signature. Replacing a model does **not** delete the old object (orders snapshot it) |
 | `verifyPaymentAction`, `rejectPaymentAction` | `(admin)/admin/orders/actions.ts` | Records `verified_by`; admin can't verify their own order; sends email |

@@ -95,6 +95,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `image-size.ts` | **Pure.** Reads PNG/JPEG/WebP pixel size from the first bytes |
 | `legal-format.ts` | **Pure.** Legal-text parser and the editor toolbar's text transforms (rejects unsafe links) |
 | `model-autoconfig.ts` | **Service (server).** After a 3MF upload: example text → name slot (+ cleaned model), filament colours → Colors option |
+| `threemf.ts` | **Service (pure, server).** Generic 3MF reading/editing, nothing name-specific: unzip with a size cap, plate items and objects, multi-object `threeMfSurface` (skips negative parts; remembers which triangles came from which plate object), the slicer's part list (`readConfigObjects`), colour groups (`colorGroups`), `annotateGroups` (names meshes for the viewer, hides negative parts), `setFilaments`, `addPartTo3mf` (raised = normal part, engraved = negative part), `plateObjectNear` |
+| `part-colors.ts` | **Pure.** Multi-colour models: a colour option can colour one part. `partColorsFor` (viewer), `defaultPartSelection`, `filamentAssignments` (print file), `wholeModelColor` |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
 | `config-summary.ts` | **Pure.** `summarizeConfig`: the readable summary of a customer's selection (re-exported by `cart.ts`) |
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
@@ -244,6 +246,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
+| `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
 | `test-model-autoconfig.ts` | Upload auto-configuration against the DB and S3 |
 | `test-money.ts` | Money maths |
 | `test-order-lifecycle.ts` | Full order lifecycle |

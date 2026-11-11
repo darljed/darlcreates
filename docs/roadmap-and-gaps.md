@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (name-on-model: G-79 to G-90)
+Last updated: 2026-11-11 (name-on-model: G-79 to G-95)
 
 ---
 
@@ -98,7 +98,11 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-91 | ✅ 2026-11-11 | **Script font names overflowed the model** | The fit check covered only a width × capital-height band; descenders and loops of some fonts/names went past the surface. Fixed with an ink-box rectangle (`maxHeight`), see D-41 |
 | G-88 | ✅ 2026-11-11 | **Customer-chosen name colour** | `nameColors` on the slot, picker on the product page, preview, order summary and filament assignment in the 3MF. See D-42 |
 | G-92 | ✅ 2026-11-11 | **Admin could enter sizes that overflow the model** | Inputs are limited to the measured room at the spot (`measureNameSpaceAction`); save still checks |
-| G-89 | 🟡 | **Marker-part detection (any slicer) and engraved (negative part) not built** | Engraving is next, with a negative-part sample from the owner |
+| G-89 | ✅ 2026-11-11 | **Engraved (negative part) names** | Detected from a Bambu negative text, saved as `mode: engraved`, added to the print file as a negative part, wall check, dark decal preview (D-43). Marker-part detection for other slicers is still not built (G-93) |
+| G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
+| G-94 | 🟡 | **Engraved preview is a decal; print files not opened in a slicer yet** | A true cut preview needs CSG in the browser. Open `pb-out`-style files in Bambu Studio once before the first real order |
+| G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
+| ✅ | 2026-11-11 | **Multiple names per order; multi-colour base** | D-44 / D-43. Tests: `test-multi-name-cart.ts`, `test-name-mesh.ts`, `test-model-autoconfig.ts` |
 | G-90 | 🟡 | **No admin upload of custom fonts** | Fonts are files in `public/fonts`. `opentype.js` cannot read every font (Bangers failed on its GSUB table) |
 
 ### Missing from the spec (planned, not built)

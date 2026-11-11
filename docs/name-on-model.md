@@ -79,7 +79,7 @@ When the owner uploads a **3MF** (Admin → Products → Files), `attachModelAct
 
 | It reads | It does | If it cannot |
 |---|---|---|
-| The designer's text element (`text_info` in `model_settings.config`) | Saves its spot, size, depth and facing as the **name slot** on the product's first text option (creates a "Name" text option, optional, max 12 letters, letters/digits/space, if there is none); removes the example from the model and attaches the cleaned copy (`models/<id>-name-ready.3mf`; the original upload stays in storage); picks the closest of our fonts to the designer's font and offers it plus Bold and Chunky; shrinks the widest name if the example hung over the edge | Notes it and leaves the slot for the admin to click |
+| The designer's text element (`text_info` in `model_settings.config`) | Saves its spot, size, depth and facing as the **name slot** on the product's first text option (creates a "Name" text option, optional, max 12 letters, letters/digits/space, if there is none); removes the example from the model and attaches the cleaned copy (`models/<id>-model-ready.3mf`; the original upload stays in storage); picks the closest of our fonts to the designer's font and offers it plus Bold and Chunky; shrinks the widest name if the example hung over the edge | Notes it and leaves the slot for the admin to click |
 | The project's filament colours (`project_settings.config`) | If the product has **no colour option**, creates "Colors" with one swatch per distinct filament (Pink, Cream, Red…), named by `colorName()` | Existing colour options are never touched |
 | Which filament the example uses vs the model | If different, the slot keeps `nameColor` (hex + filament number): the preview draws the name in that colour and the print file gives the name part that filament | Same filament = no own colour: the name follows the model |
 
@@ -94,6 +94,14 @@ Six heavy fonts are bundled in `public/fonts` (Bold = Poppins ExtraBold, Chunky 
 - **Customer:** a **Font** select under the Name box redraws the name on the model immediately. The choice is stored in the cart/order config (`font`), validated against the slot's offered list (anything else is dropped), shown in the order summary ("Maria (Chunky font)"), checked for printability with that font on add-to-cart, and used for the print file.
 - Verified with a real order: the Chunky name part has 1,772 triangles against 1,080 for Bold.
 - Latin letters only (`opentype.js` does no complex-script shaping). A font used in the slicer cannot be reproduced unless its file is added here.
+
+## Engraved names, part colours and several names (2026-11-11)
+
+- **Engraved.** A slot with `mode: "engraved"` cuts the name in. The print file gets the letters as a **negative part** (3MF object type `other`, part `subtype="negative_part"`); the slicer subtracts them. Letters span `depth` below the surface to 0.2 mm above it. Needs a 3MF: an STL base is refused. The admin editor has a **Style** switch (Raised / Engraved), hides "Sunk in" and the name colours for engraved, and limits **Cut depth** to the wall behind the name minus 0.8 mm (`measureWallAction`, `wallThickness`). `saveNameSlotAction` checks again. A Bambu negative-part text is detected as engraved on upload (depth from the example). The preview draws a dark decal.
+- **Several objects on the plate.** `threemf.ts` reads any number of plate items. The slot remembers its plate object (`slot.object`); on save the object nearest to the click is stored. Negative parts and modifiers (type `other`) are not part of the product surface.
+- **Parts in different colours.** `colorGroups` groups ordinary parts by filament. With two or more groups, upload creates one colour option per group ("Ball colour", "Paddle Holder colour"), all offering the project's filaments, preselected to the designer's colours. The stored copy gets mesh names (`dc-slot-<n>`) so the viewer colours each part, and `dc-hide` for negative parts. The print file sets each part's filament (`setFilaments`); a product with part colours but no name still downloads a colour-adjusted 3MF.
+- **Several names in one order.** The product page lists names. Each has text, font, name colour, part colours and quantity; other options are shared. "Add another name" copies the last name's colours (up to 20). "Add all" calls `addManyToCartAction`; every line is its own cart item. The 3D preview shows the name being edited.
+- Verified in a browser with the owner's `pickleball-clicker_negative_name.3mf`: ball and holder colour independently, the chain hole and example text are not drawn, two names became two cart lines, and the downloaded 3MFs had the right filament per part and a negative part named "Name: Maria" / "Name: Jose". Not yet opened in Bambu Studio.
 
 ## Tests
 
@@ -146,11 +154,11 @@ A. ~~Wire text-element detection into the upload step~~ (done 2026-11-11, with f
 |---|---|
 | ~~No check that the name stays on the surface~~ | Done for the widest name at save time (see "Fit check"). Not yet re-checked per order; the slot is not snapshotted (next row) |
 | **Slot is read from the product at download time** | If the owner moves the slot after an order, the old order's file changes. Next: snapshot the slot (and font) on the order item when it is placed |
-| **3MF layouts** | Works for a single plate object built from parts (Bambu, Orca, PrusaSlicer). A plain-mesh 3MF or several objects on the plate is refused. Not yet opened in a real slicer |
-| **Raised text only** | Engraved text needs subtraction from the base mesh (CSG, for example `manifold-3d`) |
+| **3MF layouts** | Works for plate objects built from parts (Bambu, Orca, PrusaSlicer); several objects on the plate are supported. A plain-mesh plate object is refused. Not yet opened in a real slicer |
+| ~~Raised text only~~ | Engraved is done as a negative part (3MF only). STL products cannot be engraved |
 | **Flat or gently sloped faces** | Letters are a flat sheet placed on one plane; they are not wrapped onto curves |
 | **Colour** | The name is a separate object so the slicer can colour it, but the preview draws it as a darker shade of the model. Which filament is used is decided in the slicer |
-| **One name per product, one text option** | `personalizedName` uses the first text option that has a slot |
+| **One text option with a slot per product** | `personalizedName` uses the first text option that has a slot. Several names per order are supported (each its own cart line) |
 | **No moderation, no per-character price** | Allowed characters still come from the option's pattern; price is the option's flat add-on |
 | **Admin order page shows no print report** | Width, stroke and watertight results are computed (`buildPrintFile().report`) but not displayed yet |
 | **Fonts** | Six heavy Latin fonts. Letters outside them are refused with a message. More fonts = drop a file in `public/fonts` and add it to `NAME_FONTS` (an admin upload of the owner's own font is not built) |
