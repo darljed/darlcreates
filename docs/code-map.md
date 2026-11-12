@@ -115,6 +115,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes; `GeometryCache` (least-recently-used) so editing reuses finished geometry |
 | `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
 | `clicker/export-3mf.ts` | **Pure.** The clicker 3MF: two objects (base, top) with a part and filament per colour piece, walls per object |
+| `clicker/fit-art.ts` | **Pure.** `centreAndFitArt`: when the shape changes, put the artwork in the middle of the key and shrink the whole design just enough that nothing is cut off |
 | `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |
 | `clicker/of-product.ts` | **Pure.** Finds the clicker option and a line's design on a product |
 | `clicker/server.ts` | **Service (server).** `checkDesign`, `buildClickerPrint` (lays the base and keys out on the plate), `buildFitTest`, `designSvgDataUri`, font loading |

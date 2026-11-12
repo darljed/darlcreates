@@ -80,7 +80,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 // Shape and size
 // ---------------------------------------------------------------------------------------------------------------------
 
-export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common & { lock: boolean; setLock: (v: boolean) => void; layout: Layout }) {
+export function ShapePanel({ spec, edit, config, lock, setLock, layout, onShape }: Common & { lock: boolean; setLock: (v: boolean) => void; layout: Layout; onShape: (id: (typeof SHAPE_IDS)[number]) => void }) {
   const outline = spec.shape === "outline";
   const tiers = [...new Set([config.minSize, ...config.sizeTiers.map((t) => t.upToMm), config.maxSize].filter((v) => v >= config.minSize && v <= config.maxSize))].sort((a, b) => a - b);
   const actual = Math.max(layout.capSize[0], layout.capSize[1]);
@@ -98,7 +98,7 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common
               key={id}
               type="button"
               aria-pressed={spec.shape === id}
-              onClick={() => edit((s) => ({ ...s, shape: id }))}
+              onClick={() => onShape(id)}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-center text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 id === "outline" && "col-span-2",
@@ -110,7 +110,7 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common
             </button>
           ))}
         </div>
-        {outline && <p className="text-[11px] text-muted-foreground">The key follows the shape of your text and pictures, with a coloured border round it. The other shapes are a plate with your design inside.</p>}
+        {outline && <p className="text-[11px] text-muted-foreground">The key follows the shape of your text and pictures, with a coloured border round it. The other shapes are a plate with your design inside. Changing the shape centres your design and shrinks it if it would not fit.</p>}
         {SHAPES_WITH_CORNER.includes(spec.shape) && <Slider id="corner" label="Corner roundness" value={spec.corner} min={0} max={Math.min(spec.width, spec.height) / 2} step={0.5} onChange={(v) => edit((s) => ({ ...s, corner: v }), "corner")} />}
         {SHAPES_WITH_POINTS.includes(spec.shape) && <Slider id="points" label={spec.shape === "star" ? "Points" : "Petals"} value={spec.points} min={3} max={12} unit="" onChange={(v) => edit((s) => ({ ...s, points: Math.round(v) }), "points")} />}
       </Section>

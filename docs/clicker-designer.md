@@ -22,6 +22,9 @@ Two printed objects around a real switch:
 - **Name keys:** one key and switch per letter (up to your limit), a font, letter size, keys per row, key colour (one, or two that
   alternate), letter colour. Priced per key.
 - **Inside** view lifts the key off to show the switch pocket and a ghost switch. Click any part of the model to change its colour.
+- **Changing the shape** centres the artwork on the key and, if it would be cut off by the new shape, makes the whole design smaller by just enough to fit. Leaving "Follow my design" starts the fixed shape as a square of about the same size.
+- The 3D view toolbar: **3D | Top** (stays on while you change settings), **Inside** (on/off), and a two-way switch **Rotate | Move** that says what dragging does: Rotate turns the view, Move drags the artwork or the keyring tab.
+- Opening a step scrolls its title to the middle of the visible area (on a phone, between the pinned 3D view and the buy bar).
 - Several clickers in one order, each its own cart line with its own copies. Undo and redo, "Move" mode to drag the artwork or the
   keyring tab (a light blue preview follows the pointer and the clicker is rebuilt once when you let go, because rebuilding on every pointer move is too slow), a draft kept in the browser, and a layout made for phones (3D view pinned at the top, buy bar at the bottom).
 - Pictures are traced in the browser into flat colour areas and are never uploaded.

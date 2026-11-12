@@ -23,6 +23,7 @@ import { extrudeLayout, GeometryCache, meshOfPart } from "../src/lib/clicker/ext
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
 import { scaleDesign } from "../src/lib/clicker/state";
+import { centreAndFitArt } from "../src/lib/clicker/fit-art";
 import { designToSvg } from "../src/lib/clicker/svg";
 import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
@@ -276,6 +277,29 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   })());
   assert("switches placed too close together (bypassing the schema) are an error naming the rule", buildLayout({ ...plain, switches: [{ x: 0, y: 0 }, { x: 8, y: 0 }] }, fonts).errors.some((e) => /too close/.test(e)));
   assert("every switch is covered by the key on every shape (4 switches in a grid)", SHAPE_IDS.every((shape) => { const l = buildLayout(clickerSpecSchema.parse({ ...plain, shape, switches: switchPattern(4, "grid"), layers: [] }), fonts); return l.switches.every((p) => totalArea(difference([{ outer: [[p.x - 7.5, p.y - 7.5], [p.x + 7.5, p.y - 7.5], [p.x + 7.5, p.y + 7.5], [p.x - 7.5, p.y + 7.5]], holes: [] }], l.capOutline)) < 0.05); }));
+
+  console.log("\nchanging the shape keeps the artwork centred and on the key");
+  {
+    const bigArt = clickerSpecSchema.parse({ ...plain, shape: "circle", width: 40, height: 40, layers: [textLayer({ text: "CLICKY", size: 12, color: RED, font: "chunky", x: 5, y: -3 })] });
+    const artBox = (sp: ClickerSpec) => { const l = buildLayout(sp, fonts); const art = union([...l.layerShapes.values()].flat()); return { b: art.length ? { minX: Math.min(...art.flatMap((r) => r.outer.map((q) => q[0]))), maxX: Math.max(...art.flatMap((r) => r.outer.map((q) => q[0]))), minY: Math.min(...art.flatMap((r) => r.outer.map((q) => q[1]))), maxY: Math.max(...art.flatMap((r) => r.outer.map((q) => q[1]))) } : null, art, l }; };
+    const centred = centreAndFitArt({ ...bigArt, shape: "outline" }, fonts, cfg.tune);
+    const c = artBox(centred).b!;
+    assert("the artwork's middle goes to the middle of the key", near((c.minX + c.maxX) / 2, 0, 0.3) && near((c.minY + c.maxY) / 2, 0, 0.3));
+    const heart = centreAndFitArt({ ...bigArt, shape: "heart", width: 30, height: 30 }, fonts, cfg.tune);
+    const h = artBox(heart);
+    const inside = totalArea(intersect(h.art, offset(h.l.capOutline, -0.9, "miter"))) / totalArea(h.art);
+    assert("when the new shape is too small for it, the artwork is made smaller to fit, with nothing cut off", inside > 0.999 && !h.l.warnings.some((w) => /cut off|outside/.test(w)) && heart.layers[0].kind === "text" && (heart.layers[0] as TextLayer).size < 12, `inside ${inside.toFixed(4)}, size ${(heart.layers[0] as TextLayer).size}`);
+    assert("and it stays centred", near((h.b!.minX + h.b!.maxX) / 2, 0, 0.5) && near((h.b!.minY + h.b!.maxY) / 2, 0, 0.5));
+    const roomy = clickerSpecSchema.parse({ ...bigArt, layers: [textLayer({ text: "HI", size: 6, color: RED, x: 4, y: 2 })] });
+    const kept = centreAndFitArt({ ...roomy, shape: "square" }, fonts, cfg.tune);
+    assert("art that already fits is only centred, not resized", (kept.layers[0] as TextLayer).size === 6);
+    assert("a hidden layer is moved with the rest (the layers keep their places relative to each other)", (() => {
+      const two = { ...bigArt, layers: [bigArt.layers[0], { ...textLayer({ text: "X", color: BLUE, x: 9, y: 9 }), visible: false }] };
+      const r = centreAndFitArt({ ...two, shape: "outline" }, fonts, cfg.tune);
+      return near(r.layers[1].x - r.layers[0].x, 9 - bigArt.layers[0].x, 0.15) && near(r.layers[1].y - r.layers[0].y, 9 - bigArt.layers[0].y, 0.15);
+    })());
+    assert("name keys are left alone", (() => { const n = nameSpec(); return centreAndFitArt(n, fonts, cfg.tune) === n; })());
+  }
 
   console.log("\nthe geometry cache (smooth editing)");
   {

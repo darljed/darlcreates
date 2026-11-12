@@ -226,7 +226,9 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
 
   return (
     <>
-      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={4000} up={[0, 0, 1]} position={[R * 1.1, -R * 3.2, R * 1.8]} />
+      {/* The start position is a constant on purpose: this library moves the camera back whenever a position prop changes, which threw
+          you out of the top view each time the clicker changed size. The effect above places the camera. */}
+      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={4000} up={[0, 0, 1]} position={[30, -100, 60]} />
       <ambientLight intensity={0.95} />
       <directionalLight position={[size, -size * 1.2, size * 2]} intensity={1.15} />
       <directionalLight position={[-size, size, size * 0.8]} intensity={0.35} />

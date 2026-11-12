@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronDown, Copy, Hand, Layers, Loader2, Plus, Redo2, RotateCcw, ShoppingBag, Trash2, Type, Undo2, View } from "lucide-react";
+import { Check, ChevronDown, Copy, Layers, Loader2, Move, Plus, Redo2, RotateCcw, Rotate3d, ShoppingBag, Trash2, Type, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { ViewerLoading } from "@/components/three/viewer-loading";
@@ -34,6 +34,7 @@ import {
 import { RELIEF_LABELS, RIM_LABELS } from "@/lib/clicker/fit";
 import { addLayer, canRedo, canUndo, commit, imageLayerFrom, newHistory, newTextLayer, redo, undo, updateLayer, type History } from "@/lib/clicker/state";
 import { layoutToSvg } from "@/lib/clicker/svg";
+import { centreAndFitArt } from "@/lib/clicker/fit-art";
 import { analyzeImage, defaultTrace, traceAnalysis } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
 import type { DragTarget, ViewMode } from "@/components/clicker/clicker-viewer";
@@ -85,6 +86,28 @@ function sameShape(a: ClickerSpec, b: ClickerSpec): boolean {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ClickerSpec>;
   for (const k of keys) if (k !== "width" && k !== "height" && !Object.is(a[k], b[k])) return false;
   return true;
+}
+
+/**
+ * Scroll so the title of a step sits in the middle of what you can see. On a phone that is the space between the pinned 3D view
+ * and the pinned buy bar; on a desktop it is the window below the site header.
+ */
+function scrollToStep(id: StepId, pass = 0) {
+  const el = document.getElementById(`clicker-step-${id}`);
+  if (!el) return;
+  const head = el.querySelector("h3") ?? el;
+  const r = head.getBoundingClientRect();
+  const desktop = window.matchMedia("(min-width: 1024px)").matches;
+  const top = desktop ? 64 : (document.getElementById("clicker-viewer")?.getBoundingClientRect().bottom ?? 64);
+  const bar = document.getElementById("clicker-buy");
+  const bottom = desktop || !bar ? window.innerHeight : Math.min(window.innerHeight, bar.getBoundingClientRect().top);
+  const delta = r.top + r.height / 2 - (top + bottom) / 2;
+  if (pass > 0 && Math.abs(delta) < 6) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollBy({ top: delta, behavior: reduce || pass > 0 ? "auto" : "smooth" });
+  // the page can still be settling (the step that was open closes, the 3D view resizes), which can cut a smooth scroll short:
+  // look again once it should be over and correct what is left
+  if (pass < 2) setTimeout(() => scrollToStep(id, pass + 1), pass === 0 ? 600 : 250);
 }
 
 /** One line under a step's title once it is done. */
@@ -459,11 +482,33 @@ export function ClickerDesigner({
   const iconBtn = "size-9";
   const steps = STEPS[spec.kind];
   const openStep = steps.includes(step) ? step : steps[0];
+  const scrollNext = useRef(false);
   const goStep = (id: StepId) => {
     setVisited((v) => new Set(v).add(openStep));
     setStep(id);
-    if (id !== "design") setMoveMode(false);
+    scrollNext.current = true;
   };
+  // after a step opens (and the one that was open has closed), bring its title to the middle of the screen
+  useEffect(() => {
+    if (!scrollNext.current) return;
+    scrollNext.current = false;
+    const t = setTimeout(() => scrollToStep(openStep), 60);
+    return () => clearTimeout(t);
+  }, [openStep]);
+  // Changing the shape: put the artwork in the middle, and make it smaller if the new shape would cut it off
+  const pickShape = (shape: ClickerSpec["shape"]) => {
+    let start: ClickerSpec = { ...spec, shape };
+    if (spec.shape === "outline" && shape !== "outline") {
+      // A key that follows its artwork has no width and height of its own (they are only what it measured). A fixed shape starts
+      // as a square of about the same size, so the footprint and the price step stay the same and the artwork fits.
+      const longest = Math.max(layout.capSize[0], layout.capSize[1]);
+      const side = Math.round(Math.min(config.maxSize, Math.max(config.minSize, longest)) * 10) / 10;
+      start = { ...start, width: side, height: side };
+    }
+    const next = centreAndFitArt(start, fonts.lookup, config.tune);
+    edit(() => next);
+  };
+  const canMove = spec.kind === "clicker" || spec.keyring.on;
   function switchKind(kind: Kind) {
     if (kind === spec.kind) return;
     edit(() => ({ ...defaultSpec(config, kind), layers: kind === "clicker" ? defaultSpec(config, kind).layers : [] }));
@@ -480,7 +525,7 @@ export function ClickerDesigner({
         {/* on a phone the two columns dissolve into one list, so the 3D view can stay pinned while the steps scroll under it;
             on a desktop the view column stays in sight while the steps scroll */}
         <div className="contents lg:block lg:sticky lg:top-20 lg:space-y-3 lg:self-start">
-          <div className="sticky top-16 z-20 -mx-6 bg-background/95 px-6 pb-2 pt-1 backdrop-blur lg:static lg:z-auto lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <div id="clicker-viewer" className="sticky top-16 z-20 -mx-6 bg-background/95 px-6 pb-2 pt-1 backdrop-blur lg:static lg:z-auto lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="relative overflow-hidden rounded-xl border-2 border-border bg-gradient-to-b from-muted/40 to-card">
             <div className="h-[36vh] min-h-[230px] w-full lg:aspect-[4/3] lg:h-auto lg:max-h-[70vh]" aria-live="polite">
               <ClickerViewer
@@ -508,12 +553,28 @@ export function ClickerDesigner({
                 ))}
               </div>
               <Button type="button" size="sm" variant={explode ? "default" : "outline"} aria-pressed={explode} className={cn("h-8", !explode && "bg-background/90 backdrop-blur")} onClick={() => { setExplode((e) => !e); setView("3d"); setMoveMode(false); }} title="Lift the key off to see the switch inside">
-                <Layers className="mr-1.5 size-4" /> Inside
+                <Layers className="size-4 sm:mr-1.5" aria-hidden /> <span className="hidden sm:inline">Inside</span><span className="sr-only sm:hidden">Inside</span>
               </Button>
-              {spec.kind === "clicker" && (
-                <Button type="button" size="sm" variant={moveMode ? "default" : "outline"} aria-pressed={moveMode} className={cn("h-8", !moveMode && "bg-background/90 backdrop-blur")} onClick={() => { setMoveMode((m) => !m); setExplode(false); }} title="Drag the artwork or the keyring tab">
-                  {moveMode ? <Hand className="size-4 sm:mr-1.5" /> : <View className="size-4 sm:mr-1.5" />} <span className="hidden sm:inline">{moveMode ? "Move" : "Orbit"}</span><span className="sr-only sm:hidden">{moveMode ? "Move" : "Orbit"}</span>
-                </Button>
+              {canMove && (
+                <div className="inline-flex overflow-hidden rounded-lg border-2 border-border bg-background/90 backdrop-blur" role="group" aria-label="What dragging does">
+                  {([
+                    [false, "Rotate", Rotate3d, "Drag to turn the clicker around"],
+                    [true, "Move", Move, "Drag the artwork or the keyring tab to place it"],
+                  ] as const).map(([on, label, Icon, hint]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={moveMode === on}
+                      title={hint}
+                      onClick={() => { setMoveMode(on); if (on) setExplode(false); }}
+                      className={cn("flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", moveMode === on ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                    >
+                      <Icon className="size-4" aria-hidden />
+                      <span className="hidden sm:inline">{label}</span>
+                      <span className="sr-only sm:hidden">{label}</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <div className="absolute right-2 top-2 flex items-center gap-1.5">
@@ -527,7 +588,7 @@ export function ClickerDesigner({
             </div>
             <p className="pointer-events-none absolute bottom-2 left-3 right-3 text-[11px] text-muted-foreground">
               <span className="font-semibold text-foreground">Key {layout.capSize[0].toFixed(0)} × {layout.capSize[1].toFixed(0)} mm · base {layout.baseSize[0].toFixed(0)} × {layout.baseSize[1].toFixed(0)} mm · {layout.totalHeight.toFixed(1)} mm tall</span>
-              <span className="hidden sm:inline"> · {moveMode ? "Drag the artwork or the ring." : "Click a part to change its colour. Drag to turn, scroll to zoom."}</span>
+              <span className="hidden sm:inline"> · {moveMode ? "Move is on: drag the artwork or the ring. Switch to Rotate to turn the view." : "Click a part to change its colour. Drag to turn, scroll to zoom."}</span>
             </p>
           </div>
 
@@ -596,12 +657,12 @@ export function ClickerDesigner({
             </div>
           )}
 
-          <ol className="space-y-2">
+          <ol className="space-y-2 [overflow-anchor:none]">
             {steps.map((id, n) => {
               const open = openStep === id;
               const done = visited.has(id) && !open;
               return (
-                <li key={id} className="rounded-xl border-2 border-border bg-card">
+                <li key={id} id={`clicker-step-${id}`} className="rounded-xl border-2 border-border bg-card">
                   <h3>
                     <button
                       type="button"
@@ -631,7 +692,7 @@ export function ClickerDesigner({
                       )}
                       {id === "letters" && <LettersPanel spec={spec} edit={edit} config={config} layout={layout} />}
                       {id === "colours" && <ColoursPanel spec={spec} edit={edit} config={config} />}
-                      {id === "shape" && <ShapePanel spec={spec} edit={edit} config={config} lock={lock} setLock={setLock} layout={layout} />}
+                      {id === "shape" && <ShapePanel spec={spec} edit={edit} config={config} lock={lock} setLock={setLock} layout={layout} onShape={pickShape} />}
                       {id === "look" && <LookPanel spec={spec} edit={edit} config={config} />}
                       {id === "switch" && <SwitchPanel spec={spec} edit={edit} config={config} layout={layout} />}
                       {id === "keyring" && <KeyringPanel spec={spec} edit={edit} config={config} layout={layout} />}
@@ -648,11 +709,13 @@ export function ClickerDesigner({
               );
             })}
           </ol>
+          {/* room below the last step, so it can be brought to the middle of the screen on a phone */}
+          <div aria-hidden className="h-[28vh] lg:hidden" />
         </div>
       </div>
 
       {/* price and add: pinned to the bottom of the screen on a phone */}
-      <div className="sticky bottom-0 z-20 -mx-6 space-y-2 border-t-2 border-border bg-background/95 px-6 py-3 backdrop-blur lg:static lg:mx-0 lg:space-y-3 lg:rounded-xl lg:border-2 lg:bg-muted/40 lg:p-4 lg:backdrop-blur-none">
+      <div id="clicker-buy" className="sticky bottom-0 z-20 -mx-6 space-y-2 border-t-2 border-border bg-background/95 px-6 py-3 backdrop-blur lg:static lg:mx-0 lg:space-y-3 lg:rounded-xl lg:border-2 lg:bg-muted/40 lg:p-4 lg:backdrop-blur-none">
         {(problem || layout.warnings.length > 0) && (
           <ul className="space-y-1 text-xs" aria-live="polite">
             {problem && <li role="alert" className="font-semibold text-destructive">{problem}</li>}
