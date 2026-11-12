@@ -30,6 +30,7 @@ import { boundsOf } from "../src/lib/clicker/poly";
 import { designToSvg } from "../src/lib/clicker/svg";
 import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { BudgetCache } from "../src/lib/clicker/budget-cache";
+import { retryable } from "../src/lib/clicker/retryable";
 import { clickerTo3mf } from "../src/lib/clicker/export-3mf";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
 import { computeUnitPrice, normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
@@ -369,6 +370,17 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     assert("ids made in a long session stay unique and short (the counter never gets cut off)", (() => { const ids = new Set<string>(); for (let i = 0; i < 20000; i++) ids.add(newId("t")); return ids.size === 20000 && [...ids].every((id) => id.length <= 20); })());
     assert("the fit test refuses steps outside what the settings allow", await Promise.all([buildFitTest([5]), buildFitTest([]), buildFitTest([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.5])].map((p) => p.then(() => false, () => true))).then((r) => r.every(Boolean)));
 
+    assert("the cache never exceeds its budget, even when the per-entry cap is bigger than the budget", (() => { const c = new BudgetCache(50, 500); const kept = c.set("a", "x".repeat(80)); c.set("b", "x".repeat(30)); return !kept && c.chars <= 50 && c.get("a") === undefined && c.get("b") !== undefined; })());
+    assert("a failed job is not remembered: the next call tries again; a success is kept and not run twice", await (async () => {
+      let calls = 0;
+      const job = retryable(async () => { calls++; if (calls === 1) throw new Error("disk hiccup"); return "ok"; });
+      const first = await job().then(() => "worked", () => "failed");
+      const second = await job();
+      const third = await job();
+      return first === "failed" && second === "ok" && third === "ok" && calls === 2;
+    })());
+    assert("jobs running together share one attempt", await (async () => { let calls = 0; const job = retryable(async () => { calls++; await new Promise((r) => setTimeout(r, 20)); return calls; }); const [a, b] = await Promise.all([job(), job()]); return a === b && calls === 1; })());
+    assert("a name design that also carries text or pictures is refused", checkAgainstConfig({ ...nameSpec(), layers: [textLayer({ text: "X", color: RED })] }, cfg) !== null && checkAgainstConfig(nameSpec(), cfg) === null);
     const tricky = clickerTo3mf([{ name: `a"b<c>&'d`, wallLoops: 3, pieces: [{ name: `p"q`, color: "#ef4444", mesh: meshOfPart(extrudeLayout(buildLayout(plain, fonts))[0]) }] }], `t"i<t>&'le`);
     const cfgXml = strFromU8(unzipSync(tricky)["Metadata/model_settings.config"]), modelXml = strFromU8(unzipSync(tricky)["3D/3dmodel.model"]);
     assert("names with quotes, angle brackets, ampersands and apostrophes are escaped in the 3MF (the file stays well formed)", !/a"b|t"i|p"q/.test(cfgXml + modelXml) && cfgXml.includes("a&#34;b&#60;c&#62;&#38;&#39;d") && modelXml.includes("t&#34;i&#60;t&#62;&#38;&#39;le") && cfgXml.includes("p&#34;q"));

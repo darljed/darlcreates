@@ -353,6 +353,7 @@ export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): strin
   if (spec.kind === "name") {
     if (!cfg.allowName) return "Name keys are not available.";
     if (!spec.name) return "Type the letters for the keys.";
+    if (spec.layers.length) return "Name keys have no separate artwork. Remove the text and pictures.";
     const keys = nameKeys(spec.name);
     if (keys.length === 0) return "Type at least one letter.";
     if (keys.length > cfg.maxKeys) return `At most ${cfg.maxKeys} keys.`;

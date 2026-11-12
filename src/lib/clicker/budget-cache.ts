@@ -17,7 +17,8 @@ export class BudgetCache {
   }
   /** Keep `value` under `key`. Returns false (and keeps nothing) if it is too big to be worth keeping. */
   set(key: string, value: string): boolean {
-    if (value.length > this.maxEntryChars) return false;
+    // too big on its own, or bigger than the whole budget: keep nothing (the budget is never exceeded, even by one entry)
+    if (value.length > this.maxEntryChars || value.length > this.maxChars) return false;
     const old = this.map.get(key);
     if (old !== undefined) this.total -= old.length;
     this.map.delete(key);

@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { isWatertight, meshBounds, NAME_FONT_IDS, type Font, type NameFontId } from "../name-mesh";
 import { loadFont } from "../name-3mf";
 import { BudgetCache } from "./budget-cache";
+import { retryable } from "./retryable";
 import { clickerTo3mf, moveMesh, type PrintObject, type PrintPiece } from "./export-3mf";
 import { DEFAULT_TUNE, FIT, type Tune } from "./fit";
 import { extrudeLayout, meshOfPart } from "./extrude";
@@ -13,12 +14,10 @@ import { buildLayout, plateLayout } from "./layout";
 import { designToSvg } from "./svg";
 import { checkAgainstConfig, clickerSpecSchema, MAX_SPEC_JSON, type ClickerConfig, type ClickerSpec } from "./spec";
 
-/** All six fonts, parsed once per server process. */
-let fontsReady: Promise<Map<NameFontId, Font>> | null = null;
-export function loadAllFonts(): Promise<Map<NameFontId, Font>> {
-  fontsReady ??= Promise.all(NAME_FONT_IDS.map(async (id) => [id, await loadFont(id)] as const)).then((e) => new Map(e));
-  return fontsReady;
-}
+/** All the fonts, parsed once per server process (a failed load is not remembered, so the next call tries again). */
+export const loadAllFonts: () => Promise<Map<NameFontId, Font>> = retryable(() =>
+  Promise.all(NAME_FONT_IDS.map(async (id) => [id, await loadFont(id)] as const)).then((e) => new Map(e)),
+);
 
 /** Why a design cannot be ordered, or the design as the server understood it. */
 export async function checkDesign(input: unknown, cfg: ClickerConfig): Promise<{ ok: true; spec: ClickerSpec } | { ok: false; error: string }> {
