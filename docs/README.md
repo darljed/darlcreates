@@ -24,6 +24,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [name-on-model.md](./name-on-model.md) | Phase 2 proof of concept: the customer's name on the 3D model, and the 3MF print file built from it |
 | [personalization-and-3mf.md](./personalization-and-3mf.md) | Proposal: 3MF support + adding a name to an existing product (levels 1-3, owner questions) |
 | [clicker-designer.md](./clicker-designer.md) | The clicker designer: what customers can do, how the model and print file are built, owner settings, limits |
+| [clicker-redesign-plan.md](./clicker-redesign-plan.md) | Research on the reference clicker makers and the plan to rebuild the clicker as a mechanical-switch fidget clicker (for review) |
 | [backlog.md](./backlog.md) | Pointer to the roadmap |
 
 Scope source of truth: `.kiro/specs/darl-creates-ecommerce/` (requirements,
