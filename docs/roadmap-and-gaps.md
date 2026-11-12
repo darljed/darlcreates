@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (G-79 to G-97)
+Last updated: 2026-11-12
 
 ---
 
@@ -102,6 +102,13 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
 | G-94 | 🟡 | **Print files not opened in a slicer yet** | The engraved preview is now a stencil-carved recess (D-43). Open a downloaded engraved 3MF in Bambu Studio once before the first real order |
 | G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
+| G-98 | 🟡 | **Clicker 3MF not opened in a slicer yet** | The two-object file follows the structure of a sample made for Bambu Studio (parts, per-object walls, filament slots) but has only been checked as a zip and XML. Open a downloaded clicker in Bambu Studio before the first order |
+| G-99 | 🟡 | **Clicker designer has no resize handles** | "Move" mode drags the artwork and the keyring tab; the artwork's size comes from the slider. SVG import is tested in the browser only |
+| G-100 | 🟠 | **No clicker has been printed from our files** | Every dimension comes from a sample clicker and guides. Print the fit test, then one clicker of each kind, and set "Printer fit" before taking orders |
+| G-101 | 🟡 | **Key resting height depends on the switch** | The key sits 16.6 mm above the base bottom (the sample's layout). If your switches' stems stand a different height, the key will not seat or will bottom out early. `FIT.capRestZ` is the number to change |
+| G-102 | 🟡 | **Switch stock is not tracked** | The shop fits Cherry MX only; there is no count of switches in stock and no automatic limit. Order lines say how many to fit |
+| G-103 | 🟡 | **Several switches press as one** | A key on 2 to 6 switches is pressed on all of them; an off-centre press may tilt it. Print one with 2 switches and check the feel before offering 4 to 6 (the same advice AF Inventions gives: a bigger top that stays flat) |
+| G-104 | 🟡 | **The 20 mm reach and 6 mm balance limits are a judgement** | They come from the sample clickers (55 mm on one switch works) and from how a slider binds, not from a test of ours. Print a key at the limit (a 55 mm single-switch clicker and an off-centre one) and press the far end; change `FIT.maxReachMm` / `FIT.balanceMm` if it binds or if the limit is too tight |
 | G-97 | 🟡 | **Cart lines have no stable order** | `cart_items` has no created-at column, so lines come back in the database's order and a line may move after its quantity is changed. Fix: add the column (a migration) and sort by it |
 | ✅ | 2026-11-12 | **Cart and checkout slow; no loading skeletons; quantity typed by hand; font as a plain select** | D-46. Batched product reads, per-request session/consent cache, skeletons for every page, `QuantityStepper`, `FontPicker`. Tests: `test-cart-speed.ts`, `test-loading.ts` |
 | ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |

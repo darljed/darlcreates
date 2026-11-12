@@ -14,6 +14,8 @@ import {
 import { randomInt } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getProductsByIds } from "./catalog";
+import { designPicture } from "./cart";
+import { designOf } from "./clicker/of-product";
 import { summarizeConfig } from "./cart";
 import { personalizedName } from "./name-mesh";
 import { readUrl } from "./storage";
@@ -76,6 +78,9 @@ export type OrderDetail = {
     /** The customer's name that is added to the model at download time (see name-3mf.ts), if this product has a name slot. */
     nameText: string | null;
     imageUrl: string | null;
+    /** A picture of the clicker design (data: URL), and whether this line is a clicker (so it gets a generated print file). */
+    designUri: string | null;
+    clicker: boolean;
   }[];
   latestPayment: {
     reference: string;
@@ -119,6 +124,8 @@ async function assembleOrderDetail(
         stlKey: it.stlKeySnapshot,
         nameText: product ? (personalizedName(product.options, config, it.stlKeySnapshot)?.text ?? null) : null,
         imageUrl: await readUrl(it.imageKey),
+        designUri: product ? await designPicture(product.options, config) : null,
+        clicker: product ? designOf(product.options, config) !== null : false,
       };
     }),
   );

@@ -8,6 +8,9 @@ import { getProductById } from "@/lib/catalog";
 import { personalizedName } from "@/lib/name-mesh";
 import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
 import { bytesToStream } from "@/lib/stream-bytes";
+import { designOf } from "@/lib/clicker/of-product";
+import { clickerConfigDamaged } from "@/lib/clicker/spec";
+import { buildClickerPrint } from "@/lib/clicker/server";
 import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
 import type { ConfigSelection } from "@/lib/pricing";
 
@@ -30,7 +33,24 @@ export async function GET(
     .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, id)))
     .limit(1);
 
-  if (!item?.stlKey) {
+  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+  // a clicker designer line: the print file is built from the saved design (no model file is stored for it)
+  const itemProduct = await getProductById(item.productId);
+  const design = itemProduct ? designOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
+  if (design) {
+    // damaged settings fall back to defaults for display; never build a print file on made-up fit values
+    if (itemProduct?.options.some((o) => o.type === "text" && clickerConfigDamaged(o.constraints))) {
+      return NextResponse.json({ error: "This product's clicker settings are damaged. Save the product again in the admin, then retry." }, { status: 422 });
+    }
+    const built = await buildClickerPrint(design.spec, `Clicker ${itemId.slice(0, 8)}`, design.config.tune);
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
+    return new Response(bytesToStream(built.file), {
+      headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="clicker-${itemId.slice(0, 8)}.3mf"`, "Cache-Control": "private, no-store" },
+    });
+  }
+
+  if (!item.stlKey) {
     return NextResponse.json({ error: "No STL for this item" }, { status: 404 });
   }
   if (!isStorageConfigured()) {
@@ -40,7 +60,7 @@ export async function GET(
     );
   }
 
-  const product = await getProductById(item.productId);
+  const product = itemProduct;
   const config = (item.config ?? {}) as ConfigSelection;
   const personal = product ? personalizedName(product.options, config, item.stlKey) : null;
   // the customer's colour for each part of a multi-colour model (3MF slicer projects only)

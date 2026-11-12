@@ -69,7 +69,20 @@ export default async function AdminOrderDetailPage({
                     ))}
                   </ul>
                   <div className="mt-3 flex items-center gap-3">
-                    {it.stlKey ? (
+                    {it.clicker ? (
+                      <>
+                        <a
+                          href={`/admin/orders/${order.id}/stl/${it.id}`}
+                          className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                        >
+                          <Download className="size-4" /> Download 3MF (clicker design)
+                        </a>
+                        {it.designUri && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={it.designUri} alt="The customer's clicker design" className="size-20 rounded-md border bg-muted/40 object-contain" />
+                        )}
+                      </>
+                    ) : it.stlKey ? (
                       <a
                         href={`/admin/orders/${order.id}/stl/${it.id}`}
                         className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"

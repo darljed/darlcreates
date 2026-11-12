@@ -16,7 +16,7 @@ const base: OrderDetail = {
   id: "o1", userId: "u1", orderNo: "DC-20261110-ABC234", status: "paid", subtotalCents: 25000, shippingCents: 8000, totalCents: 33000,
   placedAt: new Date("2026-11-10T04:00:00Z"),
   shipAddress: { recipient: "Ana Cruz", phone: "09171234567", line1: "12 Mabini St", city: "San Pablo", province: "Laguna", postalCode: "4000" },
-  items: [{ id: "i1", name: "Outdoor Phone Stand", slug: "outdoor-phone-stand", qty: 2, unitPriceCents: 12500, summary: [{ label: "Color", value: "Green" }], stlKey: "models/x.3mf", nameText: null, imageUrl: null }],
+  items: [{ id: "i1", name: "Outdoor Phone Stand", slug: "outdoor-phone-stand", qty: 2, unitPriceCents: 12500, summary: [{ label: "Color", value: "Green" }], stlKey: "models/x.3mf", nameText: null, imageUrl: null, designUri: null, clicker: false }],
   latestPayment: { reference: "GC1234567890", status: "verified", amountCents: 33000, proofKey: null, rejectReason: null, verifiedAt: new Date("2026-11-10T06:00:00Z") },
   shipment: null, history: [],
 };

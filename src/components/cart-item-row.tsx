@@ -41,7 +41,10 @@ export function CartItemRow({ line }: { line: CartLine }) {
   return (
     <div className="flex gap-4 rounded-xl border-2 border-border bg-card p-4">
       <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-        {line.imageUrl ? (
+        {line.designUri ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={line.designUri} alt="Your clicker design" className="size-full object-contain" />
+        ) : line.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={line.imageUrl} alt={line.productName} className="size-full object-cover" />
         ) : (

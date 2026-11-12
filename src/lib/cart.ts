@@ -2,6 +2,8 @@ import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getProductsByIds } from "./catalog";
+import { designOf } from "./clicker/of-product";
+import { designSvgDataUri } from "./clicker/server";
 import { fileUrl, readUrl } from "./storage";
 import type { ConfigSelection } from "./pricing";
 
@@ -33,6 +35,8 @@ export type CartLine = {
   imageUrl: string | null;
   /** The customer's own uploaded artwork (signed, short-lived), if any. */
   uploadUrl: string | null;
+  /** A picture of the clicker design (a data: URL of an SVG), for a clicker designer line. */
+  designUri: string | null;
 };
 
 export { summarizeConfig } from "./config-summary";
@@ -57,8 +61,8 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
       if (!product) return []; // product removed — skip stale line
       const config = (it.config ?? {}) as ConfigSelection;
       return [
-        readUrl(it.imageKey).then(
-          (uploadUrl): CartLine => ({
+        Promise.all([readUrl(it.imageKey), designPicture(product.options, config)]).then(
+          ([uploadUrl, designUri]): CartLine => ({
             id: it.id,
             productId: it.productId,
             productName: product.name,
@@ -70,11 +74,18 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
             summary: summarizeConfig(product.options, config),
             imageUrl: fileUrl(product.photos[0]?.key ?? null),
             uploadUrl,
+            designUri,
           }),
         ),
       ];
     }),
   );
+}
+
+/** The small picture of a clicker design, or null for any other line. */
+export async function designPicture(options: Parameters<typeof designOf>[0], config: ConfigSelection): Promise<string | null> {
+  const d = designOf(options, config);
+  return d ? designSvgDataUri(d.spec) : null;
 }
 
 export function cartSubtotalCents(lines: CartLine[]): number {

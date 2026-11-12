@@ -15,7 +15,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 |---|---|
 | `/` | Landing page from the CMS (`site_content` "home"): hero, highlights, featured products, FAQ, CTA |
 | `/products` | Catalog with instant search and category filter |
-| `/products/[slug]` | Product page: gallery + 3D viewer, customizer, add to cart, reviews. `review-actions.ts` holds the review actions |
+| `/products/[slug]` | Product page: gallery + 3D viewer, customizer (or the clicker designer for a clicker product), add to cart, reviews. `review-actions.ts` holds the review actions |
+| `/clicker` | Short link: redirects to the first published clicker product (404 if none). Header link "Design a clicker" |
 | `/cart` | Cart with line editing |
 | `/checkout` | Address, shipping, order summary, place order |
 | `/sign-in` | Google sign-in card |
@@ -42,6 +43,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/orders/[id]/acknowledgment` | Admin copy of the Order Acknowledgment |
 | `/admin/orders/[id]/waybill` | Internal printable waybill (A6) for our own tracking: barcode, ship-to, pack list, tick boxes |
 | `/admin/orders/[id]/stl/[itemId]` | GET: redirect to a 120 s signed S3 link for an item's print file |
+| `/admin/clicker-fit-test` | GET: the clicker fit-test plate as a 3MF (four pocket and four stem tolerances) |
 | `/admin/payments` | Pending GCash verification queue |
 | `/admin/reviews` | Approve / hide reviews |
 | `/admin/products`, `/admin/products/new`, `/admin/products/[id]` | Product list, create, edit (files, photos, customization builder) |
@@ -103,6 +105,23 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
 | `name-space.ts` | **Pure (server use).** `SurfaceProbe` and `measureSpace`: how much room a name has at a spot, as a table of widest-area-per-height |
 | `name-surface.ts` | **Service (server).** The product model as one mesh, cached in memory for 10 minutes |
+| `clicker/fit.ts` | **Pure.** Every mechanical number of the switch clicker (`FIT`: pocket, deck, rim, cap cavity, socket, heights), rim and relief options, ring builders |
+| `clicker/spec.ts` | **Pure.** Clicker / name-keys design schema (`ClickerSpec`), owner settings (`ClickerConfig`: switch limit and price, colour limit, name keys, printer fit), switch positions and spacing rule (`switchesApart`, `switchPattern`), limits, defaults, colours in use, price, readable summary |
+| `clicker/shapes.ts` | **Pure.** The shape outlines and keyring placement |
+| `clicker/poly.ts` | **Pure.** 2D polygon work on `clipper-lib`: union, difference, intersect, offset, small-feature removal |
+| `clicker/text.ts` | **Pure.** Text layers to flat regions |
+| `clicker/trace.ts` | **Pure.** Picture colour analysis and tracing into outlines (runs in the browser) |
+| `clicker/layout.ts` | **Pure.** `buildLayout`: the base and key pieces (a chamber, clip windows, cavity and socket for every switch; deck, rim, skin, artwork), the outline key that follows the artwork, key placement for name keys, the keyring tab, warnings and errors; `plateLayout` |
+| `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes; `GeometryCache` (least-recently-used) so editing reuses finished geometry |
+| `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
+| `clicker/export-3mf.ts` | **Pure.** The clicker 3MF: two objects (base, top) with a part and filament per colour piece, walls per object |
+| `clicker/budget-cache.ts` | **Pure.** `BudgetCache`: a string cache limited by total size (and per entry), used for the server's design pictures |
+| `clicker/retryable.ts` | **Pure.** `retryable()`: wraps an async loader so it is cached on success but retried after a failure (used for the font load) |
+| `clicker/reach.ts` | **Pure.** How far a key may reach past its switches (20 mm) and how far off-centre it may be (6 mm): `reachCheck`, `maxKeySide`, `clampShift` (limits a drag of the artwork) |
+| `clicker/fit-art.ts` | **Pure.** `centreAndFitArt`: when the shape changes, put the artwork in the middle of the key and shrink the whole design just enough that nothing is cut off |
+| `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |
+| `clicker/of-product.ts` | **Pure.** Finds the clicker option and a line's design on a product |
+| `clicker/server.ts` | **Service (server).** `checkDesign`, `buildClickerPrint` (lays the base and keys out on the plate), `buildFitTest`, `designSvgDataUri`, font loading |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
 | `like.ts` | Escapes `%` and `_` for SQL `LIKE` searches |
 | `money.ts` | **The only money path.** Integer centavos ↔ ₱ display and parsing |
@@ -191,12 +210,25 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `three/stl-viewer-lazy.tsx` | Dynamic import wrapper (`ssr: false`) |
 | `three/viewer-loading.tsx` | Loading animation |
 
+### Clicker designer (`components/clicker`)
+
+| File | Purpose |
+|---|---|
+| `clicker-designer.tsx` | The designer: viewer, kind switch (Clicker / Name keys), step list, list of clickers, price bar, undo/redo, draft, add to cart; phone layout |
+| `clicker-panels.tsx` | The step panels: artwork, letters, colours (with the colour meter), shape and size (with the outline shape, border and size scaling), look, switches (count, arrangement and a drag-to-place map), keyring |
+| `clicker-viewer.tsx` | Three.js view with orbit, top view, the "Inside" lift with ghost switches, click-to-pick a part, and drag in Move mode (client only) |
+| `image-import.ts` | Reads a PNG/JPG/WebP (canvas) or SVG (three's `SVGLoader`) in the browser |
+| `palette-picker.tsx` | Colour swatches limited to the owner's palette |
+| `shape-thumb.tsx` | Small outline icon of a shape |
+| `use-fonts.ts` | Loads the name fonts for the layout and tells when one arrives |
+
 ### Admin (`components/admin`)
 
 | File | Purpose |
 |---|---|
 | `admin-account-menu.tsx` | Name, email and sign-out in the sidebar and top bar |
 | `branding-editor.tsx` | Six logo upload slots with previews |
+| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
 | `content-editor.tsx` | Landing-page editor |
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |
@@ -250,6 +282,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
+| `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
 | `test-deploy.ts` | Connection options (direct / pooler / Vercel) and the streamed download body; no database |
@@ -271,8 +304,9 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 
 | Path | Purpose |
 |---|---|
-| `next.config.ts` | `cacheComponents`, `partialPrefetching`, dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
+| `next.config.ts` | `cacheComponents`, `partialPrefetching`, Server Action body limit 4 MB (clicker designs), dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
 | `drizzle.config.ts` | drizzle-kit config |
+| `src/types/clipper-lib.d.ts` | Type declarations for `clipper-lib` (it ships none) |
 | `public/fonts/` | The six name fonts (OFL, Permanent Marker Apache 2.0; licence files included) used by the preview and the print file |
 | `public/sw.js`, `public/offline.html` | PWA service worker (caches build assets and logos, never pages) and its offline page |
 | `components.json` | shadcn config |

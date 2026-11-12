@@ -14,6 +14,9 @@ import {
 import { isOwnCustomerKey } from "./uploads";
 import { slotOf, withFont } from "./name-mesh";
 import { nameProblem } from "./name-3mf";
+import { clickerOptionOf } from "./clicker/of-product";
+import { checkDesign } from "./clicker/server";
+import { MAX_ADD_JSON } from "./clicker/spec";
 
 /** Framework-free so it can be tested with the real DB/S3. The action wrapper does auth + revalidation. */
 export const addToCartSchema = z.object({
@@ -33,6 +36,18 @@ async function prepareLine(userId: string, product: Product, rawSelection: Confi
 
   const { unitPriceCents, errors } = computeUnitPrice(product.basePriceCents, product.options, config);
   if (errors.length) return { ok: false, error: errors[0] };
+
+  // A clicker design must be one we can print: right sizes, offered colours, text the font can draw
+  const clicker = clickerOptionOf(product.options);
+  if (clicker) {
+    const design = config[clicker.option.id]?.design;
+    if (design === undefined) {
+      if (clicker.option.required) return { ok: false, error: `${clicker.option.label} is required` };
+    } else {
+      const checked = await checkDesign(design, clicker.config);
+      if (!checked.ok) return { ok: false, error: `${clicker.option.label}: ${checked.error}` };
+    }
+  }
 
   // A name that goes on the 3D model must be printable at its slot (checked here, with the server's own font,
   // so an order never reaches the workshop with a name that cannot be made).
@@ -98,6 +113,7 @@ export async function addManyToCart(userId: string, input: unknown): Promise<{ o
   const parsed = addManyToCartSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request" };
   const { productId, rows } = parsed.data;
+  if (JSON.stringify(rows).length > MAX_ADD_JSON) return { ok: false, error: "That is a lot of detailed designs at once. Add them in smaller groups." };
 
   const product = await getProductById(productId);
   if (!product || product.status !== "published") return { ok: false, error: "Product not available" };

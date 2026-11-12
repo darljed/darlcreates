@@ -265,7 +265,7 @@ function strokeWidth(shapes: ReturnType<typeof pathToShapes>, scale: number): nu
   return perimeter > 0 ? ((2 * area) / perimeter) * scale : 0;
 }
 
-function pathToShapes(path: opentype.Path) {
+export function pathToShapes(path: opentype.Path) {
   const sp = new ShapePath();
   for (const c of path.commands) {
     // opentype's y axis points down; flip it so the letters stand up

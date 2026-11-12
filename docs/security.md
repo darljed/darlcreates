@@ -92,6 +92,14 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - `measureNameSpaceAction` is admin-only, validates its numbers with the slot schema, and reads only the product's own stored model; the in-memory model cache holds at most two models for ten minutes. A customer's name colour is accepted only if it is in the slot's list (`normalizeSelection`).
 - Auto-configuration opens an uploaded 3MF on the server: the zip is capped at 120 MB unzipped and 3 million triangles, nesting depth is limited, and any failure leaves the file attached as uploaded.
 
+### Notes added with the clicker designer
+- A design is stored as plain data and validated with `clickerSpecSchema` and the owner's settings (`checkAgainstConfig`): every colour must be in the palette, sizes in range, point and JSON caps hold. The print file and the cart picture are rebuilt on the server; no mesh, SVG or HTML from the browser is used. The cart picture is an SVG in an `<img>` (no inline markup).
+- Pictures are traced in the browser and never uploaded, so there is no new file-upload surface. `saveClickerConfigAction` is admin-only and Zod-validated.
+- The server keeps the pictures it draws of designs in a cache limited by total size (about 16 MB, none over 600 KB), not only by count, so many large designs cannot make it hold much memory. A clicker product whose stored settings are damaged stays a clicker (shown with the default settings, and a logged error) but **cannot be ordered**: the cart refuses it with "cannot be ordered right now" until the product is saved again in the admin. It is neither sold on made-up limits nor allowed to drop the design and sell at the base price. Picture cache keys are SHA-256 of the design.
+- `GET /admin/clicker-fit-test` is admin-only (`requireAdmin`) and builds a fixed file with no input from the request. The colour limit, key count and switch availability are checked on the server (`checkAgainstConfig`), not only in the browser.
+- Damaged clicker settings (including a smallest size above the largest) show the product with defaults but block ordering, and the admin print-file route (`/admin/orders/[id]/stl/[itemId]`) refuses to build a file on them. A failed font load is not cached (`retryable`), so the next request tries again.
+- The Server Action body limit is 4 MB (`next.config.ts`) so a design can be sent; `MAX_ADD_JSON` rejects anything over 3.5 MB.
+
 ## 9. Secrets
 
 `.env.local` is gitignored; `.env.example` lists the keys with empty values. `NEXT_PUBLIC_*` values are visible to everyone, so only non-secrets go there (GCash name and number, business name and email). The database password and the S3 key were shown in terminal output during setup and should be rotated (G-13, G-28); rotation steps are in [operations.md](./operations.md).

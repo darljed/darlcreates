@@ -52,8 +52,8 @@ const order: OrderDetail = {
   placedAt: new Date("2026-11-10T04:00:00Z"),
   shipAddress: { recipient: "Ana Cruz", phone: "09171234567", line1: "12 Mabini St", city: "San Pablo", province: "Laguna", postalCode: "4000" },
   items: [
-    { id: "i1", name: "Outdoor Phone Stand", slug: "outdoor-phone-stand", qty: 2, unitPriceCents: 12500, summary: [{ label: "Color", value: "Green" }], stlKey: null, nameText: null, imageUrl: null },
-    { id: "i2", name: "Name Keychain", slug: null, qty: 1, unitPriceCents: 9900, summary: [{ label: "Name", value: "Ana" }], stlKey: null, nameText: null, imageUrl: null },
+    { id: "i1", name: "Outdoor Phone Stand", slug: "outdoor-phone-stand", qty: 2, unitPriceCents: 12500, summary: [{ label: "Color", value: "Green" }], stlKey: null, nameText: null, imageUrl: null, designUri: null, clicker: false },
+    { id: "i2", name: "Name Keychain", slug: null, qty: 1, unitPriceCents: 9900, summary: [{ label: "Name", value: "Ana" }], stlKey: null, nameText: null, imageUrl: null, designUri: null, clicker: false },
   ],
   latestPayment: { reference: "GC1234567890", status: "verified", amountCents: 33000, proofKey: null, rejectReason: null, verifiedAt: new Date("2026-11-10T06:00:00Z") },
   shipment: null, history: [],
