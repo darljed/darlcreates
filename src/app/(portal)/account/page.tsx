@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AccountSkeleton } from "@/components/skeletons";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddressBook, DeleteAccount } from "@/components/account-panels";
@@ -13,7 +14,7 @@ export default function AccountPage() {
   return (
     <div className="max-w-3xl">
       <PageHeader title="My account" />
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<AccountSkeleton />}>
         <AccountContents />
       </Suspense>
     </div>

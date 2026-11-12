@@ -19,11 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductGallery, type GalleryPhoto } from "@/components/product-gallery";
 import { CustomerImageUpload } from "@/components/customer-image-upload";
+import { FontPicker } from "@/components/font-picker";
+import { QuantityStepper } from "@/components/quantity-stepper";
 import { formatPHP } from "@/lib/money";
 import { computeUnitPrice, configSelectionSchema, type ConfigSelection, type ProductOptionInput } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
-import { fontChoices, NAME_FONTS, slotOf, withFont, withNameColor } from "@/lib/name-mesh";
+import { fontChoices, slotOf, withFont, withNameColor } from "@/lib/name-mesh";
 import { defaultPartSelection, partColorsFor, wholeModelColor } from "@/lib/part-colors";
 import { useNameBuild } from "@/components/use-name-build";
 import { addManyToCartAction, addToCartAction } from "@/app/(shop)/cart/actions";
@@ -366,15 +368,10 @@ export function ProductCustomizer({
                         {nameOpt.required && <span className="ml-1 text-primary">*</span>}
                       </Label>
                       <div className="flex items-center gap-1.5">
-                        <Label htmlFor={`qty-${r.key}`} className="text-xs font-semibold">Qty</Label>
-                        <Input
-                          id={`qty-${r.key}`}
-                          type="number"
-                          min={1}
-                          max={99}
-                          className="h-8 w-16"
+                        <QuantityStepper
                           value={r.qty}
-                          onChange={(e) => setRows(rows.map((x) => (x.key === r.key ? { ...x, qty: Math.min(99, Math.max(1, Math.floor(Number(e.target.value)) || 1)) } : x)))}
+                          label={count > 1 ? `Quantity of name ${i + 1}` : "Quantity"}
+                          onChange={(qty) => setRows(rows.map((x) => (x.key === r.key ? { ...x, qty } : x)))}
                         />
                         {count > 1 && (
                           <Button type="button" size="icon" variant="outline" className="size-8" aria-label={`Remove name ${i + 1}`} onClick={() => removeRow(r.key)}>
@@ -392,19 +389,13 @@ export function ProductCustomizer({
                       aria-invalid={isActive && Boolean(nameError)}
                     />
                     {nameFonts.length > 1 && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Label htmlFor={`font-${r.key}`} className="text-xs font-semibold">Font</Label>
-                        <select
-                          id={`font-${r.key}`}
-                          className="h-9 rounded-md border-2 border-border bg-background px-2 text-sm"
-                          value={chosenFont}
-                          onChange={(e) => setOwn(r.key, nameOpt.id, { font: e.target.value })}
-                        >
-                          {nameFonts.map((f) => (
-                            <option key={f} value={f}>{NAME_FONTS[f].label}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <FontPicker
+                        fonts={nameFonts}
+                        value={chosenFont}
+                        sample={sel?.text}
+                        label={count > 1 ? `Font for name ${i + 1}` : "Font"}
+                        onChange={(f) => setOwn(r.key, nameOpt.id, { font: f })}
+                      />
                     )}
                     {nameColours.length > 0 && (
                       <div role="group" aria-label={`Name colour${count > 1 ? ` for name ${i + 1}` : ""}`} className="space-y-1.5">

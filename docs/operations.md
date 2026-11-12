@@ -74,6 +74,7 @@ Secrets live in `.env.local` (and ideally Bitwarden). Never paste them into chat
 ## 6. Before launch checklist
 
 - [ ] `npx tsx scripts/seed-demo.ts clear`, then `npx tsx scripts/e2e-session.ts cleanup`
+- [ ] If hosting on Vercel (D-47): `DATABASE_URL` is the pooled string (`darl-workspace-db.darl.dev:6432`, `?sslmode=require`), the function region is near the database, and `npx tsx scripts/test-deploy.ts` passes
 - [ ] Production build running (not `next dev`); `BETTER_AUTH_URL` is the public https address and matches Google's redirect URI
 - [ ] S3 CORS includes the production origin (G-26) and `npx tsx scripts/test-cors.ts` passes
 - [ ] The GCash number is the business one (T-06)

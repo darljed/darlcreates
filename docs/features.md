@@ -36,6 +36,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Search and AI visibility**: per-page titles and descriptions, schema.org markup (organization, FAQ, product with price and rating, breadcrumbs), `sitemap.xml`, `robots.txt`, `/llms.txt`; private pages are not indexed
 - Add to cart survives sign-in and the privacy-consent step: choices are kept and the item is added when the customer comes back
 
+- **Quantity** has − and + buttons (no typing); the **font** is chosen from buttons that show the customer's name in each font; every page shows a **skeleton** while it loads; the cart and checkout read their data in one database round.
 - **Several names per order** with their own colours and quantity; **per-part colours** for multi-colour models; **engraved names** (negative part, 3MF); areas painted in the slicer (an outline) get their own colour picker.
 - **Name on the model (proof of concept)**: on products with a name slot, the customer's name is drawn on the 3D model as they type; names that cannot be printed are refused with a message ([details](./name-on-model.md))
 

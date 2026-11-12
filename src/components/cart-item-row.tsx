@@ -6,9 +6,10 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Trash2, Box } from "lucide-react";
+import { Trash2, Box } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { QuantityStepper } from "@/components/quantity-stepper";
 import { formatPHP } from "@/lib/money";
 import type { CartLine } from "@/lib/cart";
 import { updateQtyAction, removeItemAction } from "@/app/(shop)/cart/actions";
@@ -62,27 +63,7 @@ export function CartItemRow({ line }: { line: CartLine }) {
           ))}
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="inline-flex items-center rounded-lg border-2 border-border">
-            <button
-              type="button"
-              aria-label="Decrease quantity"
-              className="p-2 disabled:opacity-40"
-              disabled={pending || line.qty <= 1}
-              onClick={() => setQty(line.qty - 1)}
-            >
-              <Minus className="size-4" />
-            </button>
-            <span className="w-8 text-center font-semibold">{line.qty}</span>
-            <button
-              type="button"
-              aria-label="Increase quantity"
-              className="p-2 disabled:opacity-40"
-              disabled={pending}
-              onClick={() => setQty(line.qty + 1)}
-            >
-              <Plus className="size-4" />
-            </button>
-          </div>
+          <QuantityStepper value={line.qty} disabled={pending} label={`Quantity of ${line.productName}`} onChange={setQty} />
           <Button
             variant="ghost"
             size="sm"

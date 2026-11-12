@@ -1,9 +1,11 @@
 /**
- * Drizzle client over a pool of 10 connections, reused across dev reloads. Throws if DATABASE_URL is missing.
+ * Drizzle client, reused across dev reloads. Throws if DATABASE_URL is missing. Pool size and prepared statements follow
+ * the URL and the host (see options.ts): direct on a server, through the PgBouncer pooler on Vercel.
  */
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { postgresOptions } from "./options";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -16,7 +18,7 @@ const globalForDb = globalThis as unknown as {
 };
 
 const client =
-  globalForDb.__dcPg ?? postgres(connectionString, { max: 10 });
+  globalForDb.__dcPg ?? postgres(connectionString, postgresOptions(connectionString, { VERCEL: process.env.VERCEL }));
 if (process.env.NODE_ENV !== "production") globalForDb.__dcPg = client;
 
 export const db = drizzle(client, { schema });

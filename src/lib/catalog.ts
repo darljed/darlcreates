@@ -9,7 +9,7 @@ import {
   productOptionValues,
   productPhotos,
 } from "@/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, type SQLWrapper } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductOptionInput } from "./pricing";
 
@@ -38,26 +38,26 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
     .where(eq(products.status, "published"))
     .orderBy(asc(products.name));
 
-  const items: ProductListItem[] = [];
-  for (const p of rows) {
-    const [photo] = await db
-      .select({ key: productPhotos.s3Key })
-      .from(productPhotos)
-      .where(eq(productPhotos.productId, p.id))
-      .orderBy(asc(productPhotos.sort))
-      .limit(1);
-    items.push({
-      id: p.id,
-      slug: p.slug,
-      name: p.name,
-      description: p.description,
-      category: p.category,
-      basePriceCents: p.basePriceCents,
-      photoKey: photo?.key ?? null,
-      createdAtMs: p.createdAt.getTime(),
-      updatedAtMs: p.updatedAt.getTime(),
-    });
-  }
+  const photos = rows.length
+    ? await db
+        .select({ productId: productPhotos.productId, key: productPhotos.s3Key })
+        .from(productPhotos)
+        .where(inArray(productPhotos.productId, rows.map((p) => p.id)))
+        .orderBy(asc(productPhotos.sort))
+    : [];
+  const firstPhoto = new Map<string, string>();
+  for (const ph of photos) if (!firstPhoto.has(ph.productId)) firstPhoto.set(ph.productId, ph.key);
+  const items: ProductListItem[] = rows.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    description: p.description,
+    category: p.category,
+    basePriceCents: p.basePriceCents,
+    photoKey: firstPhoto.get(p.id) ?? null,
+    createdAtMs: p.createdAt.getTime(),
+    updatedAtMs: p.updatedAt.getTime(),
+  }));
   return items;
 }
 
@@ -87,61 +87,68 @@ export async function getProductBySlug(
     : eq(products.slug, slug);
   const [p] = await db.select().from(products).where(where).limit(1);
   if (!p) return null;
-  return assembleProduct(p);
+  return (await getProductsByIds([p.id])).get(p.id) ?? null;
 }
 
 export async function getProductById(id: string): Promise<FullProduct | null> {
-  const [p] = await db.select().from(products).where(eq(products.id, id)).limit(1);
-  if (!p) return null;
-  return assembleProduct(p);
+  return (await getProductsByIds([id])).get(id) ?? null;
 }
 
-async function assembleProduct(p: typeof products.$inferSelect): Promise<FullProduct> {
-  const photos = await db
-    .select()
-    .from(productPhotos)
-    .where(eq(productPhotos.productId, p.id))
-    .orderBy(asc(productPhotos.sort));
-
-  const opts = await db
-    .select()
-    .from(productOptions)
-    .where(eq(productOptions.productId, p.id))
-    .orderBy(asc(productOptions.sort));
-
-  const options: ProductOptionInput[] = [];
-  for (const o of opts) {
-    const values = await db
-      .select()
+/**
+ * Several products with their photos, options and values, in ONE round of four queries run together (the database may be
+ * far away, so the number of sequential round trips is what costs). Missing ids are absent from the map.
+ */
+export async function getProductsByIds(ids: string[] | SQLWrapper): Promise<Map<string, FullProduct>> {
+  // `ids` may also be a subquery of product ids, so a caller that does not know them yet (the cart) needs no earlier round
+  const unique = Array.isArray(ids) ? [...new Set(ids)] : ids;
+  if (Array.isArray(unique) && unique.length === 0) return new Map();
+  const [rows, photos, opts, vals] = await Promise.all([
+    db.select().from(products).where(inArray(products.id, unique)),
+    db.select().from(productPhotos).where(inArray(productPhotos.productId, unique)).orderBy(asc(productPhotos.sort)),
+    db.select().from(productOptions).where(inArray(productOptions.productId, unique)).orderBy(asc(productOptions.sort)),
+    db
+      .select({ v: productOptionValues })
       .from(productOptionValues)
-      .where(eq(productOptionValues.optionId, o.id))
-      .orderBy(asc(productOptionValues.sort));
-    options.push({
-      id: o.id,
-      type: o.type,
-      label: o.label,
-      required: o.required,
-      priceDeltaCents: o.priceDeltaCents,
-      constraints: (o.constraints ?? {}) as ProductOptionInput["constraints"],
-      values: values.map((v) => ({
-        id: v.id,
-        label: v.label,
-        value: v.value,
-        priceDeltaCents: v.priceDeltaCents,
-      })),
+      .innerJoin(productOptions, eq(productOptionValues.optionId, productOptions.id))
+      .where(inArray(productOptions.productId, unique))
+      .orderBy(asc(productOptionValues.sort)),
+  ]);
+  return assemble(rows, photos, opts, vals.map((r) => r.v));
+}
+
+function assemble(
+  rows: (typeof products.$inferSelect)[],
+  photos: (typeof productPhotos.$inferSelect)[],
+  opts: (typeof productOptions.$inferSelect)[],
+  vals: (typeof productOptionValues.$inferSelect)[],
+): Map<string, FullProduct> {
+  const out = new Map<string, FullProduct>();
+  for (const p of rows) {
+    const options: ProductOptionInput[] = opts
+      .filter((o) => o.productId === p.id)
+      .map((o) => ({
+        id: o.id,
+        type: o.type,
+        label: o.label,
+        required: o.required,
+        priceDeltaCents: o.priceDeltaCents,
+        constraints: (o.constraints ?? {}) as ProductOptionInput["constraints"],
+        values: vals
+          .filter((v) => v.optionId === o.id)
+          .map((v) => ({ id: v.id, label: v.label, value: v.value, priceDeltaCents: v.priceDeltaCents })),
+      }));
+    out.set(p.id, {
+      id: p.id,
+      slug: p.slug,
+      name: p.name,
+      description: p.description,
+      category: p.category,
+      basePriceCents: p.basePriceCents,
+      status: p.status,
+      stlKey: p.stlKey,
+      photos: photos.filter((ph) => ph.productId === p.id).map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
+      options,
     });
   }
-
-  return {
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-    description: p.description,
-    category: p.category,
-    basePriceCents: p.basePriceCents,
-    status: p.status,
-    stlKey: p.stlKey,
-    photos: photos.map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
-    options,
-  };
+  return out;
 }

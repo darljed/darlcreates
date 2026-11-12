@@ -7,6 +7,7 @@ import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { CheckoutSteps } from "@/components/order-progress";
 import { CartItemRow } from "@/components/cart-item-row";
+import { CartSkeleton } from "@/components/skeletons";
 
 export const metadata = { title: "Cart", ...NOINDEX };
 
@@ -16,7 +17,7 @@ export default function CartPage() {
       <div className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="mb-4 text-3xl font-extrabold">Your Cart</h1>
         <CheckoutSteps current={1} />
-        <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
+        <Suspense fallback={<CartSkeleton />}>
           <CartContents />
         </Suspense>
       </div>
@@ -37,8 +38,8 @@ async function CartContents() {
     );
   }
 
-  await requireUser("/cart"); // routes users who haven't accepted the privacy policy to /consent
-  const lines = await getCartLines(user.id);
+  // the consent guard (routes users who haven't accepted the privacy policy to /consent) and the lines run together
+  const [, lines] = await Promise.all([requireUser("/cart"), getCartLines(user.id)]);
   if (lines.length === 0) {
     return (
       <div className="rounded-xl border-2 border-dashed p-10 text-center">

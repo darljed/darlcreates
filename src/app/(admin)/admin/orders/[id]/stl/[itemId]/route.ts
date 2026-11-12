@@ -7,6 +7,7 @@ import { readUrl, isStorageConfigured, getObject } from "@/lib/storage";
 import { getProductById } from "@/lib/catalog";
 import { personalizedName } from "@/lib/name-mesh";
 import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
+import { bytesToStream } from "@/lib/stream-bytes";
 import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
 import type { ConfigSelection } from "@/lib/pricing";
 
@@ -50,7 +51,7 @@ export async function GET(
     if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
     try {
       const file = buildColoredFile(await new Response(obj.stream).arrayBuffer(), colors, paint);
-      return new Response(Buffer.from(file), {
+      return new Response(bytesToStream(file), {
         headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-colours.3mf"`, "Cache-Control": "private, no-store" },
       });
     } catch (e) {
@@ -64,7 +65,7 @@ export async function GET(
     const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot, colors, paint });
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     const safe = personal.text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "name";
-    return new Response(Buffer.from(built.file), {
+    return new Response(bytesToStream(built.file), {
       headers: {
         "Content-Type": "model/3mf",
         "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-${safe}.3mf"`,

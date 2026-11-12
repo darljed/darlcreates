@@ -6,6 +6,7 @@ import { getProductReviews } from "@/lib/reviews";
 import { fileUrl } from "@/lib/storage";
 import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
+import { ProductPageSkeleton } from "@/components/skeletons";
 import { ProductReviews } from "@/components/product-reviews";
 import { JsonLd } from "@/components/json-ld";
 import { getSiteInfo } from "@/lib/site-content";
@@ -39,30 +40,9 @@ export default function ProductPage({
   // Don't await params here: reading it outside <Suspense> blocks the navigation
   // for any slug not known at build time (e.g. a product created after deploy).
   return (
-    <Suspense fallback={<ProductSkeleton />}>
+    <Suspense fallback={<ProductPageSkeleton />}>
       <ProductContent params={params} />
     </Suspense>
-  );
-}
-
-function ProductSkeleton() {
-  return (
-    <main className="flex-1" aria-busy="true">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 space-y-3">
-          <div className="h-9 w-72 animate-pulse rounded-lg bg-muted" />
-          <div className="h-4 w-96 max-w-full animate-pulse rounded bg-muted" />
-        </div>
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="aspect-square animate-pulse rounded-xl bg-muted" />
-          <div className="space-y-4">
-            <div className="h-10 animate-pulse rounded-lg bg-muted" />
-            <div className="h-10 animate-pulse rounded-lg bg-muted" />
-            <div className="h-24 animate-pulse rounded-xl bg-muted" />
-          </div>
-        </div>
-      </div>
-    </main>
   );
 }
 

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { strFromU8, unzipSync } from "fflate";
 import { buildName, cleanName, fontChoices, isWatertight, meshBounds, NAME_FONT_IDS, nameSlotSchema, personalizedName, slotMaxHeight, slotOf, suggestFont, toMesh, withFont, withNameColor, type Mesh, type NameSlot } from "../src/lib/name-mesh";
 import { colorName } from "../src/lib/color-name";
+import { NAME_FONTS } from "../src/lib/name-mesh";
 import { SPACE_TOLERANCE_MM, SurfaceProbe, measureSpace } from "../src/lib/name-space";
 import { clampToSpace, maxHeightFor, maxWidthFor, spaceLimits } from "../src/lib/name-mesh";
 import { normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
@@ -425,6 +426,15 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
     assert("recolouring the painted area rewrites only its paint code", strFromU8(re["3D/Objects/o.model"]).includes('paint_color="801"') && !strFromU8(re["3D/Objects/o.model"]).includes('paint_color="0C01"'));
     assert("an unpainted model gets no layers and is returned untouched", addPaintPreview(open3mf(withText("normal_part", "Cams")), 1).layers.length === 0);
     assert("unreadable paint is left as it is, with a note", (() => { const bad = addPaintPreview(open3mf(withText("normal_part", "Cams", 12, { paint: "0C0C" })), 1); return bad.layers.length === 0 && bad.notes.length === 1; })());
+  }
+
+  console.log("\nfont picker: the browser can show every name font");
+  {
+    const css = readFileSync(join(__dirname, "..", "src", "app", "globals.css"), "utf8");
+    for (const id of NAME_FONT_IDS) {
+      const face = new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*"dc-name-${id}"[^}]*/fonts/${NAME_FONTS[id].file.replace(".", "\\.")}`).test(css);
+      assert(`${id}: @font-face "dc-name-${id}" points at /fonts/${NAME_FONTS[id].file}`, face);
+    }
   }
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }
