@@ -359,8 +359,15 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     assert("200 large distinct designs cannot make the cache hold more than its budget", (() => { const c = new BudgetCache(16_000_000, 600_000); for (let i = 0; i < 200; i++) c.set(`k${i}`, "x".repeat(500_000)); return c.chars <= 16_000_000 && c.size <= 32; })());
 
     // a clicker product whose stored settings are damaged must not turn into a plain product that drops the design and sells at the base price
+    const healthy: ProductOptionInput = { id: "opt-healthy", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: cfg }, values: [] };
     const damaged: ProductOptionInput = { id: "opt-damaged", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: { ...cfg, palette: ["nope"] } }, values: [] };
-    assert("damaged settings: the product stays a clicker designer on the default settings (design kept, checked and priced)", clickerOptionOf([damaged]) !== null && normalizeSelection([damaged], { [damaged.id]: { design: plain } }, () => false).config[damaged.id]?.design !== undefined && computeUnitPrice(10000, [damaged], { [damaged.id]: { design: plain } }).unitPriceCents === 10000 + clickerPriceDeltaCents(plain, cfg) && computeUnitPrice(10000, [damaged], { [damaged.id]: { design: { ...plain, width: 95 } } }).errors.length === 1);
+    assert("damaged settings: the product stays a clicker designer, but ordering it is refused (not sold on made-up limits), and a normal product is untouched", (() => {
+      const kept = normalizeSelection([damaged], { [damaged.id]: { design: plain } }, () => false);
+      const price = computeUnitPrice(10000, [damaged], { [damaged.id]: { design: plain } });
+      return clickerOptionOf([damaged]) !== null && kept.errors.length === 1 && /cannot be ordered right now/.test(kept.errors[0]) && price.errors.length === 1 && /cannot be ordered right now/.test(price.errors[0]) && computeUnitPrice(10000, [healthy], { [healthy.id]: { design: plain } }).errors.length === 0;
+    })());
+    assert("ids made in a long session stay unique and short (the counter never gets cut off)", (() => { const ids = new Set<string>(); for (let i = 0; i < 20000; i++) ids.add(newId("t")); return ids.size === 20000 && [...ids].every((id) => id.length <= 20); })());
+    assert("the fit test refuses steps outside what the settings allow", await Promise.all([buildFitTest([5]), buildFitTest([]), buildFitTest([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.5])].map((p) => p.then(() => false, () => true))).then((r) => r.every(Boolean)));
 
     const tricky = clickerTo3mf([{ name: `a"b<c>&'d`, wallLoops: 3, pieces: [{ name: `p"q`, color: "#ef4444", mesh: meshOfPart(extrudeLayout(buildLayout(plain, fonts))[0]) }] }], `t"i<t>&'le`);
     const cfgXml = strFromU8(unzipSync(tricky)["Metadata/model_settings.config"]), modelXml = strFromU8(unzipSync(tricky)["3D/3dmodel.model"]);

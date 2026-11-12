@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sumCentavos } from "./money";
-import { checkAgainstConfig, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, MAX_SPEC_JSON } from "./clicker/spec";
+import { checkAgainstConfig, clickerConfigDamaged, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, MAX_SPEC_JSON } from "./clicker/spec";
 
 /**
  * Server-authoritative price computation and customization validation.
@@ -90,6 +90,10 @@ export function computeUnitPrice(
     // a clicker designer: the whole design is the selection, priced by the owner's size / colour rules
     const clicker = opt.type === "text" ? clickerConfigOf(opt.constraints) : null;
     if (clicker) {
+      if (clickerConfigDamaged(opt.constraints)) {
+        errors.push(`${opt.label} cannot be ordered right now. Please try again later.`);
+        continue;
+      }
       const design = clickerSpecSchema.safeParse(sel!.design);
       if (!design.success) errors.push(`${opt.label}: ${design.error.issues[0]?.message ?? "the design is not valid"}`);
       else {
@@ -159,7 +163,8 @@ export function normalizeSelection(
       if (sel.valueId) config[opt.id] = { valueId: sel.valueId };
     } else if (opt.type === "text" && clickerConfigOf(opt.constraints)) {
       // keep only a design that fits the schema (and is not absurdly big); anything else on this option is dropped
-      if (sel.design !== undefined) {
+      if (clickerConfigDamaged(opt.constraints)) errors.push(`${opt.label} cannot be ordered right now. Please try again later.`);
+      else if (sel.design !== undefined) {
         const parsed = clickerSpecSchema.safeParse(sel.design);
         if (parsed.success && JSON.stringify(parsed.data).length <= MAX_SPEC_JSON) config[opt.id] = { design: parsed.data };
         else errors.push(`${opt.label}: the design is not valid or too detailed.`);

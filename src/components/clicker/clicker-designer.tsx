@@ -181,7 +181,7 @@ export function ClickerDesigner({
     if (slots.length >= config.maxClickers) return;
     const key = `c${counter.current++}`;
     setSlots((all) => [...all, { key, qty: 1, h: newHistory(from ? structuredClone(from) : defaultSpec(config)) }]);
-    setActive(slots.length);
+    setActive(slots.length); // the new clicker is added at the end, so its index is the current length
     setSelected(null);
   }
   function removeSlot(i: number) {

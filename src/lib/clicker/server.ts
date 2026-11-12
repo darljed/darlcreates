@@ -34,8 +34,9 @@ export async function checkDesign(input: unknown, cfg: ClickerConfig): Promise<{
     // The price follows the size in the design. A key that follows its artwork has the size the artwork makes, so check the
     // size on the design is not smaller than the real one (otherwise a big key could be priced as a small one).
     const real = Math.max(...layout.capSize), claimed = Math.max(parsed.data.width, parsed.data.height);
-    if (real > claimed + 0.6) return { ok: false, error: "The size of this clicker does not match its design. Open the designer and try again." };
+    // too big first (the clear message), then a written size that is smaller than the real one
     if (real > cfg.maxSize + 0.05) return { ok: false, error: `The clicker can be at most ${cfg.maxSize} mm. Make the design smaller.` };
+    if (real > claimed + 0.6) return { ok: false, error: "The size of this clicker does not match its design. Open the designer and try again." };
   }
   if (layout.parts.length === 0) return { ok: false, error: "There is nothing to print. Check the sizes." };
   return { ok: true, spec: parsed.data };
@@ -99,7 +100,7 @@ export async function buildClickerPrint(spec: ClickerSpec, title = "Custom click
 const svgCache = new BudgetCache(16_000_000, 600_000);
 /** A picture of the design as a data: URL for an <img> (an image cannot run scripts), cached by the design's content. */
 export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
-  const key = createHash("sha1").update(JSON.stringify(spec)).digest("hex");
+  const key = createHash("sha256").update(JSON.stringify(spec)).digest("hex");
   const hit = svgCache.get(key);
   if (hit) return hit;
   const fonts = await loadAllFonts();
@@ -114,6 +115,8 @@ export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
  * push each key onto a switch stem, then enter the best numbers in the admin (Printer fit). One colour, nothing to arrange.
  */
 export async function buildFitTest(steps: number[] = [-0.1, 0, 0.1, 0.2]): Promise<{ file: Uint8Array; steps: number[] }> {
+  // (the only caller passes none; this keeps the tolerances inside what the settings allow, and the row inside the plate)
+  if (steps.length < 1 || steps.length > 6 || steps.some((t) => !Number.isFinite(t) || Math.abs(t) > 0.5)) throw new Error("The fit test needs 1 to 6 steps between -0.5 and 0.5 mm.");
   const fonts = await loadAllFonts();
   const spec = clickerSpecSchema.parse({
     v: 2, kind: "clicker", shape: "square", width: 24, height: 24, corner: 3, points: 5, border: 1.2, switches: [{ x: 0, y: 0 }],
