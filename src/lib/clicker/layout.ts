@@ -145,7 +145,11 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup): Layout {
     if (visible.length) byColour.set(p.color, [...(byColour.get(p.color) ?? []), ...visible]);
   }
   for (const [layerId, shapes] of layerShapes) {
-    if (!totalArea(intersect(shapes, interior))) warnings.push(`“${spec.layers.find((l) => l.id === layerId)?.name || "A layer"}” is outside the clicker.`);
+    const name = spec.layers.find((l) => l.id === layerId)?.name || "A layer";
+    const kept = totalArea(intersect(shapes, interior));
+    const all = totalArea(shapes);
+    if (!kept) warnings.push(`“${name}” is outside the clicker.`);
+    else if (all > 0 && kept / all < 0.95) warnings.push(`“${name}” runs past the edge of the clicker, so part of it is cut off. Make it smaller or the clicker bigger.`);
   }
 
   // drop detail that is too fine to print

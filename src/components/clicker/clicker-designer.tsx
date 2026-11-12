@@ -54,6 +54,12 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "keyring", label: "Keyring" },
 ];
 
+/** The starting design with fixed layer ids: the server and the browser must build the same page (new ids use the clock). */
+function firstSpec(config: ClickerConfig): ClickerSpec {
+  const s = defaultSpec(config);
+  return { ...s, layers: s.layers.map((l, i) => ({ ...l, id: `first${i}` })) };
+}
+
 const draftKey = (productId: string) => `dc:clicker:draft:${productId}`;
 const pendingKey = (productId: string) => `dc:clicker:pending:${productId}`;
 
@@ -75,7 +81,7 @@ export function ClickerDesigner({
   const [adding, startAdd] = useTransition();
 
   const counter = useRef(1);
-  const [slots, setSlots] = useState<Slot[]>(() => [{ key: "c0", qty: 1, h: newHistory(defaultSpec(config)) }]);
+  const [slots, setSlots] = useState<Slot[]>(() => [{ key: "c0", qty: 1, h: newHistory(firstSpec(config)) }]);
   const [active, setActive] = useState(0);
   const slot = slots[Math.min(active, slots.length - 1)];
   const spec = slot.h.present;

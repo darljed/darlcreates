@@ -134,6 +134,8 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("the layer above covers the one below (red 20 × 20 minus blue 10 × 10 = 300, blue 100)", near(area(RED), 300, 1) && near(area(BLUE), 100, 1), `${area(RED).toFixed(1)} ${area(BLUE).toFixed(1)}`);
   assert("hiding a layer takes its colour out of the design", (() => { const s = { ...twoLayers, layers: [twoLayers.layers[0], { ...twoLayers.layers[1], visible: false }] }; return !clickerColours(clickerSpecSchema.parse(s)).includes(BLUE.toLowerCase()); })());
   assert("a layer pushed off the clicker is reported and prints nothing", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 150 }] }); const l = buildLayout(s, fonts); return l.warnings.some((w) => /outside/.test(w)) && !l.parts.some((p) => p.role === "design"); })());
+  assert("a layer that runs past the edge is reported as cut off", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 14 }] }); const l = buildLayout(s, fonts); return l.warnings.some((w) => /cut off/.test(w)); })());
+  assert("a layer well inside gives no cut-off note", !buildLayout(clickerSpecSchema.parse(twoLayers), fonts).warnings.some((w) => /cut off/.test(w)));
   assert("a hairline is too fine to print: it is left out and the customer is told", (() => {
     const hair: Region = { outer: [[-0.5, -0.004], [0.5, -0.004], [0.5, 0.004], [-0.5, 0.004]], holes: [] };
     const s = clickerSpecSchema.parse({ ...twoLayers, layers: [imageLayer({ size: 20, groups: [{ color: RED, shapes: [hair, square(0.3, 0.3, 0.3)] }] })] });
