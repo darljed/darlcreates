@@ -2,17 +2,20 @@
 
 /**
  * The 3D view of a clicker being designed. It draws the very pieces the printer will get (one solid per colour), with
- * orbit, zoom and a top view. In "move" mode a drag on the clicker moves the design layer under the pointer, or swings the
- * keyring round the edge; the camera stays put while you do. If WebGL is not available it falls back to a flat picture.
+ * orbit, zoom and a top view. "Inside" lifts the key off the base to show the switch pocket and a ghost switch. Clicking a
+ * part picks it (so the designer can offer its colour). In "move" mode a drag on the clicker moves the design layer under
+ * the pointer, or swings the keyring round the edge; the camera stays put while you do. If WebGL is not available it
+ * falls back to a flat picture.
  */
 import { Component, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import { BufferGeometry, DoubleSide, Float32BufferAttribute, Vector3, type PerspectiveCamera as Cam } from "three";
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, Vector3, type Group, type PerspectiveCamera as Cam } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Layout } from "@/lib/clicker/layout";
 import type { SolidPart } from "@/lib/clicker/extrude";
 import { boundsOf } from "@/lib/clicker/poly";
+import { FIT } from "@/lib/clicker/fit";
 
 export type ViewMode = "3d" | "top";
 export type Point = [number, number];
@@ -22,6 +25,10 @@ export type ClickerViewerProps = {
   layout: Layout;
   selectedLayerId: string | null;
   view: ViewMode;
+  /** Lift the key off the base to show the inside, with the switch. */
+  explode: boolean;
+  /** A part was clicked (not dragged). */
+  onPick?: (part: { object: "housing" | "cap"; role: string; color: string }) => void;
   /** When on, dragging on the clicker moves things instead of orbiting the camera. */
   moveMode: boolean;
   onDragStart: (p: Point) => void;
@@ -31,15 +38,56 @@ export type ClickerViewerProps = {
   fallback: ReactNode;
 };
 
-function Parts({ solids }: { solids: SolidPart[] }) {
+/** How far the key lifts in the inside view (mm). */
+const LIFT = 26;
+
+function Parts({ solids, explode, onPick, moveMode }: { solids: SolidPart[]; explode: boolean; onPick?: ClickerViewerProps["onPick"]; moveMode: boolean }) {
   // the geometries belong to the layout that made them; free the GPU copies when a newer set replaces them
   useEffect(() => () => solids.forEach((s) => s.geometry.dispose()), [solids]);
+  const cap = useRef<Group | null>(null);
+  useFrame((_, dt) => {
+    const g = cap.current;
+    if (!g) return;
+    const target = explode ? LIFT : 0;
+    g.position.z += (target - g.position.z) * Math.min(1, dt * 7);
+    if (Math.abs(target - g.position.z) < 0.01) g.position.z = target;
+  });
+  const mesh = (s: SolidPart) => (
+    <mesh
+      key={`${s.id}-${s.color}`}
+      geometry={s.geometry}
+      onClick={(e) => {
+        if (moveMode || !onPick || e.delta > 4) return;
+        e.stopPropagation();
+        onPick({ object: s.object, role: s.role, color: s.color });
+      }}
+    >
+      <meshStandardMaterial color={s.color} roughness={0.55} metalness={0.04} />
+    </mesh>
+  );
   return (
     <>
-      {solids.map((s) => (
-        <mesh key={`${s.id}-${s.color}`} geometry={s.geometry}>
-          <meshStandardMaterial color={s.color} roughness={0.55} metalness={0.04} />
-        </mesh>
+      {solids.filter((s) => s.object === "housing").map(mesh)}
+      <group ref={cap}>{solids.filter((s) => s.object === "cap").map(mesh)}</group>
+    </>
+  );
+}
+
+/** A see-through MX switch in each pocket: the body below the deck, the top housing above it, and the cross stem. */
+function GhostSwitches({ layout, show }: { layout: Layout; show: boolean }) {
+  if (!show) return null;
+  const deck = FIT.deckTopMm;
+  const mat = (color: string, opacity: number) => <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.6} depthWrite={false} />;
+  return (
+    <>
+      {layout.keys.map((k) => (
+        <group key={k.index} position={[k.cx, k.cy, 0]}>
+          <mesh position={[0, 0, (deck + 1.7) / 2]}><boxGeometry args={[13.6, 13.6, deck - 1.7]} />{mat("#9ca3af", 0.45)}</mesh>
+          <mesh position={[0, 0, deck + 0.75]}><boxGeometry args={[15.4, 15.4, 1.5]} />{mat("#374151", 0.6)}</mesh>
+          <mesh position={[0, 0, deck + 3.5]}><boxGeometry args={[11.4, 11.4, 4]} />{mat("#374151", 0.55)}</mesh>
+          <mesh position={[0, 0, (deck + 5.5 + FIT.capRestZ + FIT.crossDepthMm) / 2]}><boxGeometry args={[FIT.crossSpanMm, FIT.crossArmMm, FIT.capRestZ + FIT.crossDepthMm - deck - 5.5]} />{mat("#2563eb", 0.9)}</mesh>
+          <mesh position={[0, 0, (deck + 5.5 + FIT.capRestZ + FIT.crossDepthMm) / 2]}><boxGeometry args={[FIT.crossArmMm, FIT.crossSpanMm, FIT.capRestZ + FIT.crossDepthMm - deck - 5.5]} />{mat("#2563eb", 0.9)}</mesh>
+        </group>
       ))}
     </>
   );
@@ -66,11 +114,11 @@ function SelectionBox({ layout, layerId, z }: { layout: Layout; layerId: string 
   );
 }
 
-function Scene({ solids, layout, selectedLayerId, view, moveMode, onDragStart, onDrag, onDragEnd }: Omit<ClickerViewerProps, "fallback">) {
+function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPick, onDragStart, onDrag, onDragEnd }: Omit<ClickerViewerProps, "fallback">) {
   const controls = useRef<OrbitControlsImpl | null>(null);
   const camera = useRef<Cam | null>(null);
   const dragging = useRef(false);
-  const size = Math.max(layout.bounds.maxX - layout.bounds.minX, layout.bounds.maxY - layout.bounds.minY, 20);
+  const size = Math.max(layout.bounds.maxX - layout.bounds.minX, layout.bounds.maxY - layout.bounds.minY, layout.totalHeight * 1.3, 30);
   const top = layout.totalHeight;
 
   // put the camera where the chosen view wants it (also when the clicker's size changes enough to need re-framing)
@@ -86,9 +134,9 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, onDragStart, o
     const d = size * 1.9;
     const p = view === "top" ? new Vector3(0, -d * 0.0001, d) : new Vector3(size * 0.35, -size * 1.15, size * 1.25);
     cam.position.copy(p);
-    ctl.target.set((layout.bounds.minX + layout.bounds.maxX) / 2, (layout.bounds.minY + layout.bounds.maxY) / 2, 0);
+    ctl.target.set((layout.bounds.minX + layout.bounds.maxX) / 2, (layout.bounds.minY + layout.bounds.maxY) / 2, view === "top" ? 0 : layout.totalHeight * 0.45);
     ctl.update();
-  }, [view, size, layout.bounds.minX, layout.bounds.maxX, layout.bounds.minY, layout.bounds.maxY]);
+  }, [view, size, layout.totalHeight, layout.bounds.minX, layout.bounds.maxX, layout.bounds.minY, layout.bounds.maxY]);
 
   const toPoint = (e: ThreeEvent<PointerEvent>): Point => [e.point.x, e.point.y];
   const kr = layout.keyring;
@@ -117,11 +165,12 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, onDragStart, o
         <meshBasicMaterial color="#000000" transparent opacity={0.05} />
       </mesh>
 
-      <Parts solids={solids} />
+      <Parts solids={solids} explode={explode && !moveMode} onPick={onPick} moveMode={moveMode} />
+      <GhostSwitches layout={layout} show={explode && !moveMode} />
       <SelectionBox layout={layout} layerId={selectedLayerId} z={top + 0.08} />
 
       {moveMode && kr && (
-        <mesh position={[kr.cx, kr.cy, top + 0.1]} renderOrder={19}>
+        <mesh position={[kr.cx, kr.cy, FIT.keyringMm + 0.1]} renderOrder={19}>
           <ringGeometry args={[kr.holeR + 0.2, kr.holeR + 0.9, 40]} />
           <meshBasicMaterial color="#0ea5e9" side={DoubleSide} depthTest={false} transparent opacity={0.8} />
         </mesh>

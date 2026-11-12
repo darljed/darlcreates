@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * The tool panels of the clicker designer: shape and size, design layers (text and pictures), colours, style (raised,
- * flat or engraved, and the border) and the keyring. Each one only changes the design through `edit`, so undo and redo
- * cover everything.
+ * The step panels of the clicker designer: design layers (text and pictures) or the letters of name keys, colours (with the
+ * colour limit of the printer), shape and size, how it looks (raised artwork, rim height), the switch and the keyring.
+ * Each one only changes the design through `edit`, so undo and redo cover everything.
  */
 import { useRef } from "react";
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, FlipHorizontal2, ImagePlus, Link2, Link2Off, Loader2, Trash2, Type } from "lucide-react";
@@ -17,7 +17,8 @@ import { formatPHP } from "@/lib/money";
 import { NAME_FONT_IDS } from "@/lib/name-mesh";
 import type { Layout } from "@/lib/clicker/layout";
 import { SHAPES_WITH_CORNER, SHAPES_WITH_POINTS, SHAPE_IDS, SHAPE_LABELS } from "@/lib/clicker/shapes";
-import { MODES, MODE_LABELS, sizeTierCents, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
+import { RELIEF_IDS, RELIEF_LABELS, RIM_IDS, RIM_LABELS, RIM_MM } from "@/lib/clicker/fit";
+import { clickerColours, LIMITS, nameKeys, SWITCH_HELP, sizeTierCents, switchCount, switchOfferFor, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
 import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, setSize, updateLayer } from "@/lib/clicker/state";
 import type { Analysis, Pixels } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
@@ -79,7 +80,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 // Shape and size
 // ---------------------------------------------------------------------------------------------------------------------
 
-export function ShapePanel({ spec, edit, config, lock, setLock }: Common & { lock: boolean; setLock: (v: boolean) => void }) {
+export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common & { lock: boolean; setLock: (v: boolean) => void; layout: Layout }) {
   const tiers = [...new Set([config.minSize, ...config.sizeTiers.map((t) => t.upToMm), config.maxSize].filter((v) => v >= config.minSize && v <= config.maxSize))].sort((a, b) => a - b);
   return (
     <div className="space-y-5">
@@ -105,7 +106,7 @@ export function ShapePanel({ spec, edit, config, lock, setLock }: Common & { loc
         {SHAPES_WITH_POINTS.includes(spec.shape) && <Slider id="points" label={spec.shape === "star" ? "Points" : "Petals"} value={spec.points} min={3} max={12} unit="" onChange={(v) => edit((s) => ({ ...s, points: Math.round(v) }), "points")} />}
       </Section>
 
-      <Section title="Size">
+      <Section title="Size of the key">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Size presets">
           {tiers.map((mm) => {
             const add = sizeTierCents(mm, config.sizeTiers);
@@ -136,8 +137,11 @@ export function ShapePanel({ spec, edit, config, lock, setLock }: Common & { loc
             <Input id="height" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.height} onChange={(e) => e.target.value && edit((s) => setSize(s, { height: Number(e.target.value) }, config, lock), "size")} />
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">From {config.minSize} to {config.maxSize} mm. Bigger clickers cost a little more.</p>
-        <Slider id="thickness" label="Thickness" value={spec.thickness} min={2} max={8} step={0.2} onChange={(v) => edit((s) => ({ ...s, thickness: v, topDepth: Math.min(s.topDepth, v - 0.8) }), "thickness")} />
+        <p className="text-[11px] text-muted-foreground">This is the size of the key you press, from {config.minSize} to {config.maxSize} mm. The base is 5 mm bigger all round. Bigger clickers cost a little more.</p>
+        <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs" role="status">
+          Key {layout.capSize[0].toFixed(1)} × {layout.capSize[1].toFixed(1)} mm · base {layout.baseSize[0].toFixed(1)} × {layout.baseSize[1].toFixed(1)} mm · {layout.totalHeight.toFixed(1)} mm tall
+          {layout.grownFrom ? <span className="mt-0.5 block text-amber-700">Made bigger than you asked so the switch fits inside this shape.</span> : null}
+        </p>
       </Section>
     </div>
   );
@@ -242,7 +246,7 @@ function PictureEditor({ layer, spec, edit, config, picture, retrace, busy }: Co
           <Slider id={`smo-${layer.id}`} label="Smoothing" value={picture.settings.smoothing} min={0} max={2} step={1} unit="" onChange={(v) => retrace(layer.id, { smoothing: Math.round(v) })} />
         </div>
       ) : (
-        <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">This picture was saved earlier. Change its colours in the Colours tab, or add the picture again to change what is picked up from it.</p>
+        <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">This picture was saved earlier. Change its colours in the Colours step, or add the picture again to change what is picked up from it.</p>
       )}
     </div>
   );
@@ -295,7 +299,7 @@ export function DesignPanel({
         {full && <p className="text-xs text-muted-foreground">That is the most layers ({config.maxLayers}). Delete one to add another.</p>}
         {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{error}</p>}
         {spec.layers.length === 0 ? (
-          <p className="rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground">Nothing on your clicker yet. Add some text or a picture.</p>
+          <p className="rounded-lg border-2 border-dashed p-4 text-center text-sm text-muted-foreground">Nothing on the key yet. Add some text or a picture.</p>
         ) : (
           <ul className="space-y-1.5" aria-label="Layers, the last one is on top">
             {[...spec.layers].reverse().map((l) => (
@@ -337,29 +341,75 @@ export function DesignPanel({
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Colours
+// Colours (and the printer's colour limit)
 // ---------------------------------------------------------------------------------------------------------------------
+
+/** "3 of 4 colours used": all the colours of a clicker share the printer's filament slots. */
+export function ColourMeter({ spec, config }: { spec: ClickerSpec; config: ClickerConfig }) {
+  const n = clickerColours(spec).length;
+  const over = n > config.maxColours;
+  return (
+    <div role="status" className={cn("rounded-lg border-2 px-3 py-2", over ? "border-destructive/50 bg-destructive/5" : "border-border bg-muted/30")}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold">{n} of {config.maxColours} colours used</p>
+        <div className="flex gap-1" aria-hidden>
+          {Array.from({ length: config.maxColours }, (_, i) => (
+            <span key={i} className="size-3 rounded-full border" style={{ backgroundColor: clickerColours(spec)[i] ?? "transparent" }} />
+          ))}
+        </div>
+      </div>
+      <p className={cn("mt-1 text-[11px]", over ? "text-destructive" : "text-muted-foreground")}>
+        {over
+          ? `Too many. The printer holds ${config.maxColours} colours at once, and the base and the key each use one. Use fewer colours, or give the base and the key the same colour.`
+          : `The printer holds ${config.maxColours} colours at once. The base and the key each use one, and the rest is for the artwork.`}
+      </p>
+    </div>
+  );
+}
 
 export function ColoursPanel({ spec, edit, config }: Common) {
   const used = coloursInUse(spec);
-  const design = used.filter((u) => u.layers.length);
+  const design = used.filter((u) => u.layers.length && spec.kind === "clicker");
   const nameOf = (id: string) => {
     const l = spec.layers.find((x) => x.id === id);
     return l ? (l.kind === "text" ? `“${l.text.split("\n")[0].slice(0, 14)}”` : l.name || "Picture") : "";
   };
   return (
     <div className="space-y-5">
-      <p className="text-xs text-muted-foreground">Every part of the clicker is printed in one colour. Pick the colour of each part.</p>
+      <ColourMeter spec={spec} config={config} />
       <Section title="Base">
+        <p className="text-[11px] text-muted-foreground">The part that holds the switch. Click it on the 3D view to select it.</p>
         <PalettePicker palette={config.palette} value={spec.baseColor} label="Base colour" onChange={(c) => edit((s) => ({ ...s, baseColor: c }))} />
       </Section>
-      {spec.border.on && (
-        <Section title="Border">
-          <PalettePicker palette={config.palette} value={spec.border.color} label="Border colour" onChange={(c) => edit((s) => ({ ...s, border: { ...s.border, color: c } }))} />
+      {spec.kind === "clicker" ? (
+        <Section title="Key">
+          <p className="text-[11px] text-muted-foreground">The part you press, behind the artwork.</p>
+          <PalettePicker palette={config.palette} value={spec.capColor} label="Key colour" onChange={(c) => edit((s) => ({ ...s, capColor: c }))} />
         </Section>
+      ) : (
+        spec.name && (
+          <>
+            <Section title={spec.name.keyColors.length > 1 ? "Keys (they alternate)" : "Keys"}>
+              {spec.name.keyColors.map((c, i) => (
+                <PalettePicker key={i} palette={config.palette} value={c} label={`Key colour ${i + 1}`} onChange={(hex) => edit((s) => ({ ...s, name: s.name && { ...s.name, keyColors: s.name.keyColors.map((k, j) => (j === i ? hex : k)) } }))} />
+              ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => edit((s) => (s.name ? { ...s, name: { ...s.name, keyColors: s.name.keyColors.length > 1 ? s.name.keyColors.slice(0, 1) : [s.name.keyColors[0], config.palette.find((p) => p.toLowerCase() !== s.name!.keyColors[0].toLowerCase()) ?? config.palette[0]] } } : s))}
+              >
+                {spec.name.keyColors.length > 1 ? "Use one key colour" : "Alternate two key colours"}
+              </Button>
+            </Section>
+            <Section title="Letters">
+              <PalettePicker palette={config.palette} value={spec.name.letterColor} label="Letter colour" onChange={(c) => edit((s) => ({ ...s, name: s.name && { ...s.name, letterColor: c } }))} />
+            </Section>
+          </>
+        )
       )}
       {design.length > 0 && (
-        <Section title="Design colours">
+        <Section title="Artwork colours">
           <ul className="space-y-3">
             {design.map((u) => (
               <li key={u.hex} className="space-y-1.5">
@@ -376,50 +426,106 @@ export function ColoursPanel({ spec, edit, config }: Common) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Style
+// Look: artwork height and the rim
 // ---------------------------------------------------------------------------------------------------------------------
 
-const MODE_HELP: Record<(typeof MODES)[number], string> = {
-  inlay: "Colours sit level with the top. Smooth to the touch.",
-  raised: "Colours stand out above the top, so you can feel the design.",
-  engraved: "The design is cut into the top, like a stamp.",
-};
-
-export function StylePanel({ spec, edit, config }: Common) {
+export function LookPanel({ spec, edit }: Common) {
   return (
     <div className="space-y-5">
-      <Section title="Design style">
-        <div className="grid gap-2" role="group" aria-label="Design style">
-          {MODES.map((m) => (
+      <Section title="Artwork">
+        <div className="grid gap-2" role="group" aria-label="Artwork height">
+          {RELIEF_IDS.map((r) => (
             <button
-              key={m}
+              key={r}
               type="button"
-              aria-pressed={spec.mode === m}
-              onClick={() => edit((s) => ({ ...s, mode: m }))}
-              className={cn("rounded-lg border-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", spec.mode === m ? "border-primary bg-primary/5" : "border-border hover:border-primary")}
+              aria-pressed={spec.relief === r}
+              onClick={() => edit((s) => ({ ...s, relief: r }))}
+              className={cn("rounded-lg border-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", spec.relief === r ? "border-primary bg-primary/5" : "border-border hover:border-primary")}
             >
-              <span className="block text-sm font-bold">{MODE_LABELS[m]}</span>
-              <span className="block text-xs text-muted-foreground">{MODE_HELP[m]}</span>
+              <span className="block text-sm font-bold">{RELIEF_LABELS[r]}</span>
+              <span className="block text-xs text-muted-foreground">{r === "flat" ? "Level with the key. Smooth to the touch." : "Stands out above the key, so you can feel it."}</span>
             </button>
           ))}
         </div>
-        {spec.mode === "raised" && <Slider id="emboss" label="How far it stands out" value={spec.embossHeight} min={0.4} max={3} step={0.1} onChange={(v) => edit((s) => ({ ...s, embossHeight: v }), "emboss")} />}
-        {spec.mode === "engraved" && <Slider id="engrave" label="How deep it is cut" value={Math.min(spec.engraveDepth, spec.topDepth - 0.4)} min={0.2} max={Math.max(0.3, spec.topDepth - 0.4)} step={0.1} onChange={(v) => edit((s) => ({ ...s, engraveDepth: v }), "engrave")} />}
-        <Slider id="topdepth" label="Colour layer thickness" value={spec.topDepth} min={0.6} max={Math.max(0.8, spec.thickness - 0.8)} step={0.1} hint="The part of the top that holds the colours." onChange={(v) => edit((s) => ({ ...s, topDepth: v, engraveDepth: Math.min(s.engraveDepth, v) }), "topdepth")} />
       </Section>
+      <Section title="Wall round the key">
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Wall height">
+          {RIM_IDS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              aria-pressed={spec.rim === r}
+              onClick={() => edit((s) => ({ ...s, rim: r }))}
+              className={cn("rounded-lg border-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", spec.rim === r ? "border-primary bg-primary/5" : "border-border hover:border-primary")}
+            >
+              <span className="block text-sm font-bold">{RIM_LABELS[r]}</span>
+              <span className="block text-xs text-muted-foreground">{Math.round(RIM_MM[r] * 10) / 10} mm</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground">Flush makes the wall as tall as the key, so it sits level.</p>
+      </Section>
+    </div>
+  );
+}
 
-      <Section title="Border">
-        <Toggle id="border" label="Add a border" on={spec.border.on} onChange={(on) => edit((s) => ({ ...s, border: { ...s.border, on } }))} />
-        {spec.border.on && (
-          <div className="space-y-3">
-            <Slider id="bw" label="Border width" value={spec.border.width} min={0.8} max={5} step={0.1} onChange={(v) => edit((s) => ({ ...s, border: { ...s.border, width: v } }), "bw")} />
-            <Slider id="bh" label="How high the border stands" value={spec.border.height} min={0} max={2} step={0.1} hint="0 makes it level with the top." onChange={(v) => edit((s) => ({ ...s, border: { ...s.border, height: v } }), "bh")} />
-            <div className="space-y-1">
-              <p className="text-xs font-semibold">Border colour</p>
-              <PalettePicker palette={config.palette} value={spec.border.color} label="Border colour" onChange={(c) => edit((s) => ({ ...s, border: { ...s.border, color: c } }))} />
-            </div>
-          </div>
-        )}
+// ---------------------------------------------------------------------------------------------------------------------
+// Switch
+// ---------------------------------------------------------------------------------------------------------------------
+
+export function SwitchPanel({ spec, edit, config }: Common) {
+  const keys = switchCount(spec);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">Every key has a real keyboard switch under it. The switch decides how the click feels and sounds. {keys > 1 ? `You get ${keys} switches, one per key.` : ""}</p>
+      <div className="grid gap-2" role="group" aria-label="Switch">
+        {config.switches.map((o) => (
+          <button
+            key={o.type}
+            type="button"
+            disabled={!o.available}
+            aria-pressed={spec.switchType === o.type}
+            onClick={() => edit((s) => ({ ...s, switchType: o.type }))}
+            className={cn("rounded-lg border-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", spec.switchType === o.type ? "border-primary bg-primary/5" : "border-border hover:border-primary")}
+          >
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-bold">{o.label}</span>
+              <span className="text-xs text-muted-foreground">{!o.available ? "Out of stock" : o.cents > 0 ? `+${formatPHP(o.cents * keys)}` : "Included"}</span>
+            </span>
+            <span className="block text-xs text-muted-foreground">{SWITCH_HELP[o.type]}</span>
+          </button>
+        ))}
+      </div>
+      {switchOfferFor(config, spec.switchType)?.available === false && <p role="alert" className="text-xs text-destructive">That switch is out of stock. Pick another.</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Name keys: the letters
+// ---------------------------------------------------------------------------------------------------------------------
+
+export function LettersPanel({ spec, edit, config, layout }: Common & { layout: Layout }) {
+  const n = spec.name;
+  if (!n) return null;
+  const set = (p: Partial<NonNullable<ClickerSpec["name"]>>, key?: string) => edit((s) => (s.name ? { ...s, name: { ...s.name, ...p } } : s), key);
+  const keys = nameKeys(n);
+  return (
+    <div className="space-y-4">
+      <Section title="Letters">
+        <div>
+          <Label htmlFor="name-text" className="text-xs font-semibold">One key for each letter</Label>
+          <Input id="name-text" value={n.text} maxLength={config.maxKeys} autoComplete="off" onChange={(e) => set({ text: e.target.value.replace(/\s+/g, "").slice(0, config.maxKeys) }, "name-text")} />
+          <p className="mt-1 text-[11px] text-muted-foreground">Up to {config.maxKeys} keys. {keys.length} now. {config.keyCents > 0 ? `Each key after the first adds ${formatPHP(config.keyCents)}.` : ""}</p>
+        </div>
+        <FontPicker fonts={NAME_FONT_IDS} value={n.font} sample={n.text.slice(0, 6) || "ABC"} label="Font" onChange={(font) => set({ font })} />
+        <Slider id="letter-size" label="Letter size" value={n.letterSize} min={4} max={14} step={0.5} onChange={(v) => set({ letterSize: v }, "letter-size")} />
+      </Section>
+      <Section title="Layout">
+        <Slider id="per-row" label="Keys in a row" value={Math.min(n.perRow, Math.max(1, keys.length))} min={1} max={Math.max(1, Math.min(config.maxKeys, keys.length || 1))} unit="" onChange={(v) => set({ perRow: Math.round(v) }, "per-row")} hint="Fewer keys per row makes a shorter, taller clicker." />
+        <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs" role="status">
+          Base {layout.baseSize[0].toFixed(1)} × {layout.baseSize[1].toFixed(1)} mm · {layout.totalHeight.toFixed(1)} mm tall
+        </p>
       </Section>
     </div>
   );
@@ -434,21 +540,21 @@ export function KeyringPanel({ spec, edit, config, layout }: Common & { layout: 
   const set = (p: Partial<ClickerSpec["keyring"]>, key?: string) => edit((s) => ({ ...s, keyring: { ...s.keyring, ...p } }), key);
   return (
     <div className="space-y-5">
-      <Section title="Keyring hole">
-        <Toggle id="keyring" label="Add a hole for a keyring" on={k.on} onChange={(on) => set({ on })} />
+      <Section title="Keyring tab">
+        <Toggle id="keyring" label="Add a tab with a hole for a keyring" on={k.on} onChange={(on) => set({ on })} />
         {config.keyringCents > 0 && k.on && <p className="text-xs text-muted-foreground">Adds {formatPHP(config.keyringCents)}.</p>}
         {k.on && (
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Where the hole goes">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Where the tab goes">
               {[["Top", 90], ["Right", 0], ["Bottom", -90], ["Left", 180], ["Top right", 45], ["Top left", 135]].map(([name, angle]) => (
                 <Button key={name} type="button" size="sm" variant={Math.round(k.angle) === angle ? "default" : "outline"} aria-pressed={Math.round(k.angle) === angle} onClick={() => set({ angle: angle as number })}>
                   {name}
                 </Button>
               ))}
             </div>
-            <Slider id="kangle" label="Where it sits round the edge" value={((k.angle + 540) % 360) - 180} min={-180} max={180} unit="°" onChange={(v) => set({ angle: v }, "kangle")} hint="Or switch on “Move” above the clicker and drag the ring." />
+            <Slider id="kangle" label="Where it sits round the base" value={((k.angle + 540) % 360) - 180} min={-180} max={180} unit="°" onChange={(v) => set({ angle: v }, "kangle")} hint="Or switch on “Move” above the clicker and drag the ring." />
             <Slider id="khole" label="Hole size" value={k.hole} min={2} max={9} step={0.5} onChange={(v) => set({ hole: v }, "khole")} hint="4 to 5 mm fits most keyrings and cords." />
-            <Slider id="kwall" label="Strength of the loop" value={k.wall} min={1.6} max={5} step={0.1} onChange={(v) => set({ wall: v }, "kwall")} hint="The material round the hole." />
+            <Slider id="kwall" label="Strength of the loop" value={k.wall} min={LIMITS.minKeyringWallMm} max={5} step={0.1} onChange={(v) => set({ wall: v }, "kwall")} hint="The material round the hole." />
             {layout.warnings.filter((w) => /keyring/i.test(w)).map((w) => <p key={w} role="status" className="text-xs text-amber-700">{w}</p>)}
           </div>
         )}

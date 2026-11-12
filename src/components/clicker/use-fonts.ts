@@ -14,7 +14,7 @@ export function useClickerFonts(specs: ClickerSpec[]) {
   const [version, setVersion] = useState(0);
   const lookup = useCallback((id: NameFontId) => fonts.current.get(id), []);
 
-  const needed = [...new Set(specs.flatMap((s) => s.layers.flatMap((l) => (l.kind === "text" ? [l.font] : []))))].sort().join(",");
+  const needed = [...new Set(specs.flatMap((s) => [...s.layers.flatMap((l) => (l.kind === "text" ? [l.font] : [])), ...(s.kind === "name" && s.name ? [s.name.font] : [])]))].sort().join(",");
   useEffect(() => {
     let live = true;
     for (const id of needed.split(",").filter(Boolean) as NameFontId[]) {

@@ -82,8 +82,6 @@ function growToKeepout(spec: ClickerSpec): { w: number; h: number; grown: boolea
   return { w: up(spec.width * hi), h: up(spec.height * hi), grown: true };
 }
 
-const shift = (ring: Ring, dx: number, dy: number): Ring => ring.map(([x, y]) => [x + dx, y + dy]);
-
 /** Where each key goes: one at the centre for a clicker; rows of keys for name keys. */
 function placeKeys(spec: ClickerSpec): { cx: number; cy: number; char: string | null; ring: Ring; color: string }[] {
   if (spec.kind === "name" && spec.name) {
