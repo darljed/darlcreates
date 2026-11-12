@@ -451,7 +451,7 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
 
   const options = await db.select().from(productOptions).where(eq(productOptions.productId, productId));
   const existing = options.find((o) => (o.constraints as { clicker?: unknown } | null)?.clicker);
-  if (options.some((o) => o !== existing)) {
+  if (config && options.some((o) => o !== existing)) {
     return { ok: false, error: "Remove this product's other customization options first. The clicker designer replaces them." };
   }
 

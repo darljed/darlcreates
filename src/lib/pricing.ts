@@ -96,6 +96,7 @@ export function computeUnitPrice(
       }
       const design = clickerSpecSchema.safeParse(sel!.design);
       if (!design.success) errors.push(`${opt.label}: ${design.error.issues[0]?.message ?? "the design is not valid"}`);
+      else if (JSON.stringify(design.data).length > MAX_SPEC_JSON) errors.push(`${opt.label}: the design is not valid or too detailed.`);
       else {
         const problem = checkAgainstConfig(design.data, clicker);
         if (problem) errors.push(`${opt.label}: ${problem}`);
