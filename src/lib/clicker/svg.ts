@@ -16,16 +16,19 @@ function pathOf(regions: Region[]): string {
     .join("");
 }
 
-/** SVG markup for the layout, centred in a square-ish box with a small margin. The pieces are painted bottom to top. */
+/** What the top view shows: the base, its keyring tab, the cap's face, the cap's top and the artwork (not the hidden inner slabs). */
+const VISIBLE_ROLES = new Set(["floor", "keyring", "cap-face", "cap-skin", "art"]);
+
+/** SVG markup for the layout (the clicker seen from above), centred in a box with a small margin. Painted bottom to top. */
 export function layoutToSvg(layout: Layout, opts: { margin?: number; className?: string; title?: string } = {}): string {
   const m = opts.margin ?? 2;
   const b = layout.bounds;
   const w = b.maxX - b.minX + m * 2, h = b.maxY - b.minY + m * 2;
   // SVG's y runs down, ours runs up: flip once on the group
   const paints = layout.parts
-    .slice()
+    .filter((p) => VISIBLE_ROLES.has(p.role))
     .sort((a, c) => a.z0 - c.z0 || a.z1 - c.z1)
-    .map((p) => `<path d="${pathOf(p.regions)}" fill="${p.color}" fill-rule="evenodd"${p.role === "body" ? "" : ` stroke="rgba(0,0,0,.28)" stroke-width="0.12"`}/>`)
+    .map((p) => `<path d="${pathOf(p.regions)}" fill="${p.color}" fill-rule="evenodd"${p.role === "floor" ? ` stroke="rgba(0,0,0,.2)" stroke-width="0.2"` : ` stroke="rgba(0,0,0,.28)" stroke-width="0.12"`}/>`)
     .join("");
   const title = opts.title ? `<title>${opts.title.replace(/[<>&"]/g, "")}</title>` : "";
   return (

@@ -1,199 +1,337 @@
 /**
- * From a design to the flat pieces a clicker is printed from. The clicker is a stack of layers, each a set of areas at a
- * height, and no two pieces overlap, so a slicer can give every colour its own filament:
+ * From a design to the flat pieces a clicker is printed from. A clicker is two printed objects around a real MX switch:
  *
- *   body    the whole outline, from the bottom up to the top layer                       (base colour)
- *   top     the top layer inside the border (with holes where the design is let in)      (base colour)
- *   border  a rim around the edge, optionally standing above the top                      (border colour)
- *   design  the colours of the design: flush with the top (inlay), standing on it (raised), or in the bottom of a
- *           recess (engraved)                                                            (one piece per colour)
+ *   housing  floor, body with a 14 mm chamber for the switch, a band with four clip windows, the deck the switch sits in,
+ *            and the rim around the well. One colour. A flat keyring tab can hang off it.
+ *   cap      one per key: a ring and a round boss with a cross socket for the stem (hollow underneath), a solid face, a
+ *            thin skin on top with the coloured artwork inlaid in it (optionally standing above it).
  *
- * The keyring is a loop added to the outline with a real hole through every piece. Everything here is 2D and in
- * millimetres; `extrude.ts` gives the pieces their height. Pure, so the browser preview, the cart check and the
- * server's print file all use exactly the same result.
+ * Every piece is a set of areas between two heights and no two pieces overlap, so each colour is its own filament. The
+ * heights here are "assembled with the key up" (the cap sits `capRestZ` above the housing's bottom); the print file moves
+ * the cap down to the bed. Everything here is 2D and in millimetres; `extrude.ts` gives the pieces their height. Pure, so
+ * the browser preview, the cart check and the server's print file all use exactly the same result.
  */
 import type { Font, NameFontId } from "../name-mesh";
-import type { Bounds, Region } from "./poly";
+import { boxRing, capTopMm, crossRing, DEFAULT_TUNE, FIT, RELIEF_MM, RIM_MM, totalHeightMm, type Tune } from "./fit";
+import type { Bounds, Region, Ring } from "./poly";
 import { boundsOf, difference, intersect, offset, regionArea, removeSmallFeatures, straighten, totalArea, transformRegions, union } from "./poly";
 import { circleRing, rayExit, shapeRing } from "./shapes";
-import type { ClickerSpec } from "./spec";
+import { nameKeys, type ClickerSpec } from "./spec";
 import { LIMITS } from "./spec";
 import { textRegions } from "./text";
 
-export type PartRole = "body" | "top" | "border" | "design" | "floor";
+export type PartObject = "housing" | "cap";
+export type PartRole = "floor" | "body" | "notch" | "deck" | "rim" | "keyring" | "cap-ring" | "cap-boss" | "cap-top" | "cap-face" | "cap-skin" | "art";
 export type LayoutPart = {
   id: string;
+  object: PartObject;
   role: PartRole;
-  /** Human name for slicers and the colour list ("Base", "Border", "Colour #ef4444"). */
+  /** Human name for slicers and the colour list. */
   name: string;
   color: string;
   regions: Region[];
+  /** Heights with the key up (assembled). The print file moves the cap down to the bed. */
   z0: number;
   z1: number;
 };
 
+export type KeyInfo = { index: number; cx: number; cy: number; char: string | null; outline: Region[]; width: number; height: number; color: string };
+
 export type Layout = {
   parts: LayoutPart[];
-  outline: Region[];
-  interior: Region[];
+  keys: KeyInfo[];
+  /** All caps together. */
+  capOutline: Region[];
+  /** The housing's footprint (without the keyring tab). */
+  housingOutline: Region[];
+  /** Housing with its keyring tab. */
   bounds: Bounds;
+  capBounds: Bounds;
   keyring: { cx: number; cy: number; loopR: number; holeR: number } | null;
-  /** Where each design layer ended up (before it is trimmed to the clicker), for selecting and dragging it. */
+  /** Where each design layer ended up (before it is trimmed to the cap), for selecting and dragging it. */
   layerShapes: Map<string, Region[]>;
   warnings: string[];
   /** Things that stop the design from being ordered. */
   errors: string[];
   totalHeight: number;
+  /** The cap's size after the shape was grown to hold the switch, and the base's size. */
+  capSize: [number, number];
+  baseSize: [number, number];
+  /** Set when the cap had to be made bigger than asked so the switch fits. */
+  grownFrom: [number, number] | null;
 };
 
 export type FontLookup = (id: NameFontId) => Font | undefined;
 
 const lc = (s: string) => s.toLowerCase();
+const region = (outer: Ring): Region => ({ outer, holes: [] });
 
-export function buildLayout(spec: ClickerSpec, fonts: FontLookup): Layout {
+/** The smallest k >= 1 so the shape scaled by k holds the switch's keep-out square. */
+function growToKeepout(spec: ClickerSpec): { w: number; h: number; grown: boolean } {
+  const opt = { corner: spec.corner, points: spec.points };
+  const keep = [region(boxRing(0, 0, FIT.keepoutMm, FIT.keepoutMm))];
+  const fits = (k: number) => totalArea(difference(keep, [region(shapeRing(spec.shape, spec.width * k, spec.height * k, opt))])) < 0.02;
+  if (fits(1)) return { w: spec.width, h: spec.height, grown: false };
+  let lo = 1, hi = 4;
+  for (let i = 0; i < 22; i++) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) hi = mid;
+    else lo = mid;
+  }
+  const up = (v: number) => Math.ceil(v * 10) / 10;
+  return { w: up(spec.width * hi), h: up(spec.height * hi), grown: true };
+}
+
+const shift = (ring: Ring, dx: number, dy: number): Ring => ring.map(([x, y]) => [x + dx, y + dy]);
+
+/** Where each key goes: one at the centre for a clicker; rows of keys for name keys. */
+function placeKeys(spec: ClickerSpec): { cx: number; cy: number; char: string | null; ring: Ring; color: string }[] {
+  if (spec.kind === "name" && spec.name) {
+    const chars = nameKeys(spec.name);
+    const per = Math.max(1, spec.name.perRow);
+    const rows = Math.ceil(chars.length / per);
+    const pitch = FIT.keyMm + FIT.keyGapMm;
+    return chars.map((char, i) => {
+      const row = Math.floor(i / per), col = i % per;
+      const inRow = Math.min(per, chars.length - row * per);
+      const cx = (col - (inRow - 1) / 2) * pitch;
+      const cy = -(row - (rows - 1) / 2) * pitch;
+      return { cx, cy, char, ring: boxRing(cx, cy, FIT.keyMm, FIT.keyMm, FIT.keyCornerMm), color: lc(spec.name!.keyColors[i % spec.name!.keyColors.length]) };
+    });
+  }
+  const size = growToKeepout(spec);
+  return [{ cx: 0, cy: 0, char: null, ring: shapeRing(spec.shape, size.w, size.h, { corner: spec.corner, points: spec.points }), color: lc(spec.capColor) }];
+}
+
+export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = DEFAULT_TUNE): Layout {
   const warnings: string[] = [];
   const errors: string[] = [];
-  const T = spec.thickness, D = spec.topDepth;
-  const zTop0 = T - D;
 
-  // --- outline, with the keyring loop and its hole --------------------------------------------------------------
-  const ring = shapeRing(spec.shape, spec.width, spec.height, { corner: spec.corner, points: spec.points });
-  const body = union([{ outer: ring, holes: [] }]);
-  let outline = body;
+  // --- the keys (caps) ------------------------------------------------------------------------------------------
+  const placedKeys = placeKeys(spec);
+  const keys: KeyInfo[] = placedKeys.map((k, index) => {
+    const outline = [region(k.ring)];
+    const b = boundsOf(outline);
+    return { index, cx: k.cx, cy: k.cy, char: k.char, outline, width: b.maxX - b.minX, height: b.maxY - b.minY, color: k.color };
+  });
+  const capOutline = union(keys.flatMap((k) => k.outline));
+  const capBounds = boundsOf(capOutline);
+  const asked: [number, number] = [spec.width, spec.height];
+  const capSize: [number, number] = [capBounds.maxX - capBounds.minX, capBounds.maxY - capBounds.minY];
+  let grownFrom: [number, number] | null = null;
+  if (spec.kind === "clicker" && (capSize[0] > asked[0] + 0.05 || capSize[1] > asked[1] + 0.05)) {
+    grownFrom = asked;
+    warnings.push(`Made ${capSize[0].toFixed(1)} × ${capSize[1].toFixed(1)} mm so the switch fits inside.`);
+  }
+
+  // --- the housing -----------------------------------------------------------------------------------------------
+  const housingOutline = union(offset(capOutline, FIT.insetMm));
+  const wells = union(offset(capOutline, FIT.clearMm + tune.gap));
+  const pocket = FIT.pocketMm + tune.pocket;
+  const chambers = union(keys.map((k) => region(boxRing(k.cx, k.cy, pocket, pocket))));
+  const windows = union(
+    keys.flatMap((k) => {
+      const w = FIT.notchWidthMm, d = FIT.notchDepthMm + 0.2, off = pocket / 2 - 0.2 + d / 2;
+      return [region(boxRing(k.cx + off, k.cy, d, w)), region(boxRing(k.cx - off, k.cy, d, w)), region(boxRing(k.cx, k.cy + off, w, d)), region(boxRing(k.cx, k.cy - off, w, d))];
+    }),
+  );
+  const chambersAndWindows = union(chambers, windows);
+
+  // the keyring: a flat tab on the housing with one real hole
   let keyring: Layout["keyring"] = null;
+  let tab: Region[] = [];
   if (spec.keyring.on) {
-    const exit = rayExit(ring, spec.keyring.angle);
+    const biggest = housingOutline.slice().sort((a, b) => regionArea(b) - regionArea(a))[0];
+    const exit = biggest ? rayExit(biggest.outer, spec.keyring.angle) : null;
     if (exit) {
       const holeR = spec.keyring.hole / 2;
       const loopR = holeR + spec.keyring.wall;
-      // push the hole outward until it no longer cuts into the clicker (concave shapes such as the heart's notch)
       let dist = holeR + 1.0;
       let cx = 0, cy = 0;
       for (let i = 0; i < 28; i++) {
         cx = exit.point[0] + exit.dir[0] * dist;
         cy = exit.point[1] + exit.dir[1] * dist;
-        if (totalArea(intersect(body, [{ outer: circleRing(cx, cy, holeR), holes: [] }])) < 0.05) break;
+        // keep a full ring of material (at least 1.2 mm) round the hole: it must not run into the base's edge
+        if (totalArea(intersect(housingOutline, [region(circleRing(cx, cy, holeR + 1.2))])) < 0.05) break;
         dist += 0.25;
       }
-      let loop: Region[] = [{ outer: circleRing(cx, cy, loopR), holes: [] }];
-      const hole: Region[] = [{ outer: circleRing(cx, cy, holeR), holes: [] }];
-      if (totalArea(intersect(body, loop)) < 8) {
-        // a pointed corner meets the loop at a single spot: join them with a neck of round steps from inside the clicker to the loop
+      let loop: Region[] = [region(circleRing(cx, cy, loopR))];
+      if (totalArea(intersect(housingOutline, loop)) < 8) {
+        // a corner meets the loop at one spot: join them with a neck of round steps from inside the base
         const from: [number, number] = [exit.point[0] - exit.dir[0] * 1.5, exit.point[1] - exit.dir[1] * 1.5];
         const steps = Math.max(2, Math.ceil(Math.hypot(cx - from[0], cy - from[1]) / 0.5));
         const neck = Array.from({ length: steps + 1 }, (_, i) => {
           const t = i / steps;
-          return { outer: circleRing(from[0] + (cx - from[0]) * t, from[1] + (cy - from[1]) * t, loopR), holes: [] } as Region;
+          return region(circleRing(from[0] + (cx - from[0]) * t, from[1] + (cy - from[1]) * t, loopR));
         });
         loop = union(loop, union(neck));
       }
-      if (totalArea(intersect(body, loop)) < 2) warnings.push("The keyring loop barely touches the clicker. Move it closer or make the loop wall thicker.");
-      // a notch the loop closes over (the heart's) would be a hidden hollow: fill every gap, then cut the one hole for the ring
-      const joined = union(body, loop).map((r) => ({ outer: r.outer, holes: [] as Region["holes"] }));
-      outline = difference(joined, hole);
+      if (totalArea(intersect(housingOutline, loop)) < 2) warnings.push("The keyring loop barely touches the base. Move it closer or make the loop wall thicker.");
+      tab = difference(difference(loop, housingOutline), [region(circleRing(cx, cy, holeR))]);
       keyring = { cx, cy, loopR, holeR };
     }
   }
+  const bounds = boundsOf(tab.length ? union(housingOutline, tab) : housingOutline);
 
-  // --- the border and what is inside it -------------------------------------------------------------------------
-  let interior = outline;
-  let borderRegions: Region[] = [];
-  if (spec.border.on) {
-    // thin slivers left where the border closes up (round the keyring loop) are not worth printing as top: drop them
-    interior = removeSmallFeatures(offset(outline, -spec.border.width, "miter"), 0.25, 2).regions;
-    borderRegions = difference(outline, interior);
-    if (interior.length === 0) errors.push("The border is too wide for this size. Make it thinner or the clicker bigger.");
-  }
-
-  // --- the design: place every layer, then let the upper layers cover the lower ones -----------------------------
-  type Placed = { layerId: string; color: string; regions: Region[] };
-  const placed: Placed[] = [];
-  const layerShapes = new Map<string, Region[]>();
-  for (const layer of spec.layers) {
-    if (!layer.visible) continue;
-    if (layer.kind === "text") {
-      if (!layer.text.trim()) continue;
-      const font = fonts(layer.font);
-      if (!font) continue; // still loading in the browser
-      const t = textRegions(font, layer.text, { size: layer.size, spacing: layer.spacing, lineGap: layer.lineGap });
-      if ("error" in t) {
-        errors.push(`Text “${layer.text.slice(0, 12)}”: ${t.error}`);
-        continue;
-      }
-      const regions = transformRegions(t.regions, { x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
-      placed.push({ layerId: layer.id, color: lc(layer.color), regions });
-      layerShapes.set(layer.id, regions);
-    } else {
-      const all: Region[] = [];
-      for (const g of layer.regions) {
-        const regions = transformRegions(g.shapes, { scale: layer.size, x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
-        if (regions.length) placed.push({ layerId: layer.id, color: lc(g.color), regions });
-        all.push(...regions);
-      }
-      if (all.length) layerShapes.set(layer.id, all);
-    }
-  }
-
-  const byColour = new Map<string, Region[]>();
-  let covered: Region[] = [];
-  for (let i = placed.length - 1; i >= 0; i--) {
-    const p = placed[i];
-    const inside = intersect(p.regions, interior);
-    if (inside.length === 0) continue;
-    const visible = covered.length ? difference(inside, covered) : inside;
-    covered = covered.length ? union(covered, inside) : inside;
-    if (visible.length) byColour.set(p.color, [...(byColour.get(p.color) ?? []), ...visible]);
-  }
-  for (const [layerId, shapes] of layerShapes) {
-    const name = spec.layers.find((l) => l.id === layerId)?.name || "A layer";
-    const kept = totalArea(intersect(shapes, interior));
-    const all = totalArea(shapes);
-    if (!kept) warnings.push(`“${name}” is outside the clicker.`);
-    else if (all > 0 && kept / all < 0.95) warnings.push(`“${name}” runs past the edge of the clicker, so part of it is cut off. Make it smaller or the clicker bigger.`);
-  }
-
-  // drop detail that is too fine to print
-  let removed = 0, designArea = 0;
-  const designByColour = new Map<string, Region[]>();
-  for (const [color, regions] of byColour) {
-    const merged = union(regions);
-    designArea += totalArea(merged);
-    const r = removeSmallFeatures(merged, LIMITS.minFeatureMm / 2, LIMITS.minAreaMm2);
-    removed += r.removedArea;
-    // rounding in the opening can leave an edge a micrometre outside the clicker: trim it back so pieces meet exactly
-    const trimmed = intersect(r.regions, interior);
-    if (trimmed.length) designByColour.set(color, trimmed);
-  }
-  if (designArea > 0 && removed / designArea > 0.02) warnings.push(`Some very fine detail (thinner than ${LIMITS.minFeatureMm} mm) is too small to print and was left out.`);
-  const allDesign = union([...designByColour.values()].flat());
-
-  // --- the pieces -----------------------------------------------------------------------------------------------
   const parts: LayoutPart[] = [];
-  const base = lc(spec.baseColor);
   const add = (p: LayoutPart) => {
     // Settle the piece before it is extruded: merge overlaps, and open by a hair (0.01 mm) so a hole that only touches
     // its outline along an edge, or a sliver of no width, is cleanly removed; then drop points that lie on a line.
     const regions = straighten(removeSmallFeatures(union(p.regions), 0.01, 0.01).regions).filter((r) => regionArea(r) > 0.01);
     if (regions.length) parts.push({ ...p, regions });
   };
-  add({ id: "body", role: "body", name: "Base", color: base, regions: outline, z0: 0, z1: zTop0 });
 
-  const raised = spec.mode === "raised";
-  const engraved = spec.mode === "engraved";
-  add({ id: "top", role: "top", name: "Base top", color: base, regions: raised || !allDesign.length ? interior : difference(interior, allDesign), z0: zTop0, z1: T });
-  if (spec.border.on) add({ id: "border", role: "border", name: "Border", color: lc(spec.border.color), regions: borderRegions, z0: zTop0, z1: T + spec.border.height });
+  const base = lc(spec.baseColor);
+  const { floorMm, deckTopMm, deckMm, notchMm } = FIT;
+  const zNotch0 = deckTopMm - deckMm - notchMm, zNotch1 = deckTopMm - deckMm;
+  const rimTop = deckTopMm + RIM_MM[spec.rim];
+  add({ id: "h-floor", object: "housing", role: "floor", name: "Base floor", color: base, regions: housingOutline, z0: 0, z1: floorMm });
+  add({ id: "h-body", object: "housing", role: "body", name: "Base body", color: base, regions: difference(housingOutline, chambers), z0: floorMm, z1: zNotch0 });
+  add({ id: "h-notch", object: "housing", role: "notch", name: "Base clip band", color: base, regions: difference(housingOutline, chambersAndWindows), z0: zNotch0, z1: zNotch1 });
+  add({ id: "h-deck", object: "housing", role: "deck", name: "Base deck", color: base, regions: difference(housingOutline, chambers), z0: zNotch1, z1: deckTopMm });
+  add({ id: "h-rim", object: "housing", role: "rim", name: "Base rim", color: base, regions: difference(housingOutline, wells), z0: deckTopMm, z1: rimTop });
+  if (tab.length) add({ id: "h-ring", object: "housing", role: "keyring", name: "Base keyring", color: base, regions: tab, z0: 0, z1: FIT.keyringMm });
 
-  let engraveDepth = spec.engraveDepth;
-  if (engraved && engraveDepth > D - 0.4) {
-    engraveDepth = Math.max(0.2, D - 0.4);
-    warnings.push(`The engraving was made ${engraveDepth.toFixed(1)} mm deep so a floor is left under it.`);
+  // --- the artwork: place every layer, then let upper layers cover lower ones ------------------------------------
+  type Placed = { layerId: string; keyIndex: number; color: string; regions: Region[] };
+  const placed: Placed[] = [];
+  const layerShapes = new Map<string, Region[]>();
+  if (spec.kind === "name" && spec.name) {
+    const font = fonts(spec.name.font);
+    if (font) {
+      for (const k of keys) {
+        const t = textRegions(font, k.char!, { size: spec.name.letterSize, spacing: 0, lineGap: 0 });
+        if ("error" in t) {
+          errors.push(`“${k.char}”: ${t.error}`);
+          continue;
+        }
+        placed.push({ layerId: `key${k.index}`, keyIndex: k.index, color: lc(spec.name.letterColor), regions: transformRegions(t.regions, { x: k.cx, y: k.cy }) });
+      }
+    }
+  } else {
+    for (const layer of spec.layers) {
+      if (!layer.visible) continue;
+      if (layer.kind === "text") {
+        if (!layer.text.trim()) continue;
+        const font = fonts(layer.font);
+        if (!font) continue; // still loading in the browser
+        const t = textRegions(font, layer.text, { size: layer.size, spacing: layer.spacing, lineGap: layer.lineGap });
+        if ("error" in t) {
+          errors.push(`Text “${layer.text.slice(0, 12)}”: ${t.error}`);
+          continue;
+        }
+        const regions = transformRegions(t.regions, { x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
+        placed.push({ layerId: layer.id, keyIndex: 0, color: lc(layer.color), regions });
+        layerShapes.set(layer.id, regions);
+      } else {
+        const all: Region[] = [];
+        for (const g of layer.regions) {
+          const regions = transformRegions(g.shapes, { scale: layer.size, x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
+          if (regions.length) placed.push({ layerId: layer.id, keyIndex: 0, color: lc(g.color), regions });
+          all.push(...regions);
+        }
+        if (all.length) layerShapes.set(layer.id, all);
+      }
+    }
   }
-  for (const [color, regions] of designByColour) {
-    if (raised) add({ id: `design-${color}`, role: "design", name: `Colour ${color}`, color, regions, z0: T, z1: T + spec.embossHeight });
-    else if (engraved) add({ id: `design-${color}`, role: "floor", name: `Colour ${color}`, color, regions, z0: zTop0, z1: T - engraveDepth });
-    else add({ id: `design-${color}`, role: "design", name: `Colour ${color}`, color, regions, z0: zTop0, z1: T });
+
+  // artwork stays a hair inside the cap's edge so the skin keeps a printable rim
+  const inner = (k: KeyInfo) => offset(k.outline, -0.4, "miter");
+  const artByKey = new Map<number, Map<string, Region[]>>();
+  for (const k of keys) {
+    const interior = inner(k);
+    const mine = placed.filter((p) => p.keyIndex === k.index);
+    const byColour = new Map<string, Region[]>();
+    let covered: Region[] = [];
+    for (let i = mine.length - 1; i >= 0; i--) {
+      const p = mine[i];
+      const inside = intersect(p.regions, interior);
+      if (inside.length === 0) continue;
+      const visible = covered.length ? difference(inside, covered) : inside;
+      covered = covered.length ? union(covered, inside) : inside;
+      if (visible.length) byColour.set(p.color, [...(byColour.get(p.color) ?? []), ...visible]);
+    }
+    // drop detail that is too fine to print
+    const settled = new Map<string, Region[]>();
+    let removed = 0, area = 0;
+    for (const [color, regions] of byColour) {
+      const merged = union(regions);
+      area += totalArea(merged);
+      const r = removeSmallFeatures(merged, LIMITS.minFeatureMm / 2, LIMITS.minAreaMm2);
+      removed += r.removedArea;
+      const trimmed = intersect(r.regions, interior);
+      if (trimmed.length) settled.set(color, trimmed);
+    }
+    if (area > 0 && removed / area > 0.02) warnings.push(`Some very fine detail (thinner than ${LIMITS.minFeatureMm} mm) is too small to print and was left out.`);
+    artByKey.set(k.index, settled);
+  }
+  for (const [layerId, shapes] of layerShapes) {
+    const name = spec.layers.find((l) => l.id === layerId)?.name || "A layer";
+    const kept = totalArea(intersect(shapes, inner(keys[0])));
+    const all = totalArea(shapes);
+    if (!kept) warnings.push(`“${name}” is outside the cap.`);
+    else if (all > 0 && kept / all < 0.95) warnings.push(`“${name}” runs past the edge of the cap, so part of it is cut off. Make it smaller or the cap bigger.`);
   }
 
-  const totalHeight = Math.max(T + (raised ? spec.embossHeight : 0), T + (spec.border.on ? spec.border.height : 0));
-  return { parts, outline, interior, bounds: boundsOf(outline), keyring, layerShapes, warnings, errors, totalHeight };
+  // --- the caps --------------------------------------------------------------------------------------------------
+  const z = FIT.capRestZ;
+  const stem = tune.stem;
+  type Slabs = { c1: Region[]; c2: Region[]; c3: Region[]; c4: Region[]; skin: Region[] };
+  const slabs = new Map<string, Slabs>();
+  const artAll = new Map<string, Region[]>();
+  for (const k of keys) {
+    const colour = k.color;
+    const s = slabs.get(colour) ?? { c1: [], c2: [], c3: [], c4: [], skin: [] };
+    slabs.set(colour, s);
+    const cavity = [region(boxRing(k.cx, k.cy, FIT.cavityMm, FIT.cavityMm, FIT.cavityCornerMm))];
+    const boss = [region(circleRing(k.cx, k.cy, FIT.bossDiameterMm / 2))];
+    const cross = [region(crossRing(k.cx, k.cy, FIT.crossSpanMm + stem, FIT.crossArmMm + stem))];
+    const mouth = [region(crossRing(k.cx, k.cy, FIT.mouthSpanMm + stem, FIT.mouthArmMm + stem))];
+    const ring = difference(k.outline, cavity);
+    s.c1.push(...union(ring, difference(boss, mouth)));
+    s.c2.push(...union(ring, difference(boss, cross)));
+    s.c3.push(...union(ring, boss));
+    s.c4.push(...k.outline);
+    const art = artByKey.get(k.index) ?? new Map();
+    const artUnion = union([...art.values()].flat());
+    s.skin.push(...(artUnion.length ? difference(k.outline, artUnion) : k.outline));
+    for (const [c, r] of art) artAll.set(c, [...(artAll.get(c) ?? []), ...r]);
+  }
+  const multi = slabs.size > 1;
+  for (const [colour, s] of slabs) {
+    const tag = multi ? ` ${colour}` : "";
+    const slab = (id: string, role: PartRole, name: string, regions: Region[], a: number, b: number) =>
+      add({ id: `c-${id}-${colour}`, object: "cap", role, name: `${name}${tag}`, color: colour, regions, z0: z + a, z1: z + b });
+    slab("ring0", "cap-ring", "Cap underside", s.c1, 0, FIT.mouthDepthMm);
+    slab("ring1", "cap-boss", "Cap socket", s.c2, FIT.mouthDepthMm, FIT.crossDepthMm);
+    slab("ring2", "cap-top", "Cap ceiling", s.c3, FIT.crossDepthMm, FIT.cavityDepthMm);
+    slab("face", "cap-face", "Cap face", s.c4, FIT.cavityDepthMm, FIT.capBodyMm);
+    slab("skin", "cap-skin", "Cap top", s.skin, FIT.capBodyMm, capTopMm);
+  }
+  const relief = RELIEF_MM[spec.relief];
+  for (const [colour, regions] of artAll) add({ id: `art-${colour}`, object: "cap", role: "art", name: `Art ${colour}`, color: colour, regions, z0: z + FIT.capBodyMm, z1: z + capTopMm + relief });
+
+  // --- does it all fit on the print plate? --------------------------------------------------------------------------
+  const hw = bounds.maxX - bounds.minX, hh = bounds.maxY - bounds.minY;
+  const cw = capSize[0], ch = capSize[1];
+  const m = FIT.plateMarginMm, g = FIT.plateGapMm;
+  const sideBySide = hw + g + cw + 2 * m <= FIT.plateMm && Math.max(hh, ch) + 2 * m <= FIT.plateMm;
+  const stacked = Math.max(hw, cw) + 2 * m <= FIT.plateMm && hh + g + ch + 2 * m <= FIT.plateMm;
+  if (!sideBySide && !stacked) errors.push("This is too big to print on one plate. Make it smaller.");
+
+  return {
+    parts, keys, capOutline, housingOutline, bounds, capBounds, keyring, layerShapes, warnings, errors,
+    totalHeight: totalHeightMm(spec.relief), capSize, baseSize: [hw, hh], grownFrom,
+  };
+}
+
+/** Where the housing and the caps sit on the print plate (translations of their drawing coordinates), or null if they do not fit. */
+export function plateLayout(layout: Layout): { housing: [number, number]; cap: [number, number] } | null {
+  const m = FIT.plateMarginMm, g = FIT.plateGapMm;
+  const b = layout.bounds, c = layout.capBounds;
+  const hw = b.maxX - b.minX, hh = b.maxY - b.minY, cw = c.maxX - c.minX, ch = c.maxY - c.minY;
+  const housing: [number, number] = [m - b.minX, m - b.minY];
+  if (hw + g + cw + 2 * m <= FIT.plateMm && Math.max(hh, ch) + 2 * m <= FIT.plateMm) return { housing, cap: [m + hw + g - c.minX, m - c.minY] };
+  if (Math.max(hw, cw) + 2 * m <= FIT.plateMm && hh + g + ch + 2 * m <= FIT.plateMm) return { housing, cap: [m - c.minX, m + hh + g - c.minY] };
+  return null;
 }

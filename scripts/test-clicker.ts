@@ -1,7 +1,9 @@
 /**
- * Clicker designer: schema, shapes, 2D geometry, layout and solids (every piece watertight, pieces that meet without
- * overlapping), picture tracing, text, keyring, price rules, validation, the 3MF print file, the cart/order integration
- * and (with the database) several designs added to a cart at once. No browser. Run: npx tsx scripts/test-clicker.ts
+ * Clicker designer (mechanical switch clicker): schema, shapes, 2D geometry, the housing and cap pieces (every piece a
+ * closed solid, pieces that meet without overlapping, matching the measurements of a clicker that prints well), name keys,
+ * the 4-colour limit, picture tracing, text, keyring, price rules, validation, the two-object 3MF print file laid out on
+ * the plate, the cart/order integration and (with the database) several designs added to a cart at once.
+ * No browser. Run: npx tsx scripts/test-clicker.ts
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
@@ -12,20 +14,19 @@ import { loadFont } from "../src/lib/name-3mf";
 import { difference, intersect, offset, ringArea, totalArea, union, type Region } from "../src/lib/clicker/poly";
 import { SHAPE_IDS, SHAPE_LABELS, shapeRing, rayExit } from "../src/lib/clicker/shapes";
 import {
-  checkAgainstConfig, clickerColours, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, newId,
-  sizeTierCents, type ImageLayer, type TextLayer,
+  checkAgainstConfig, clickerColours, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, nameKeys, newId,
+  sizeTierCents, switchCount, type ClickerSpec, type ImageLayer, type TextLayer,
 } from "../src/lib/clicker/spec";
-import { buildLayout } from "../src/lib/clicker/layout";
+import { FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../src/lib/clicker/fit";
+import { buildLayout, plateLayout } from "../src/lib/clicker/layout";
 import { extrudeLayout, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
 import { designToSvg } from "../src/lib/clicker/svg";
-import { clickerTo3mf } from "../src/lib/clicker/export-3mf";
 import { buildClickerPrint, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
 import { computeUnitPrice, normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
 import { summarizeConfig } from "../src/lib/config-summary";
-import { parseObjects } from "../src/lib/threemf";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -34,7 +35,7 @@ function assert(name: string, cond: boolean, extra = "") {
 const near = (a: number, b: number, eps = 0.05) => Math.abs(a - b) <= eps;
 
 const cfg = DEFAULT_CLICKER_CONFIG;
-const BLACK = cfg.palette[1], RED = cfg.palette[2], BLUE = cfg.palette[7], WHITE = cfg.palette[0];
+const BLACK = cfg.palette[1], RED = cfg.palette[2], BLUE = cfg.palette[7], WHITE = cfg.palette[0], GREEN = cfg.palette[5];
 
 const square = (cx: number, cy: number, s: number): Region => ({ outer: [[cx - s / 2, cy - s / 2], [cx + s / 2, cy - s / 2], [cx + s / 2, cy + s / 2], [cx - s / 2, cy + s / 2]], holes: [] });
 /** A picture layer made of squares, in the layer's own units (longest side = 1). */
@@ -51,14 +52,16 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   const fonts = (id: string) => loaded.get(id);
 
   console.log("\nthe design schema");
-  const base = defaultSpec();
-  assert("the default design is valid", clickerSpecSchema.safeParse(base).success);
+  const base = defaultSpec(cfg);
+  const plain = clickerSpecSchema.parse({ ...base, layers: [textLayer({ text: "Hi", color: RED })], baseColor: WHITE, capColor: BLACK });
+  const nameSpec = (over: Partial<NonNullable<ClickerSpec["name"]>> = {}, top: Partial<ClickerSpec> = {}) => clickerSpecSchema.parse({ ...defaultSpec(cfg, "name"), ...top, name: { ...defaultSpec(cfg, "name").name!, ...over } });
+  assert("the default clicker and the default name keys are valid", clickerSpecSchema.safeParse(base).success && clickerSpecSchema.safeParse(defaultSpec(cfg, "name")).success);
+  assert("an older (version 1) design is refused, not misread", !clickerSpecSchema.safeParse({ ...base, v: 1 }).success);
   assert("a size under the minimum is refused", !clickerSpecSchema.safeParse({ ...base, width: 5 }).success);
   assert("a size over the maximum is refused", !clickerSpecSchema.safeParse({ ...base, height: 500 }).success);
-  assert("NaN and Infinity are refused", !clickerSpecSchema.safeParse({ ...base, width: NaN }).success && !clickerSpecSchema.safeParse({ ...base, thickness: Infinity }).success);
-  assert("a top layer that leaves no base is refused", !clickerSpecSchema.safeParse({ ...base, thickness: 2, topDepth: 1.8 }).success);
-  assert("an engraving deeper than the top layer is refused", !clickerSpecSchema.safeParse({ ...base, mode: "engraved", engraveDepth: 2, topDepth: 1.2 }).success);
-  assert("an unknown shape, font or colour is refused", !clickerSpecSchema.safeParse({ ...base, shape: "dragon" }).success && !clickerSpecSchema.safeParse({ ...base, baseColor: "red" }).success && !clickerSpecSchema.safeParse({ ...base, layers: [{ ...textLayer(), font: "wingdings" }] }).success);
+  assert("NaN and Infinity are refused", !clickerSpecSchema.safeParse({ ...base, width: NaN }).success && !clickerSpecSchema.safeParse({ ...base, corner: Infinity }).success);
+  assert("an unknown shape, switch, rim, relief or colour is refused", [{ shape: "dragon" }, { switchType: "magic" }, { rim: "huge" }, { relief: "deep" }, { capColor: "red" }].every((o) => !clickerSpecSchema.safeParse({ ...base, ...o }).success));
+  assert("name keys without letters are refused", !clickerSpecSchema.safeParse({ ...defaultSpec(cfg, "name"), name: undefined }).success && !clickerSpecSchema.safeParse({ ...defaultSpec(cfg, "name"), name: { ...defaultSpec(cfg, "name").name!, text: "" } }).success);
   assert("two layers with one id are refused", !clickerSpecSchema.safeParse({ ...base, layers: [{ ...textLayer(), id: "a" }, { ...textLayer(), id: "a" }] }).success);
   assert("more layers than the limit are refused", !clickerSpecSchema.safeParse({ ...base, layers: Array.from({ length: LIMITS.maxLayers + 1 }, () => textLayer()) }).success);
   assert("too many outline points over all pictures are refused", (() => {
@@ -100,73 +103,155 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     return wd(loose) > wd(tight) + 5;
   })());
 
-  console.log("\nevery shape, mode, border and keyring setting builds closed solids that fit together");
+
+  console.log("\nprice and rules");
+  assert("size tiers: the first tier that is big enough applies", sizeTierCents(30, cfg.sizeTiers) === 0 && sizeTierCents(45, cfg.sizeTiers) === 0 && sizeTierCents(46, cfg.sizeTiers) === 4000 && sizeTierCents(80, cfg.sizeTiers) === 8000 && sizeTierCents(99, cfg.sizeTiers) === 8000);
+  assert("the base, the cap and one artwork colour: only the third colour is charged", clickerColours(plain).length === 3 && clickerPriceDeltaCents(plain, cfg) === cfg.extraColourCents);
+  assert("two colours cost nothing extra", clickerPriceDeltaCents({ ...plain, layers: [] }, cfg) === 0);
+  assert("a bigger cap costs more", clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg) === cfg.extraColourCents + 4000);
+  assert("the switch type adds its owner price per switch", (() => { const c = { ...cfg, switches: cfg.switches.map((s) => (s.type === "linear" ? { ...s, cents: 500 } : s)) }; return clickerPriceDeltaCents({ ...plain, switchType: "linear" }, c) === cfg.extraColourCents + 500 && clickerPriceDeltaCents(nameSpec({ text: "ABC" }, { switchType: "linear" }), c) === 3 * 500 + 2 * c.keyCents + cfg.extraColourCents; })());
+  assert("a switch that is out of stock or not offered is refused", checkAgainstConfig(plain, { ...cfg, switches: cfg.switches.map((s) => (s.type === "clicky" ? { ...s, available: false } : s)) }) !== null && checkAgainstConfig({ ...plain, switchType: "tactile" }, { ...cfg, switches: [cfg.switches[0]] }) !== null);
+  assert("owner prices for the keyring and pictures apply only when used", (() => { const c = { ...cfg, keyringCents: 500, imageCents: 700 }; const sq = imageLayer({ groups: [{ color: RED, shapes: [square(0, 0, 1)] }] }); return clickerPriceDeltaCents({ ...plain, layers: [] }, c) === 0 && clickerPriceDeltaCents({ ...plain, layers: [], keyring: { ...plain.keyring, on: true } }, c) === 500 && clickerPriceDeltaCents({ ...plain, layers: [sq] }, c) === 700 + cfg.extraColourCents; })());
+  assert("colours are counted once however many layers use them", clickerColours(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: RED.toUpperCase() })] })).length === 3);
+  assert("a printer holds at most the owner's number of colours (4): base + cap + three more is refused, with the number in the message", (() => {
+    const five = clickerSpecSchema.parse({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: BLUE }), textLayer({ color: GREEN })] });
+    const msg = checkAgainstConfig(five, cfg) ?? "";
+    const four = clickerSpecSchema.parse({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: BLUE })] });
+    return clickerColours(five).length === 5 && /at most 4 colours/.test(msg) && checkAgainstConfig(four, cfg) === null;
+  })());
+  assert("the base and the cap can share a colour to leave room for the artwork", clickerColours(clickerSpecSchema.parse({ ...plain, capColor: WHITE, layers: [textLayer({ color: RED }), textLayer({ color: BLUE }), textLayer({ color: GREEN })] })).length === 4);
+  assert("the owner's limits are enforced: size, layers, colours not on offer", checkAgainstConfig({ ...plain, width: 20, height: 20 }, cfg) !== null && checkAgainstConfig({ ...plain, width: 95 }, cfg) !== null && /not available/.test(checkAgainstConfig({ ...plain, baseColor: "#123456" }, cfg) ?? "") && checkAgainstConfig(plain, cfg) === null && checkAgainstConfig(plain, { ...cfg, maxLayers: 0 as unknown as number }) !== null);
+  assert("the owner can switch off text, pictures and name keys", checkAgainstConfig(plain, { ...cfg, allowText: false }) !== null && checkAgainstConfig({ ...plain, layers: [imageLayer({ groups: [{ color: RED, shapes: [square(0, 0, 1)] }] })] }, { ...cfg, allowImages: false }) !== null && checkAgainstConfig(nameSpec(), { ...cfg, allowName: false }) !== null);
+  assert("name keys: the price grows by key, the key limit holds, spaces are not keys", clickerPriceDeltaCents(nameSpec({ text: "A" }), cfg) === cfg.extraColourCents && clickerPriceDeltaCents(nameSpec({ text: "ABC" }), cfg) === 2 * cfg.keyCents + cfg.extraColourCents && checkAgainstConfig(nameSpec({ text: "ABCDEFGHI" }), { ...cfg, maxKeys: 8 }) !== null && nameKeys({ text: "A B  C" }).length === 3 && switchCount(nameSpec({ text: "AB" })) === 2);
+  assert("the cart line reads in plain words", /^40 × 40 mm circle clicker, clicky switch, 3 colours, flat design, “Hi”$/.test(designSummary(plain)) && /^Name keys “HEY”, 3 clicky switches, 3 colours$/.test(designSummary(nameSpec())), designSummary(plain) + " | " + designSummary(nameSpec()));
+
+  console.log("\nthe housing and the cap match the sample clicker");
+  const sample = clickerSpecSchema.parse({ ...base, shape: "rounded", width: 50, height: 33, corner: 5, layers: [textLayer({ text: "Hi", color: RED, size: 8 })] });
+  const ls = buildLayout(sample, fonts);
+  const byId = (id: string) => ls.parts.find((p) => p.id.startsWith(id));
+  assert("a 50 × 33 mm cap sits in a base 5 mm bigger all round (the sample: 55.07 × 37.91)", near(ls.baseSize[0], 55, 0.1) && near(ls.baseSize[1], 38, 0.1) && near(ls.capSize[0], 50, 0.01) && near(ls.capSize[1], 33, 0.01));
+  assert("total height is 22.6 mm with a flat design, 1.2 mm more for high relief", near(ls.totalHeight, 22.6, 0.01) && near(totalHeightMm("high"), 23.8, 0.01));
+  assert("the base levels are the sample's: floor 1.2, clip band 7.2 to 8.7, deck at 10, rim 8 mm above it", near(byId("h-floor")!.z1, 1.2) && near(byId("h-body")!.z1, 7.2) && near(byId("h-notch")!.z1, 8.7) && near(byId("h-deck")!.z1, 10) && near(byId("h-rim")!.z1, 18));
+  const outlineArea = totalArea(ls.housingOutline);
+  assert("the switch chamber is 14 × 14 mm through the body and the deck, with four clip windows in the band between", near(totalArea(byId("h-body")!.regions), outlineArea - 196, 0.5) && near(totalArea(byId("h-deck")!.regions), outlineArea - 196, 0.5) && near(totalArea(byId("h-notch")!.regions), outlineArea - 196 - 4 * FIT.notchWidthMm * FIT.notchDepthMm, 1));
+  assert("the cap is solid on top and hollow underneath, with a cross socket in a round boss", (() => {
+    const cap = totalArea(ls.capOutline), cav = FIT.cavityMm ** 2;
+    const underside = totalArea(ls.parts.find((p) => p.role === "cap-ring")!.regions), socket = totalArea(ls.parts.find((p) => p.role === "cap-boss")!.regions), ceiling = totalArea(ls.parts.find((p) => p.role === "cap-top")!.regions), face = totalArea(ls.parts.find((p) => p.role === "cap-face")!.regions);
+    const boss = Math.PI * (FIT.bossDiameterMm / 2) ** 2, cross = 2 * FIT.crossSpanMm * FIT.crossArmMm - FIT.crossArmMm ** 2;
+    return near(face, cap, 0.2) && near(ceiling, cap - cav + boss, 1) && near(socket, cap - cav + boss - cross, 1) && underside < socket;
+  })());
+  assert("the cap is raised to its resting height: it starts 16.6 mm above the base bottom and ends at 22.6", near(Math.min(...ls.parts.filter((p) => p.object === "cap").map((p) => p.z0)), 16.6) && near(Math.max(...ls.parts.filter((p) => p.object === "cap").map((p) => p.z1)), 22.6));
+  assert("the artwork is inlaid in the cap's skin: the skin has the artwork cut out and the artwork fills the cut", (() => {
+    const skin = ls.parts.find((p) => p.role === "cap-skin")!, art = ls.parts.find((p) => p.role === "art")!;
+    return near(totalArea(skin.regions) + totalArea(art.regions), totalArea(ls.capOutline), 0.3) && near(art.z0, skin.z0) && near(art.z1, skin.z1);
+  })());
+  assert("the rim comes in four heights; flush is level with the top of the key", RIM_IDS.every((r) => near(buildLayout({ ...sample, rim: r }, fonts).parts.find((p) => p.role === "rim")!.z1, FIT.deckTopMm + RIM_MM[r])) && near(RIM_MM.flush, 12.6, 0.01));
+  assert("high relief makes the artwork stand 1.2 mm above the skin; low 0.6", near(buildLayout({ ...sample, relief: "high" }, fonts).parts.find((p) => p.role === "art")!.z1, 22.6 + 1.2) && near(buildLayout({ ...sample, relief: "low" }, fonts).parts.find((p) => p.role === "art")!.z1, 22.6 + 0.6));
+  assert("the printer's fit settings change the parts: a looser pocket, a looser stem, a wider gap", (() => {
+    const t = (tune: { pocket: number; stem: number; gap: number }) => buildLayout(sample, fonts, tune);
+    const a = t({ pocket: 0, stem: 0, gap: 0 }), b = t({ pocket: 0.2, stem: 0, gap: 0 }), c = t({ pocket: 0, stem: 0.2, gap: 0 }), d = t({ pocket: 0, stem: 0, gap: 0.2 });
+    const area = (l: typeof a, role: string) => totalArea(l.parts.find((p) => p.role === role)!.regions);
+    return area(b, "body") < area(a, "body") - 5 && area(c, "cap-boss") < area(a, "cap-boss") - 0.5 && area(d, "rim") < area(a, "rim") - 1;
+  })());
+
+  console.log("\nthe switch always fits: small caps are grown");
+  const growProblems: string[] = [];
+  for (const shape of SHAPE_IDS) {
+    const l = buildLayout(clickerSpecSchema.parse({ ...base, shape, width: LIMITS.minSizeMm, height: LIMITS.minSizeMm, layers: [] }), fonts);
+    const keep: Region[] = [{ outer: [[-7.5, -7.5], [7.5, -7.5], [7.5, 7.5], [-7.5, 7.5]], holes: [] }];
+    if (totalArea(difference(keep, l.capOutline)) > 0.05) growProblems.push(`${shape}: the 15 mm switch square is not inside the cap`);
+    const chamber = totalArea(intersect(l.housingOutline, [{ outer: [[-7, -7], [7, -7], [7, 7], [-7, 7]], holes: [] }]));
+    if (chamber < 195.9) growProblems.push(`${shape}: the chamber does not fit in the base`);
+  }
+  assert("on every shape at the smallest size the 15 mm square is inside the cap and the 14 mm chamber inside the base", growProblems.length === 0, growProblems.join(" | "));
+  assert("a cap that had to grow says so; one that did not, stays quiet", buildLayout(clickerSpecSchema.parse({ ...base, shape: "heart", width: 24, height: 24, layers: [] }), fonts).warnings.some((w) => /so the switch fits/.test(w)) && !buildLayout(sample, fonts).warnings.some((w) => /so the switch fits/.test(w)));
+
+  console.log("\nevery shape, rim, relief and keyring setting builds closed solids that fit together");
   let combos = 0;
   const bad: string[] = [];
-  for (const shape of SHAPE_IDS) {
-    for (const mode of ["inlay", "raised", "engraved"] as const) {
-      for (const border of [true, false]) {
-        for (const keyring of [true, false]) {
-          const spec = clickerSpecSchema.parse({ ...base, shape, mode, border: { ...base.border, on: border }, keyring: { ...base.keyring, on: keyring }, layers: [textLayer({ text: "Hi", size: 7 }), imageLayer({ x: 8, y: -6, size: 8, groups: [{ color: RED, shapes: [square(0, 0, 0.8)] }] })] });
-          const layout = buildLayout(spec, fonts);
-          const solids = extrudeLayout(layout);
-          combos++;
-          const open = solids.filter((s) => !isWatertight(meshOfPart(s))).map((s) => s.id);
-          const zs = solids.every((s) => { const bb = meshBounds(meshOfPart(s)); return near(bb[2], s.z0, 0.01) && near(bb[5], s.z1, 0.01); });
-          // the pieces of the top slab tile the outline: nothing overlaps and nothing is missing
-          const slab = layout.parts.filter((p) => p.role !== "body" && !(spec.mode === "raised" && p.role === "design")).reduce((s, p) => s + totalArea(p.regions), 0);
-          const expected = totalArea(layout.outline);
-          const tiles = near(slab, expected, Math.max(0.5, expected * 0.003));
-          if (open.length || !zs || !tiles || layout.errors.length) bad.push(`${shape}/${mode}/border:${border}/ring:${keyring} open=${open} z=${zs} tiles=${tiles} (${slab.toFixed(1)} vs ${expected.toFixed(1)}) err=${layout.errors}`);
-        }
+  const check = (spec: ClickerSpec, label: string, deep: boolean) => {
+    const layout = buildLayout(spec, fonts);
+    const solids = extrudeLayout(layout);
+    combos++;
+    const open = solids.filter((s) => !isWatertight(meshOfPart(s))).map((s) => s.id);
+    const zs = solids.every((s) => { const bb = meshBounds(meshOfPart(s)); return near(bb[2], s.z0, 0.01) && near(bb[5], s.z1, 0.01); });
+    let overlap = 0;
+    if (deep) {
+      // no two pieces share volume: where their heights overlap, their areas must not
+      for (let i = 0; i < layout.parts.length; i++) for (let j = i + 1; j < layout.parts.length; j++) {
+        const a = layout.parts[i], b = layout.parts[j];
+        if (Math.min(a.z1, b.z1) - Math.max(a.z0, b.z0) > 1e-6) overlap += totalArea(intersect(a.regions, b.regions));
       }
     }
-  }
-  assert(`${combos} combinations: every piece is a closed solid at its height, and the top pieces tile the outline`, bad.length === 0, "\n    " + bad.slice(0, 4).join("\n    "));
+    if (open.length || !zs || overlap > 0.2 || layout.errors.length) bad.push(`${label} open=${open} z=${zs} overlap=${overlap.toFixed(2)} err=${layout.errors}`);
+  };
+  for (const shape of SHAPE_IDS) for (const keyring of [true, false]) check(clickerSpecSchema.parse({ ...base, shape, keyring: { ...base.keyring, on: keyring }, layers: [textLayer({ text: "Hi", size: 7, color: RED }), imageLayer({ x: 8, y: -6, size: 8, groups: [{ color: BLUE, shapes: [square(0, 0, 0.8)] }] })] }), `${shape}/ring:${keyring}`, true);
+  for (const shape of ["circle", "heart", "star"] as const) for (const rim of RIM_IDS) for (const relief of RELIEF_IDS) check(clickerSpecSchema.parse({ ...base, shape, rim, relief }), `${shape}/${rim}/${relief}`, false);
+  assert(`${combos} combinations: every piece is a closed solid at its height, and no two pieces share volume`, bad.length === 0, "\n    " + bad.slice(0, 4).join("\n    "));
 
   console.log("\nlayers, order and colours");
   const twoLayers = clickerSpecSchema.parse({
-    ...base, border: { ...base.border, on: false }, keyring: { ...base.keyring, on: false }, shape: "square", width: 40, height: 40, corner: 0,
+    ...base, keyring: { ...base.keyring, on: false }, shape: "square", width: 40, height: 40, corner: 0, capColor: WHITE,
     layers: [imageLayer({ size: 20, groups: [{ color: RED, shapes: [square(0, 0, 1)] }] }), imageLayer({ size: 10, groups: [{ color: BLUE, shapes: [square(0, 0, 1)] }] })],
   });
   const lay2 = buildLayout(twoLayers, fonts);
-  const area = (color: string) => totalArea(lay2.parts.find((p) => p.color === color.toLowerCase() && p.role === "design")?.regions ?? []);
+  const area = (color: string) => totalArea(lay2.parts.find((p) => p.color === color.toLowerCase() && p.role === "art")?.regions ?? []);
   assert("the layer above covers the one below (red 20 × 20 minus blue 10 × 10 = 300, blue 100)", near(area(RED), 300, 1) && near(area(BLUE), 100, 1), `${area(RED).toFixed(1)} ${area(BLUE).toFixed(1)}`);
   assert("hiding a layer takes its colour out of the design", (() => { const s = { ...twoLayers, layers: [twoLayers.layers[0], { ...twoLayers.layers[1], visible: false }] }; return !clickerColours(clickerSpecSchema.parse(s)).includes(BLUE.toLowerCase()); })());
-  assert("a layer pushed off the clicker is reported and prints nothing", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 150 }] }); const l = buildLayout(s, fonts); return l.warnings.some((w) => /outside/.test(w)) && !l.parts.some((p) => p.role === "design"); })());
-  assert("a layer that runs past the edge is reported as cut off", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 14 }] }); const l = buildLayout(s, fonts); return l.warnings.some((w) => /cut off/.test(w)); })());
-  assert("a layer well inside gives no cut-off note", !buildLayout(clickerSpecSchema.parse(twoLayers), fonts).warnings.some((w) => /cut off/.test(w)));
-  assert("a hairline is too fine to print: it is left out and the customer is told", (() => {
+  assert("a layer pushed off the cap is reported and prints nothing", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 150 }] }); const l = buildLayout(s, fonts); return l.warnings.some((w) => /outside/.test(w)) && !l.parts.some((p) => p.role === "art"); })());
+  assert("a layer that runs past the edge is reported as cut off", (() => { const s = clickerSpecSchema.parse({ ...twoLayers, layers: [{ ...twoLayers.layers[0], x: 14 }] }); return buildLayout(s, fonts).warnings.some((w) => /cut off/.test(w)); })());
+  assert("a layer well inside gives no cut-off note", !buildLayout(twoLayers, fonts).warnings.some((w) => /cut off/.test(w)));
+  assert("artwork stays 0.4 mm inside the cap's edge so the skin keeps a rim", (() => {
+    const s = clickerSpecSchema.parse({ ...twoLayers, layers: [imageLayer({ size: 60, groups: [{ color: RED, shapes: [square(0, 0, 1)] }] })] });
+    const l = buildLayout(s, fonts); const art = l.parts.find((p) => p.role === "art")!;
+    const xs = art.regions.flatMap((r) => r.outer.map((q) => q[0]));
+    return Math.max(...xs) <= 20 - 0.39;
+  })());
+  assert("a hairline is too fine to print: it is left out", (() => {
     const hair: Region = { outer: [[-0.5, -0.004], [0.5, -0.004], [0.5, 0.004], [-0.5, 0.004]], holes: [] };
     const s = clickerSpecSchema.parse({ ...twoLayers, layers: [imageLayer({ size: 20, groups: [{ color: RED, shapes: [hair, square(0.3, 0.3, 0.3)] }] })] });
     const l = buildLayout(s, fonts);
-    return !l.parts.some((p) => p.role === "design" && totalArea(p.regions) < 0.01) && totalArea(l.parts.find((p) => p.role === "design")?.regions ?? []) > 1;
+    return !l.parts.some((p) => p.role === "art" && totalArea(p.regions) < 0.01) && totalArea(l.parts.find((p) => p.role === "art")?.regions ?? []) > 1;
   })());
-  assert("raised designs stand above the top; engraved ones sit in a recess with a coloured floor", (() => {
-    const mk = (mode: "raised" | "engraved") => buildLayout(clickerSpecSchema.parse({ ...twoLayers, mode, embossHeight: 1.2, engraveDepth: 0.6 }), fonts).parts.find((p) => p.color === RED.toLowerCase() && (p.role === "design" || p.role === "floor"))!;
-    const r = mk("raised"), e = mk("engraved");
-    return near(r.z0, 3.2) && near(r.z1, 4.4) && e.role === "floor" && near(e.z1, 3.2 - 0.6) && e.z0 < e.z1;
-  })());
-  assert("an engraving too deep for the top layer is made shallower, with a note", (() => { const l = buildLayout(clickerSpecSchema.parse({ ...twoLayers, mode: "engraved", topDepth: 1, engraveDepth: 1 }), fonts); return l.warnings.some((w) => /engraving was made/.test(w)); })());
-  assert("a border too wide for the clicker is an error", buildLayout(clickerSpecSchema.parse({ ...base, width: 16, height: 16, keyring: { ...base.keyring, on: false }, border: { ...base.border, width: 8 } }), fonts).errors.some((e) => /border/i.test(e)));
+  assert("a letter the font cannot draw is an error naming the letter", buildLayout(clickerSpecSchema.parse({ ...base, layers: [textLayer({ text: "日" })] }), fonts).errors.some((e) => /"日"/.test(e)));
+
+  console.log("\nname keys");
+  const hey = buildLayout(nameSpec(), fonts);
+  assert("HEY is three keys in a row, each 18 mm, 3.6 mm apart; the base is 66.2 × 23 mm", hey.keys.length === 3 && near(hey.capSize[0], 3 * 18 + 2 * 3.6, 0.05) && near(hey.capSize[1], 18, 0.05) && near(hey.baseSize[0], 66.2, 0.1) && near(hey.baseSize[1], 23, 0.1));
+  assert("each key has its own switch chamber", near(totalArea(hey.parts.find((p) => p.id === "h-body")!.regions), totalArea(hey.housingOutline) - 3 * 196, 0.5));
+  assert("each key has its own cavity and socket (three of each)", near(totalArea(hey.parts.find((p) => p.role === "cap-top")!.regions), totalArea(hey.capOutline) - 3 * (FIT.cavityMm ** 2) + 3 * Math.PI * (FIT.bossDiameterMm / 2) ** 2, 2));
+  assert("every letter is inlaid in its key", hey.parts.some((p) => p.role === "art") && near(totalArea(hey.parts.find((p) => p.role === "cap-skin")!.regions) + totalArea(hey.parts.find((p) => p.role === "art")!.regions), totalArea(hey.capOutline), 0.5));
+  assert("two keys in a row make two rows, and the caps do not touch", (() => { const l = buildLayout(nameSpec({ text: "ABCD", perRow: 2 }), fonts); return l.keys.length === 4 && near(l.capSize[1], 2 * 18 + 3.6, 0.05) && l.capOutline.length === 4; })());
+  assert("a long name on one row that is too wide for the plate is refused with a reason", buildLayout(nameSpec({ text: "ABCDEFGHIJKL", perRow: 12 }), fonts).errors.some((e) => /too big/.test(e)) && buildLayout(nameSpec({ text: "ABCDEFGHIJKL", perRow: 6 }), fonts).errors.length === 0);
+  assert("two key colours alternate, and the caps are split by colour", (() => { const l = buildLayout(nameSpec({ text: "ABC", keyColors: [BLACK, BLUE] }), fonts); const colours = new Set(l.parts.filter((p) => p.role === "cap-face").map((p) => p.color)); return colours.size === 2 && clickerColours(nameSpec({ text: "ABC", keyColors: [BLACK, BLUE] })).length === 4; })());
+  assert("every part of a name clicker is a closed solid", extrudeLayout(hey).every((s) => isWatertight(meshOfPart(s))));
+  assert("a character the font lacks is an error", buildLayout(nameSpec({ text: "日" }), fonts).errors.length === 1);
 
   console.log("\nthe keyring");
   const ringProblems: string[] = [];
   for (const shape of SHAPE_IDS) {
     for (const angle of [0, 45, 90, 135, 180, 225, 270, 315]) {
-      const spec = clickerSpecSchema.parse({ ...base, shape, keyring: { on: true, angle, hole: 4.5, wall: 2.2 }, layers: [] });
+      const spec = clickerSpecSchema.parse({ ...base, shape, keyring: { on: true, angle, hole: 5, wall: 2.4 }, layers: [] });
       const l = buildLayout(spec, fonts);
-      const holes = l.outline.reduce((n, r) => n + r.holes.length, 0);
-      const connected = l.outline.length === 1;
-      const bodyOnly = difference([{ outer: shapeRing(shape, spec.width, spec.height, { corner: spec.corner, points: spec.points }), holes: [] }], []);
-      const holeArea = l.keyring ? Math.PI * l.keyring.holeR ** 2 : 0;
-      const holeClear = !l.keyring || totalArea(intersect(bodyOnly, [{ outer: Array.from({ length: 40 }, (_, i) => [l.keyring!.cx + l.keyring!.holeR * Math.cos((i / 40) * 6.2832), l.keyring!.cy + l.keyring!.holeR * Math.sin((i / 40) * 6.2832)] as [number, number]), holes: [] }])) < 0.3;
-      if (holes !== 1 || !connected || !holeClear || holeArea < 10) ringProblems.push(`${shape}@${angle}: holes=${holes} connected=${connected} clear=${holeClear}`);
+      const tab = l.parts.find((p) => p.id === "h-ring");
+      if (!tab || !l.keyring) { ringProblems.push(`${shape}@${angle}: no tab`); continue; }
+      const holes = tab.regions.reduce((n, r) => n + r.holes.length, 0);
+      const touches = totalArea(intersect(tab.regions, l.housingOutline)) < 0.1;
+      const circle = [{ outer: Array.from({ length: 40 }, (_, i) => [l.keyring!.cx + l.keyring!.holeR * Math.cos((i / 40) * 6.2832), l.keyring!.cy + l.keyring!.holeR * Math.sin((i / 40) * 6.2832)] as [number, number]), holes: [] }];
+      const holeClear = totalArea(intersect(l.housingOutline, circle)) < 0.05;
+      // contact length ~ overlap area of the tab grown by 0.1 mm with the base, / 0.1 (needs a few mm of contact to hold)
+      const joined = totalArea(intersect(offset(tab.regions, 0.1), l.housingOutline)) / 0.1 > 3;
+      if (holes !== 1 || !touches || !holeClear || !joined) ringProblems.push(`${shape}@${angle}: holes=${holes} separate=${touches} clear=${holeClear} joined=${joined}`);
     }
   }
-  assert("on every shape and angle: one real hole, the loop is joined to the clicker, the hole does not cut into it", ringProblems.length === 0, ringProblems.slice(0, 4).join(" | "));
-  assert("keyring off: no hole", buildLayout(clickerSpecSchema.parse({ ...base, keyring: { ...base.keyring, on: false } }), fonts).outline.every((r) => r.holes.length === 0));
-  assert("every piece has the hole (the border ring goes round it)", (() => { const l = buildLayout(base, fonts); return l.parts.filter((p) => p.role === "body" || p.role === "top" || p.role === "border").every((p) => p.regions.some((r) => r.holes.length > 0)); })());
+  assert("on every shape and angle: the tab has one real hole, is joined to the base without overlapping it, and the hole does not cut the base", ringProblems.length === 0, ringProblems.slice(0, 4).join(" | "));
+  assert("keyring off: no tab", !buildLayout(base, fonts).parts.some((p) => p.id === "h-ring"));
+  assert("the tab is a 3 mm flat tab on the bed", (() => { const t = buildLayout(clickerSpecSchema.parse({ ...base, keyring: { ...base.keyring, on: true } }), fonts).parts.find((p) => p.id === "h-ring")!; return near(t.z0, 0) && near(t.z1, 3); })());
+
+  console.log("\nthe print plate");
+  const pl = plateLayout(ls);
+  assert("the base and cap fit on the 256 mm plate with margins, side by side or stacked", !!pl && (() => { const b = ls.bounds, c = ls.capBounds; const bx = [b.minX + pl.housing[0], b.maxX + pl.housing[0]], cx = [c.minX + pl.cap[0], c.maxX + pl.cap[0]]; return bx[0] >= 6 - 0.01 && cx[1] <= 250 + 0.01 && (bx[1] + 6 <= cx[0] + 0.01 || b.maxY + pl.housing[1] + 6 <= c.minY + pl.cap[1] + 0.01); })());
+  assert("an 8-key name fits (stacked)", plateLayout(buildLayout(nameSpec({ text: "ABCDEFGH", perRow: 8 }), fonts)) !== null);
 
   console.log("\npictures");
   const W = 120, H = 90;
@@ -199,53 +284,42 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   const noisy = traceAnalysis(analyzeImage({ width: 160, height: 160, data: photo }, 6), { keep: [true, true, true, true, true, true], target: cfg.palette.slice(0, 6), maxPoints: 12_000 });
   assert("a noisy photo stays within the point budget and does not take long", noisy.points <= 12_000 && performance.now() - t0 < 8000, `${noisy.points} points in ${Math.round(performance.now() - t0)} ms`);
 
-  console.log("\nprice and rules");
-  assert("size tiers: the first tier that is big enough applies", sizeTierCents(30, cfg.sizeTiers) === 0 && sizeTierCents(40, cfg.sizeTiers) === 0 && sizeTierCents(41, cfg.sizeTiers) === 3000 && sizeTierCents(70, cfg.sizeTiers) === 6000 && sizeTierCents(99, cfg.sizeTiers) === 6000);
-  const plain = clickerSpecSchema.parse({ ...base, layers: [textLayer({ color: BLACK })], baseColor: WHITE, border: { ...base.border, color: BLACK } });
-  assert("two colours cost nothing extra; each colour beyond two adds the owner's price", clickerPriceDeltaCents(plain, cfg) === 0 && clickerPriceDeltaCents({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: BLUE })] }, cfg) === 2000);
-  assert("a bigger clicker costs more", clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg) === 3000);
-  assert("owner prices for keyring and pictures apply only when used", (() => { const c = { ...cfg, keyringCents: 500, imageCents: 700 }; return clickerPriceDeltaCents({ ...plain, keyring: { ...plain.keyring, on: false } }, c) === 0 && clickerPriceDeltaCents(plain, c) === 500 && clickerPriceDeltaCents({ ...plain, layers: [imageLayer({ groups: [{ color: BLACK, shapes: [square(0, 0, 1)] }] })] }, c) === 1200; })());
-  assert("colours are counted once however many layers use them", clickerColours(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: RED.toUpperCase() })] })).length === 3);
-  assert("the owner's limits are enforced: size, layers, colours not on offer", checkAgainstConfig({ ...plain, width: 20, height: 20 }, cfg) !== null && checkAgainstConfig({ ...plain, width: 90 }, cfg) !== null && /not available/.test(checkAgainstConfig({ ...plain, baseColor: "#123456" }, cfg) ?? "") && checkAgainstConfig(plain, cfg) === null && checkAgainstConfig(plain, { ...cfg, maxLayers: 0 as unknown as number }) !== null);
-  assert("the owner can switch off text or pictures", checkAgainstConfig(plain, { ...cfg, allowText: false }) !== null && checkAgainstConfig({ ...plain, layers: [imageLayer({ groups: [{ color: BLACK, shapes: [square(0, 0, 1)] }] })] }, { ...cfg, allowImages: false }) !== null);
-  assert("the cart line reads in plain words", /^40 × 40 mm circle, 2 colours, flat design, border, keyring, “Hello”$/.test(designSummary(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "Hello", color: BLACK })] }))), designSummary(plain));
 
   console.log("\nthe product option, the price and the cart line");
   const option: ProductOptionInput = { id: "opt-clicker", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: cfg }, values: [] };
   assert("a text option with clicker settings is the designer; a plain text option is not", clickerOptionOf([option])?.option.id === "opt-clicker" && clickerOptionOf([{ ...option, constraints: { maxLen: 10 } }]) === null && clickerConfigOf({ clicker: { palette: ["nope"] } }) === null);
   const sel = { [option.id]: { design: plain } };
-  assert("computeUnitPrice adds the design's price to the product price", computeUnitPrice(10000, [option], sel).unitPriceCents === 10000 && computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 50, height: 50 } } }).unitPriceCents === 13000);
+  assert("computeUnitPrice adds the design's price to the product price", computeUnitPrice(10000, [option], sel).unitPriceCents === 10000 + clickerPriceDeltaCents(plain, cfg) && computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 50, height: 50 } } }).unitPriceCents === 10000 + clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg));
   assert("a missing design is an error when required; an invalid or off-limits one says why", computeUnitPrice(10000, [option], {}).errors[0] === "Your clicker is required" && computeUnitPrice(10000, [option], { [option.id]: { design: { nope: 1 } } }).errors.length === 1 && /at most/.test(computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 90 } } }).errors[0]));
   const norm = normalizeSelection([option], { [option.id]: { design: { ...plain, evil: "x" }, text: "ignored", valueId: "x" }, other: { text: "no" } }, () => false);
   assert("normalizing keeps only the design (cleaned) for the designer option", norm.errors.length === 0 && Object.keys(norm.config).join() === option.id && Object.keys(norm.config[option.id]).join() === "design" && !("evil" in (norm.config[option.id].design as object)));
-  assert("a design that is not valid is refused with a message, not stored", normalizeSelection([option], { [option.id]: { design: { v: 1 } } }, () => false).errors.length === 1);
-  assert("an oversized design is refused", (() => { const huge = { ...plain, layers: [textLayer({ name: "x".repeat(40) })] }; void huge; return true; })());
+  assert("a design that is not valid (an old version) is refused with a message, not stored", normalizeSelection([option], { [option.id]: { design: { v: 1 } } }, () => false).errors.length === 1);
   assert("the order summary shows the design", summarizeConfig([option], norm.config)[0]?.label === "Your clicker" && /circle/.test(summarizeConfig([option], norm.config)[0].value));
   assert("designOf finds the saved design on a line", designOf([option], norm.config)?.spec.shape === "circle" && designOf([option], {}) === null && designOf([{ ...option, constraints: {} }], norm.config) === null);
 
   console.log("\nthe server: checks, print file and picture");
-  const ok = await checkDesign(plain, cfg);
-  assert("a good design passes", ok.ok);
+  assert("a good design passes", (await checkDesign(plain, cfg)).ok && (await checkDesign(nameSpec(), cfg)).ok);
   assert("a letter the font lacks is refused with the letter named", await (async () => { const r = await checkDesign({ ...plain, layers: [textLayer({ text: "日" })] }, cfg); return !r.ok && /"日"/.test(r.error); })());
-  assert("a border too wide for the size is refused", await (async () => { const r = await checkDesign({ ...plain, width: 16, height: 16, keyring: { ...plain.keyring, on: false }, border: { ...plain.border, width: 8 } }, { ...cfg, minSize: 15 }); return !r.ok && /border/i.test(r.error); })());
-  assert("a design outside the owner's limits is refused", !(await checkDesign({ ...plain, width: 95 }, cfg)).ok && !(await checkDesign("garbage", cfg)).ok);
+  assert("too many colours, a size outside the limits and garbage are refused", !(await checkDesign({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: BLUE }), textLayer({ color: GREEN })] }, cfg)).ok && !(await checkDesign({ ...plain, width: 95 }, cfg)).ok && !(await checkDesign("garbage", cfg)).ok);
   const print = await buildClickerPrint(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "Hello", color: RED })] }), "Test clicker");
-  assert("the print file is built, every piece is a closed solid", print.ok && print.report.pieces.length >= 3 && print.report.pieces.every((p) => p.watertight), print.ok ? JSON.stringify(print.report.pieces.map((p) => [p.name, p.watertight])) : print.error);
+  assert("the print file is built, every piece is a closed solid", print.ok && print.report.pieces.length >= 8 && print.report.pieces.every((p) => p.watertight), print.ok ? JSON.stringify(print.report.pieces.map((p) => [p.name, p.watertight])) : print.error);
   if (print.ok) {
     const files = unzipSync(print.file);
     const model = strFromU8(files["3D/3dmodel.model"]), bambu = strFromU8(files["Metadata/model_settings.config"]);
-    const objects = parseObjects(model);
-    assert("the 3MF holds the pieces as one object, all in millimetres, lying on the bed's centre", /unit="millimeter"/.test(model) && objects.size === print.report.pieces.length + 1 && /<item objectid="\d+" transform="1 0 0 0 1 0 0 0 1 128 128 0"/.test(model));
-    assert("each distinct colour is one base material and one filament; the pieces name their filament", (model.match(/<base /g) ?? []).length === print.report.filaments.length && (bambu.match(/<part /g) ?? []).length === print.report.pieces.length && [...new Set([...bambu.matchAll(/key="extruder" value="(\d+)"/g)].slice(1).map((m) => m[1]))].length === print.report.filaments.length);
+    assert("the 3MF holds two objects, the base and the top, in millimetres", /unit="millimeter"/.test(model) && (model.match(/<item objectid/g) ?? []).length === 2 && /BASE"/.test(bambu) && /TOP"/.test(bambu));
+    assert("the base prints with 3 walls and the thin cap with 1", [...bambu.matchAll(/<object id="\d+">\s*<metadata key="name" value="([^"]*)"\/>\s*<metadata key="extruder" value="\d+"\/>\s*<metadata key="wall_loops" value="(\d+)"/g)].map((m) => `${/BASE$/.test(m[1]) ? "base" : "top"}:${m[2]}`).sort().join() === "base:3,top:1");
+    assert("each distinct colour is one base material and one filament, and none more than the printer's 4", (model.match(/<base /g) ?? []).length === print.report.filaments.length && print.report.filaments.length === 3 && print.report.filaments.length <= 4);
+    assert("everything lies on the plate: between 0 and 256 mm in x and y, base from z 0 to 18, cap printed from z 0", print.report.pieces.every((p) => p.bounds[0] >= 5.99 && p.bounds[3] <= 250.01 && p.bounds[1] >= 5.99 && p.bounds[4] <= 250.01) && print.report.pieces.filter((p) => p.object === "cap").every((p) => p.bounds[2] >= -0.001 && p.bounds[5] <= 6.01) && print.report.pieces.filter((p) => p.object === "housing").every((p) => p.bounds[5] <= 18.01));
     assert("the filament colours are listed for the slicer", JSON.parse(strFromU8(files["Metadata/project_settings.config"])).filament_colour.length === print.report.filaments.length);
-    assert("the clicker is 40 mm across and about 3.8 mm tall (border stands 0.6 mm above the top)", near(print.report.widthMm, 40 + 0, 8) && near(print.report.totalHeightMm, 3.8, 0.01));
+    assert("the report names the sizes and the switch", near(print.report.capSize[0], 40, 0.1) && near(print.report.baseSize[0], 45, 0.1) && print.report.switches === 1 && print.report.switchType === "clicky" && near(print.report.totalHeightMm, 22.6, 0.01));
   }
-  assert("a design with nothing to print is refused rather than written empty", (await buildClickerPrint(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "日" })] }))).ok === false);
+  const nameprint = await buildClickerPrint(nameSpec(), "Name");
+  assert("name keys print too: three switches, all pieces closed", nameprint.ok && nameprint.report.switches === 3 && nameprint.report.pieces.every((p) => p.watertight));
+  assert("a design that cannot be drawn is refused rather than written", (await buildClickerPrint(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "日" })] }))).ok === false);
   const uri = await designSvgDataUri(plain);
-  assert("the cart picture is an SVG data URL with the design's colours and no scripts", uri.startsWith("data:image/svg+xml") && decodeURIComponent(uri).includes(BLACK) && !/<script|onload|javascript:/i.test(decodeURIComponent(uri)));
+  assert("the cart picture is an SVG data URL with the design's colours and no scripts", uri.startsWith("data:image/svg+xml") && decodeURIComponent(uri).includes(BLACK) && decodeURIComponent(uri).includes(RED) && !/<script|onload|javascript:/i.test(decodeURIComponent(uri)));
   assert("the same design gives the same picture (cached)", (await designSvgDataUri(plain)) === uri);
-  assert("the svg flips y so the design reads the right way up", designToSvg(plain, fonts).includes('scale(1 -1)'));
-  assert("a hand-made 3MF with one piece is written too (the writer works on any pieces)", clickerTo3mf([{ name: "A", color: "#ff0000", mesh: meshOfPart(extrudeLayout(buildLayout(plain, fonts))[0]) }], "T").length > 500);
+  assert("the svg flips y so the design reads the right way up", designToSvg(plain, fonts).includes("scale(1 -1)"));
 
   console.log("\ncart: several designs at once (database)");
   const { db } = await import("../src/db");
@@ -259,17 +333,18 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     const [p] = await db.insert(s.products).values({ slug: `${T}-prod`, name: `${T} Clicker`, basePriceCents: 15000, status: "published" }).returning();
     const [o] = await db.insert(s.productOptions).values({ productId: p.id, type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: cfg }, sort: 0 }).returning();
     const row = (spec: unknown, qty = 1) => ({ qty, selection: { [o.id]: { design: spec } } });
-    const good1 = plain, good2 = clickerSpecSchema.parse({ ...plain, shape: "star", width: 50, height: 50, layers: [textLayer({ text: "Ana", color: RED })] });
-    const added = await addManyToCart(user, { productId: p.id, rows: [row(good1, 2), row(good2)] });
-    assert("two different designs become two cart lines", added.ok && added.added === 2, JSON.stringify(added));
+    const good1 = plain, good2 = clickerSpecSchema.parse({ ...plain, shape: "star", width: 50, height: 50, layers: [textLayer({ text: "Ana", color: RED })] }), good3 = nameSpec();
+    const added = await addManyToCart(user, { productId: p.id, rows: [row(good1, 2), row(good2), row(good3)] });
+    assert("three different designs (two clickers and a name) become three cart lines", added.ok && added.added === 3, JSON.stringify(added));
     const lines = await getCartLines(user);
-    const l1 = lines.find((l) => l.qty === 2)!, l2 = lines.find((l) => l.qty === 1)!;
-    assert("each line is priced by its own design (₱150 + 0, ₱150 + 30 size + 10 colour)", l1.unitPriceCents === 15000 && l2.unitPriceCents === 15000 + 3000 + 1000, `${l1?.unitPriceCents} ${l2?.unitPriceCents}`);
-    assert("each line has its own picture and a readable summary", !!l1.designUri && !!l2.designUri && l1.designUri !== l2.designUri && l2.summary[0].value.includes("star") && l2.summary[0].value.includes("“Ana”"));
+    const l1 = lines.find((l) => l.qty === 2)!, l2 = lines.find((l) => l.qty === 1 && /star/.test(l.summary[0].value))!, l3 = lines.find((l) => /Name keys/.test(l.summary[0].value))!;
+    assert("each line is priced by its own design", l1.unitPriceCents === 15000 + clickerPriceDeltaCents(good1, cfg) && l2.unitPriceCents === 15000 + clickerPriceDeltaCents(good2, cfg) && l3.unitPriceCents === 15000 + clickerPriceDeltaCents(good3, cfg), `${l1?.unitPriceCents} ${l2?.unitPriceCents} ${l3?.unitPriceCents}`);
+    assert("each line has its own picture and a readable summary", !!l1.designUri && !!l2.designUri && !!l3.designUri && l1.designUri !== l2.designUri && l2.summary[0].value.includes("star") && l2.summary[0].value.includes("“Ana”") && l3.summary[0].value.includes("HEY"));
     const before = (await getCartLines(user)).length;
     const bad = await addManyToCart(user, { productId: p.id, rows: [row(good1), row({ ...good1, width: 95 }), row(good2)] });
     assert("one design outside the limits adds nothing at all, and says which", !bad.ok && /^Name 2:/.test(bad.error) && (await getCartLines(user)).length === before, JSON.stringify(bad));
     assert("a design with a letter the font lacks is refused", !(await addManyToCart(user, { productId: p.id, rows: [row({ ...good1, layers: [textLayer({ text: "日" })] })] })).ok);
+    assert("a design that needs more colours than the printer holds is refused", !(await addManyToCart(user, { productId: p.id, rows: [row({ ...good1, layers: [textLayer({ color: RED }), textLayer({ color: BLUE }), textLayer({ color: GREEN })] })] })).ok);
     assert("a forged price or extra fields do not reach the stored design", await (async () => {
       const r = await addManyToCart(user, { productId: p.id, rows: [{ qty: 1, selection: { [o.id]: { design: { ...good1, priceCents: 1, __proto__: { x: 1 } } as unknown } } }] });
       const all = await getCartLines(user);

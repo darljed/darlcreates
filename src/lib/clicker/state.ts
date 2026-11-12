@@ -76,35 +76,44 @@ export function duplicateLayer(spec: ClickerSpec, id: string, cfg: ClickerConfig
   return { ...spec, layers: [...spec.layers, copy] };
 }
 
-/** Every use of one colour in the design (the base, the border and each text or picture colour). */
-export function coloursInUse(spec: ClickerSpec): { hex: string; base: boolean; border: boolean; layers: string[] }[] {
-  const map = new Map<string, { hex: string; base: boolean; border: boolean; layers: string[] }>();
+/** Every use of one colour in the design (the base, the cap, and each text or picture colour, or the key colours). */
+export function coloursInUse(spec: ClickerSpec): { hex: string; base: boolean; cap: boolean; layers: string[] }[] {
+  const map = new Map<string, { hex: string; base: boolean; cap: boolean; layers: string[] }>();
   const slot = (hex: string) => {
     const k = lc(hex);
-    if (!map.has(k)) map.set(k, { hex: k, base: false, border: false, layers: [] });
+    if (!map.has(k)) map.set(k, { hex: k, base: false, cap: false, layers: [] });
     return map.get(k)!;
   };
   slot(spec.baseColor).base = true;
-  if (spec.border.on) slot(spec.border.color).border = true;
+  if (spec.kind === "name" && spec.name) {
+    spec.name.keyColors.forEach((c) => (slot(c).cap = true));
+    slot(spec.name.letterColor).layers.push("letters");
+    return [...map.values()];
+  }
+  slot(spec.capColor).cap = true;
   for (const l of spec.layers) {
+    if (!l.visible) continue;
     if (l.kind === "text") slot(l.color).layers.push(l.id);
     else for (const r of l.regions) if (r.shapes.length) slot(r.color).layers.push(l.id);
   }
   return [...map.values()];
 }
 
-/** Change one colour everywhere it is used. `part` limits it to the base or the border. */
-export function recolour(spec: ClickerSpec, from: string, to: string, part?: "base" | "border" | "design"): ClickerSpec {
+/** Change one colour everywhere it is used. `part` limits it to the base, the cap or the artwork. */
+export function recolour(spec: ClickerSpec, from: string, to: string, part?: "base" | "cap" | "design"): ClickerSpec {
   const f = lc(from);
   const swap = (c: string) => (lc(c) === f ? to : c);
   const all = !part;
   return {
     ...spec,
     baseColor: all || part === "base" ? swap(spec.baseColor) : spec.baseColor,
-    border: { ...spec.border, color: all || part === "border" ? swap(spec.border.color) : spec.border.color },
+    capColor: all || part === "cap" ? swap(spec.capColor) : spec.capColor,
     layers: all || part === "design"
       ? spec.layers.map((l) => (l.kind === "text" ? { ...l, color: swap(l.color) } : { ...l, regions: l.regions.map((r) => ({ ...r, color: swap(r.color) })) }))
       : spec.layers,
+    name: spec.name && (all || part === "cap" || part === "design")
+      ? { ...spec.name, keyColors: part === "design" ? spec.name.keyColors : spec.name.keyColors.map(swap), letterColor: part === "cap" ? spec.name.letterColor : swap(spec.name.letterColor) }
+      : spec.name,
   };
 }
 
