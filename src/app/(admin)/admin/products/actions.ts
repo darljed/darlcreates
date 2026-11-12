@@ -14,8 +14,15 @@ import { parsePesoInput } from "@/lib/money";
 import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
+import { nameSlotSchema, slotMaxHeight } from "@/lib/name-mesh";
+import { checkFit, engraveProblem, fitScale, shrinkSlot, wallThickness } from "@/lib/name-3mf";
+import { plateObjectNear } from "@/lib/threemf";
+import { loadSurface } from "@/lib/name-surface";
+import { measureSpace } from "@/lib/name-space";
+import type { SpaceTable } from "@/lib/name-mesh";
+import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
 
-type Result = { ok: true; id?: string } | { ok: false; error: string };
+type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
 
 function slugify(s: string): string {
   return s
@@ -189,6 +196,113 @@ export async function deleteOptionAction(input: unknown): Promise<Result> {
   return { ok: true };
 }
 
+const slotActionSchema = z.object({
+  productId: z.string().uuid(),
+  optionId: z.string().uuid(),
+  /** null removes the slot */
+  slot: nameSlotSchema.nullable(),
+});
+
+/**
+ * Put the customer's name on the 3D model: save (or remove) the name slot on a text option. Only for products whose
+ * model is an STL or 3MF (the print file is built from it, see lib/name-3mf.ts), and only if a name of the widest
+ * allowed size sits fully on the surface there.
+ */
+export async function saveNameSlotAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = slotActionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid name position" };
+  const { productId, optionId, slot } = parsed.data;
+
+  const [product] = await db.select({ slug: products.slug, stlKey: products.stlKey }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) return { ok: false, error: "Product not found" };
+  const ext = product.stlKey ? /\.(stl|3mf)$/i.exec(product.stlKey)?.[1].toLowerCase() : undefined;
+  const kind = ext === "stl" || ext === "3mf" ? ext : null;
+  if (slot && !kind) {
+    return { ok: false, error: "Adding a name to the model needs an STL or 3MF model file." };
+  }
+  const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, optionId)).limit(1);
+  if (!opt || opt.productId !== productId || opt.type !== "text") return { ok: false, error: "Choose a text option of this product" };
+
+  if (slot?.mode === "engraved" && kind !== "3mf") {
+    return { ok: false, error: "Engraved names need a 3MF slicer project (Bambu Studio / Orca). An STL cannot hold a part that is cut out." };
+  }
+  let toSave = slot;
+  if (slot && kind && product.stlKey) {
+    // A name area of the size allowed must sit fully on the surface here, or some names would print floating or buried.
+    try {
+      const surface = await loadSurface(product.stlKey);
+      const fit = checkFit(surface, slot, slot.maxWidth, slotMaxHeight(slot));
+      if (!fit.fits) {
+        const k = fitScale(surface, slot);
+        const smaller = k ? shrinkSlot(slot, k) : null;
+        return {
+          ok: false,
+          error: smaller
+            ? `A name area of ${slot.maxWidth} × ${slotMaxHeight(slot)} mm would hang off the surface here. Set "Widest name" to ${smaller.maxWidth} mm and "Tallest name" to ${smaller.maxHeight} mm or less (or move the spot).`
+            : (fit.problem ?? "The name does not fit on the surface here. Try another spot or smaller letters."),
+        };
+      }
+      // with several objects on the plate the name goes into the one that was clicked
+      const near = plateObjectNear(surface, slot.position);
+      if (near) toSave = { ...slot, object: near };
+      // an engraving needs wall behind it
+      const deep = engraveProblem(surface, slot, slot.maxWidth, slotMaxHeight(slot));
+      if (deep) return { ok: false, error: deep };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+    }
+  }
+
+  const { slot: _old, ...rest } = (opt.constraints ?? {}) as Record<string, unknown>;
+  void _old;
+  await db.update(productOptions).set({ constraints: toSave ? { ...rest, slot: toSave } : rest }).where(eq(productOptions.id, optionId));
+  invalidate(product.slug);
+  revalidatePath(`/admin/products/${productId}`);
+  return { ok: true };
+}
+
+const spaceSchema = z.object({
+  productId: z.string().uuid(),
+  position: nameSlotSchema.shape.position,
+  normal: nameSlotSchema.shape.normal,
+  up: nameSlotSchema.shape.up,
+});
+
+/**
+ * How much room there is for a name at a spot on the product's model, as a table of widest-area-per-height. The admin
+ * editor uses it to stop values that would overflow; saving checks again (`saveNameSlotAction`).
+ */
+export async function measureNameSpaceAction(input: unknown): Promise<{ ok: true; table: SpaceTable } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = spaceSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid position" };
+  const [product] = await db.select({ stlKey: products.stlKey }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
+  if (!product?.stlKey || !/\.(stl|3mf)$/i.test(product.stlKey)) return { ok: false, error: "This product has no STL or 3MF model" };
+  try {
+    return { ok: true, table: measureSpace(await loadSurface(product.stlKey), parsed.data) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+  }
+}
+
+const wallSchema = z.object({ productId: z.string().uuid(), slot: nameSlotSchema });
+
+/** How thick the model is behind the name area (mm), so the editor can limit an engraving's depth. null = could not tell. */
+export async function measureWallAction(input: unknown): Promise<{ ok: true; wallMm: number | null } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = wallSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid position" };
+  const [product] = await db.select({ stlKey: products.stlKey }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
+  if (!product?.stlKey || !/\.(stl|3mf)$/i.test(product.stlKey)) return { ok: false, error: "This product has no STL or 3MF model" };
+  try {
+    const { slot } = parsed.data;
+    return { ok: true, wallMm: wallThickness(await loadSurface(product.stlKey), slot, slot.maxWidth, slotMaxHeight(slot)) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not read the model file" };
+  }
+}
+
 async function slugOf(productId: string): Promise<string | undefined> {
   const [p] = await db
     .select({ slug: products.slug })
@@ -211,7 +325,7 @@ const attachModelSchema = z.object({
  * Attach an uploaded 3D model (STL or 3MF) to a product. Verifies the object really
  * exists and is within the size limit (the client could lie), and that a .3mf is a
  * real ZIP. The previous model is NOT deleted from S3: existing orders reference it
- * via order_items.stl_key_snapshot.
+ * via order_items.stl_key_snapshot. A 3MF slicer project is also read to auto-configure the name slot and colours.
  */
 export async function attachModelAction(input: unknown): Promise<Result> {
   await requireAdmin();
@@ -235,8 +349,18 @@ export async function attachModelAction(input: unknown): Promise<Result> {
     .set({ stlKey: key, updatedAt: new Date() })
     .where(eq(products.id, productId));
 
+  // A slicer 3MF can configure the product by itself: the designer's example text becomes the name slot and the
+  // project's filament colours become the colour swatches (see lib/model-autoconfig.ts). Never blocks the upload.
+  let auto: AutoConfig | undefined;
+  try {
+    auto = await autoConfigureModel(productId, key);
+  } catch (e) {
+    auto = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false, parts: [] }, notes: [`Auto-configuration failed: ${e instanceof Error ? e.message : "unknown error"}. The model was attached as uploaded.`] };
+  }
+
   invalidate(await slugOf(productId));
-  return { ok: true };
+  revalidatePath(`/admin/products/${productId}`);
+  return { ok: true, auto };
 }
 
 const addPhotoSchema = z.object({

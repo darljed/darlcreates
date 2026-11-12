@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (growth batch: G-70 to G-74)
+Last updated: 2026-11-11 (name-on-model: G-79 to G-96)
 
 ---
 
@@ -82,6 +82,31 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-77 | 🟡 | **Search and AI visibility needs content, not just markup** | The markup is in place; ranking depends on good product names and descriptions, the FAQ, photos with alt text, reviews, and submitting `sitemap.xml` to Google Search Console / Bing. Owner task. |
 | G-78 | 🟡 | **Waybill is one order at a time** | No "print all ready-to-ship" batch page yet. Easy to add if the volume needs it. |
 
+### Found while building the name-on-model proof of concept
+
+| ID | Sev | Gap | Detail |
+|---|---|---|---|
+| G-79 | ✅ 2026-11-11 | **Name hanging off the surface** | Fixed at save time: nine ray samples over the widest name, with a suggested width (`checkFit`, `widestThatFits`). Not re-checked per order. See [name-on-model.md](./name-on-model.md) |
+| G-80 | 🟠 | **Slot is not snapshotted per order** | The print file uses the product's current slot, so moving the slot later changes old orders' files. Fix: copy slot + font to the order item at placement (immutable snapshot rule) |
+| G-81 | 🟠 | **3MF print file not yet confirmed in a real slicer** | 3MF products now take a name (Outdoor Phone Stand is live with one). The output is well-formed and loads in `trimesh` with the name in the right place, but has not been opened in Bambu Studio / Orca. Plain-mesh 3MFs and several plate objects are refused |
+| G-82 | 🟡 | **Raised text only** | Engraving needs CSG (for example `manifold-3d`) |
+| G-83 | 🟡 | **No moderation or per-character price for names** | Same as the earlier personalization questions |
+| G-84 | 🟡 | **Print report not shown to the admin** | Width, thinnest stroke and watertight result are computed but only returned by `buildPrintFile` |
+| G-85 | 🟡 | **Flat surfaces only** | The name is a flat sheet on one plane; curved faces need wrapping |
+| G-86 | 🟠 | **Large models are slow in the browser** | The v2 stand (523k triangles, 44 MB of XML) takes about 12 s and 166 MB of heap to show in dev. Use a lighter preview model (decimated copy or a separate display file) for the product page; keep the full model for the print file |
+| G-87 | ✅ 2026-11-11 | **Text-element detection wired to upload** | `attachModelAction` → `autoConfigureModel`: slot, cleaned model, Colors from filaments, fonts offered. Tested (`test-model-autoconfig.ts`) and run with the real v2 file |
+| G-91 | ✅ 2026-11-11 | **Script font names overflowed the model** | The fit check covered only a width × capital-height band; descenders and loops of some fonts/names went past the surface. Fixed with an ink-box rectangle (`maxHeight`), see D-41 |
+| G-88 | ✅ 2026-11-11 | **Customer-chosen name colour** | `nameColors` on the slot, picker on the product page, preview, order summary and filament assignment in the 3MF. See D-42 |
+| G-92 | ✅ 2026-11-11 | **Admin could enter sizes that overflow the model** | Inputs are limited to the measured room at the spot (`measureNameSpaceAction`); save still checks |
+| G-89 | ✅ 2026-11-11 | **Engraved (negative part) names** | Detected from a Bambu negative text, saved as `mode: engraved`, added to the print file as a negative part, wall check, dark decal preview (D-43). Marker-part detection for other slicers is still not built (G-93) |
+| G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
+| G-94 | 🟡 | **Print files not opened in a slicer yet** | The engraved preview is now a stencil-carved recess (D-43). Open a downloaded engraved 3MF in Bambu Studio once before the first real order |
+| G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
+| ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |
+| G-96 | 🟡 | **Painted-area preview is dense** | A finely painted outline is tens of thousands of triangles; a lighter preview model (G-86) would help. Only Bambu/Orca/PrusaSlicer paint attributes are read |
+| ✅ | 2026-11-11 | **Multiple names per order; multi-colour base** | D-44 / D-43. Tests: `test-multi-name-cart.ts`, `test-name-mesh.ts`, `test-model-autoconfig.ts` |
+| G-90 | 🟡 | **No admin upload of custom fonts** | Fonts are files in `public/fonts`. `opentype.js` cannot read every font (Bangers failed on its GSUB table) |
+
 ### Missing from the spec (planned, not built)
 
 | ID | Sev | Gap | Spec ref | Status |
@@ -145,7 +170,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | ID | Idea | Notes |
 |---|---|---|
 | F-16 | **3MF as personalized-order output** | Upload + preview of 3MF is done (see Resolved F-16a). Still open: *generating* a 3MF per personalized order (base + name as separate parts). Depends on F-17. |
-| F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
+| F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder). **Proof of concept built 2026-11-11: [name-on-model.md](./name-on-model.md)** (G-79 to G-85 are what is left) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
 
 ## D. Resolved
 

@@ -5,6 +5,7 @@ import { SchemaBuilder } from "@/components/admin/schema-builder";
 import { ProductFiles } from "@/components/admin/product-files";
 import { fileUrl } from "@/lib/storage";
 import { PageHeader } from "@/components/shell/ui";
+import { NameSlotEditor } from "@/components/admin/name-slot-editor";
 
 export const metadata = { title: "Edit product · Admin" };
 
@@ -52,6 +53,16 @@ export default async function EditProductPage({
         <h2 className="mb-2 text-sm font-bold">Customization options</h2>
         <SchemaBuilder productId={product.id} options={product.options} />
       </div>
+
+      {product.stlKey && /\.(stl|3mf)$/i.test(product.stlKey) && product.options.some((o) => o.type === "text") && (
+        <NameSlotEditor
+          productId={product.id}
+          modelUrl={fileUrl(product.stlKey) ?? ""}
+          canEngrave={/\.3mf$/i.test(product.stlKey)}
+          options={product.options.filter((o) => o.type === "text").map((o) => ({ id: o.id, label: o.label, constraints: o.constraints }))}
+          colors={(product.options.find((o) => o.type === "color")?.values ?? []).map((v) => ({ label: v.label, hex: v.value }))}
+        />
+      )}
     </div>
   );
 }

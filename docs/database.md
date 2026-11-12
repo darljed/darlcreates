@@ -46,6 +46,8 @@ The column was not renamed to avoid a risky migration for no functional gain. Ke
 - image: `{ formats, maxBytes, minW?, minH? }`
 - color/size: enumerated via `product_option_values` (`value` = hex / size code).
 
+Text options can also carry `slot` in `constraints`: where the customer's name goes on the 3D model (position, normal, up, size, depth, font, all in the model file's coordinates). Shape and rules: [name-on-model.md](./name-on-model.md). A damaged slot is ignored (`slotOf`), never an error.
+
 Price (server-authoritative): `base + Σ option deltas + Σ value deltas`.
 
 ## Migrations (`drizzle/`, all applied to the live database)

@@ -17,6 +17,8 @@ export function centerGeometry(geometry: BufferGeometry): {
   geometry: BufferGeometry;
   size: Vector3;
   radius: number;
+  /** Where the box centre was before centering, i.e. the offset between file coordinates and the centered geometry. */
+  center: Vector3;
 } {
   geometry.computeBoundingBox();
   const box = geometry.boundingBox as Box3;
@@ -26,6 +28,7 @@ export function centerGeometry(geometry: BufferGeometry): {
   geometry.computeBoundingSphere();
   return {
     geometry,
+    center,
     size: (geometry.boundingBox as Box3).getSize(new Vector3()),
     // Sphere centered on the (now origin-centered) box; radius is rotation-invariant.
     radius: Math.max(geometry.boundingSphere?.radius ?? 1, 1e-6),
@@ -51,24 +54,35 @@ export function measureObject(obj: Object3D): { center: Vector3; radius: number 
  */
 export const DEFAULT_3MF_MATERIAL = "__DEFAULT";
 
+/** Mesh name the stored preview model gives negative parts / modifiers; the viewer hides them (see threemf.ts `annotateGroups`). */
+export const HIDDEN_PART_NAME = "dc-hide";
+
 /**
  * Clone a loaded 3MF so the cached original is never mutated, and give parts that have
  * NO color in the file the customer's chosen color. Parts with an explicit color/material
  * keep it (that's the point of 3MF: e.g. base in one color, the name in another).
- * `isDefault` decides whether a material counts as "no color in the file".
+ * `isDefault` decides whether a material counts as "no color in the file". `partColors` colours meshes by name (the
+ * parts of a multi-colour model); meshes named `dc-hide` are hidden.
  */
 export function prepareMultiPart(
   loaded: Object3D,
   color: string,
   isDefault: (m: Material) => boolean,
+  partColors: Record<string, string> = {},
 ): Object3D {
   const clone = loaded.clone(true);
   clone.traverse((o) => {
     const mesh = o as Object3D & { isMesh?: boolean; material?: Material | Material[] };
     if (!mesh.isMesh || !mesh.material) return;
+    if (mesh.name === HIDDEN_PART_NAME) {
+      mesh.visible = false; // a negative part: the slicer subtracts it, so it is not part of what the customer sees
+      mesh.raycast = () => {};
+      return;
+    }
+    const own = partColors[mesh.name]; // a part the customer can colour on its own
     const swap = (m: Material) => {
       const c = m.clone();
-      if (isDefault(m) && "color" in c) (c as Material & { color: { set(v: string): void } }).color.set(color);
+      if ((own || isDefault(m)) && "color" in c) (c as Material & { color: { set(v: string): void } }).color.set(own ?? color);
       return c;
     };
     mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);

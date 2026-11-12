@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { cartItems } from "@/db/schema";
 import { getAccess, requireUser } from "@/lib/session";
 import { getOrCreateCart } from "@/lib/cart";
-import { addToCart } from "@/lib/cart-service";
+import { addManyToCart, addToCart } from "@/lib/cart-service";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -25,6 +25,17 @@ export async function addToCartAction(input: unknown): Promise<AddResult> {
   if (access.state === "consent") return { ok: false, error: "Please accept the privacy policy to continue.", needs: "consent" };
   if (access.state !== "ok") return { ok: false, error: "This account can't place orders." };
   const res = await addToCart(access.user.id, input);
+  if (res.ok) revalidatePath("/cart");
+  return res;
+}
+
+/** Several names at once (bulk order). All rows are checked first; nothing is added unless every row is valid. */
+export async function addManyToCartAction(input: unknown): Promise<AddResult | { ok: true; added: number }> {
+  const access = await getAccess();
+  if (access.state === "signed_out") return { ok: false, error: "Please sign in to add to cart.", needs: "sign_in" };
+  if (access.state === "consent") return { ok: false, error: "Please accept the privacy policy to continue.", needs: "consent" };
+  if (access.state !== "ok") return { ok: false, error: "This account can't place orders." };
+  const res = await addManyToCart(access.user.id, input);
   if (res.ok) revalidatePath("/cart");
   return res;
 }

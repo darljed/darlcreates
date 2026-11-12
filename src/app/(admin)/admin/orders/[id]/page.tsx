@@ -74,7 +74,7 @@ export default async function AdminOrderDetailPage({
                         href={`/admin/orders/${order.id}/stl/${it.id}`}
                         className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                       >
-                        <Download className="size-4" /> Download STL
+                        <Download className="size-4" /> {it.nameText ? `Download 3MF with the name “${it.nameText}”` : "Download STL"}
                       </a>
                     ) : (
                       <span className="text-xs text-muted-foreground">

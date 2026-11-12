@@ -3,11 +3,18 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { orderItems } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
-import { readUrl, isStorageConfigured } from "@/lib/storage";
+import { readUrl, isStorageConfigured, getObject } from "@/lib/storage";
+import { getProductById } from "@/lib/catalog";
+import { personalizedName } from "@/lib/name-mesh";
+import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
+import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
+import type { ConfigSelection } from "@/lib/pricing";
 
 /**
- * Admin-only: resolve the print-ready STL for an order item and redirect to a
- * signed download URL. RBAC-gated; never exposes the raw bucket.
+ * Admin-only: the print-ready file for an order item. Normally a redirect to a signed download of the product's model.
+ * When the product has a name slot and the customer typed a name, the file is built here instead: the original model
+ * (STL or 3MF) plus the name as one more part of the same object, in a 3MF (see lib/name-3mf.ts). Rebuilt from the saved text every time, never from
+ * anything the browser supplied. RBAC-gated; never exposes the raw bucket.
  */
 export async function GET(
   _req: Request,
@@ -17,7 +24,7 @@ export async function GET(
   const { id, itemId } = await params;
 
   const [item] = await db
-    .select({ stlKey: orderItems.stlKeySnapshot })
+    .select({ stlKey: orderItems.stlKeySnapshot, productId: orderItems.productId, config: orderItems.config })
     .from(orderItems)
     .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, id)))
     .limit(1);
@@ -30,6 +37,40 @@ export async function GET(
       { error: "Storage not configured" },
       { status: 503 },
     );
+  }
+
+  const product = await getProductById(item.productId);
+  const config = (item.config ?? {}) as ConfigSelection;
+  const personal = product ? personalizedName(product.options, config, item.stlKey) : null;
+  // the customer's colour for each part of a multi-colour model (3MF slicer projects only)
+  const colors = product && /\.3mf$/i.test(item.stlKey) ? filamentAssignments(product.options, config) : [];
+  const paint = product && /\.3mf$/i.test(item.stlKey) ? paintAssignments(product.options, config) : [];
+  if (!personal && (colors.length || paint.length)) {
+    const obj = await getObject(item.stlKey);
+    if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
+    try {
+      const file = buildColoredFile(await new Response(obj.stream).arrayBuffer(), colors, paint);
+      return new Response(Buffer.from(file), {
+        headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-colours.3mf"`, "Cache-Control": "private, no-store" },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read the model file" }, { status: 422 });
+    }
+  }
+  if (personal) {
+    const obj = await getObject(item.stlKey);
+    if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
+    const base = await new Response(obj.stream).arrayBuffer();
+    const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot, colors, paint });
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
+    const safe = personal.text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "name";
+    return new Response(Buffer.from(built.file), {
+      headers: {
+        "Content-Type": "model/3mf",
+        "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-${safe}.3mf"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
   }
 
   const url = await readUrl(item.stlKey, 120);

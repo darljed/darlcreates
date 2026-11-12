@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { Box } from "lucide-react";
+import type { BufferGeometry } from "three";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import { cn } from "@/lib/utils";
 
@@ -21,11 +22,23 @@ export function ProductGallery({
   modelUrl,
   color,
   photos,
+  overlay,
+  overlayColor,
+  partColors,
+  engraved,
 }: {
   productName: string;
   modelUrl: string | null;
   color: string;
   photos: GalleryPhoto[];
+  /** The customer's name as raised letters, drawn on the 3D model (see use-name-build.ts). */
+  overlay?: BufferGeometry | null;
+  /** The name's own colour when it prints in a different filament than the model. */
+  overlayColor?: string;
+  /** Colours for named parts of a multi-colour model (mesh name -> hex), see part-colors.ts. */
+  partColors?: Record<string, string>;
+  /** The name is engraved: the viewer cuts it into the model (see CarvedName). */
+  engraved?: boolean;
 }) {
   // -1 = the 3D model; 0..n-1 = photo index. Default to 3D when there is one.
   const [active, setActive] = useState<number>(modelUrl ? -1 : 0);
@@ -42,7 +55,7 @@ export function ProductGallery({
         aria-live="polite"
       >
         {showing3d ? (
-          <StlViewer url={modelUrl} color={color} className="size-full" />
+          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} overlayColor={overlayColor} partColors={partColors} engraved={engraved} />
         ) : photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

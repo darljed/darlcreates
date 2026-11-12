@@ -50,6 +50,31 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 - Changing a product never changes orders already placed. They keep what the customer bought and paid.
 - Changes appear on the storefront right away.
 
+### Uploading a 3MF from Bambu Studio sets most of this up for you
+
+If the 3MF has a **text element** (Bambu Studio's text tool) as an example, uploading it does the rest: the name position, size and depth are taken from the example, the example is removed from the model (so customers and the print file never show it), a "Name" option is added if the product has none, and the closest font is chosen. If the product has no colour option, **Colors** is created from the project's filaments. Toasts tell you what it did; check it under "Name on the model" and adjust if needed. A normal part is raised text. (Engraved text is not supported yet.) An STL upload changes nothing, and options you already have are never overwritten.
+
+### Fonts
+
+Under "Name on the model", pick the default **Font** and tick the fonts **customers can choose** (two or more shows a Font picker above the name preview). Bold, Chunky and Marker print sturdiest; Script has thin strokes and refuses longer names.
+
+### Engraved names, part colours and bulk orders
+- **Style** (under Name on the model): Raised or Engraved. Engraved needs a 3MF project and cuts the name in; set **Cut depth** (the editor shows how thick the model is behind the name and limits the depth). Uploading a 3MF whose example text is a **negative part** sets this up by itself.
+- A 3MF made of parts in different filaments (for example a ball and its holder) gets one colour option per part on upload. Customers colour each part; the print file uses their choices.
+- Areas the designer **painted in another filament** (for example an outline) become their own colour option, "Outline colour" (rename it if you like). Customers change that colour on the 3D preview and in the print file.
+- Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
+
+### Putting the customer's name on a product
+
+For a product with an **STL or 3MF** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:
+- **Letter height**, **Widest name** and **Tallest name** (mm). Widest and tallest together are the area the name must stay inside, tails and loops included (a Script "Gypsy" is much taller than "Maria"); a bigger name is made smaller to fit; a name so long its letters would be too thin is refused for the customer with a message.
+- **Stands out** (how far the letters rise, about 1.2 mm) and **Sunk in** (leave at 0.4 so the letters fuse to the surface).
+- **Font** (Bold or Chunky) and **Rotate**.
+
+The size boxes are **limited to what fits** at the spot you clicked ("max N mm here"); if you ask for more, the other value is reduced so the name stays on the surface. If there is no room, the editor says so. Under **Name colours** add the colours customers may pick for the name (from your Colors, or any colour), with the slicer filament number if you want the print file to assign it; the **Preview** button shows a colour on the model.
+
+Type a sample name to see it; the line under it shows the real size and the thinnest stroke. **Save position.** Customers now see their name on the model as they type. In an order, the item's download is a **3MF with two parts: the base and the name**. Open it in your slicer and give the name its own filament if you want a contrasting colour. If the name would hang off the surface, saving is refused and the message tells you the widest name that fits; lower "Widest name" (or move the spot) and save again. The name is a part of the model's object, so you can still give it its own filament in the slicer.
+
 ## Users
 
 Find customers by name or email; filter by active, blocked, admins or deleted. A user page lets you:

@@ -11,6 +11,19 @@ export type OptionConstraints = {
   maxLen?: number;
   pattern?: string;
   fonts?: string[];
+  /** Text options only: where the name sits on the 3D model (see name-mesh.ts). Unvalidated here; use `slotOf`. */
+  slot?: unknown;
+  /**
+   * Colour options only: this option colours one part of a multi-colour model (see part-colors.ts). `partName` is the
+   * mesh name the 3D viewer colours (`dc-slot-<n>`), `parts` the slicer parts it covers, `filaments` the filament
+   * number for each choosable colour (hex -> number), `defaultHex` the colour the designer printed it in.
+   */
+  partName?: string;
+  parts?: { objectId: string; partId: string }[];
+  filaments?: Record<string, number>;
+  defaultHex?: string;
+  /** Colour options for a PAINTED area of a part (not a part of its own): the filament it was painted with. `parts` are the painted parts. */
+  paintFrom?: number;
   formats?: string[];
   maxBytes?: number;
   minW?: number;
@@ -35,7 +48,7 @@ export type ProductOptionInput = {
 /** A customer's selection: optionId -> chosen value. */
 export type ConfigSelection = Record<
   string,
-  { valueId?: string; text?: string; imageKey?: string }
+  { valueId?: string; text?: string; imageKey?: string; font?: string; nameColor?: string }
 >;
 
 export type PriceResult = {
@@ -129,7 +142,18 @@ export function normalizeSelection(
       if (sel.valueId) config[opt.id] = { valueId: sel.valueId };
     } else if (opt.type === "text") {
       const text = (sel.text ?? "").trim();
-      if (text) config[opt.id] = { text };
+      if (text) {
+        // a font choice is kept only if this option's name slot offers it
+        const slot = (opt.constraints.slot ?? {}) as { font?: string; fonts?: string[]; mode?: string };
+        const offered = new Set([slot.font, ...(slot.fonts ?? [])].filter(Boolean));
+        const entry: { text: string; font?: string; nameColor?: string } = { text };
+        if (sel.font && offered.size > 1 && offered.has(sel.font)) entry.font = sel.font;
+        // a name colour is kept only if this option's name slot offers it (stored as the offered spelling)
+        const colours = ((opt.constraints.slot ?? {}) as { nameColors?: { hex: string }[] }).nameColors ?? [];
+        const colour = sel.nameColor ? colours.find((c) => c.hex.toLowerCase() === sel.nameColor!.toLowerCase()) : undefined;
+        if (colour && slot.mode !== "engraved") entry.nameColor = colour.hex; // an engraved name is a cut, it has no colour
+        config[opt.id] = entry;
+      }
     } else if (opt.type === "image") {
       if (sel.imageKey) {
         if (isOwnImageKey(sel.imageKey)) config[opt.id] = { imageKey: sel.imageKey };
@@ -153,5 +177,7 @@ export const configSelectionSchema = z.record(
     valueId: z.string().optional(),
     text: z.string().max(500).optional(),
     imageKey: z.string().max(300).optional(),
+    font: z.string().max(30).optional(),
+    nameColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   }),
 );
