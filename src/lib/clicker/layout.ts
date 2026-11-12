@@ -16,6 +16,7 @@ import type { Font, NameFontId } from "../name-mesh";
 import { boxRing, capTopMm, crossRing, DEFAULT_TUNE, FIT, RELIEF_MM, RIM_MM, totalHeightMm, type Tune } from "./fit";
 import type { Bounds, Region, Ring } from "./poly";
 import { boundsOf, difference, intersect, offset, regionArea, removeSmallFeatures, straighten, totalArea, transformRegions, union } from "./poly";
+import { reachCheck } from "./reach";
 import { circleRing, rayExit, shapeRing } from "./shapes";
 import { nameKeys, switchesApart, type ClickerSpec } from "./spec";
 import { LIMITS } from "./spec";
@@ -192,6 +193,11 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = D
   const switches = keys.flatMap((k) => k.switches);
   const capOutline = union(keys.flatMap((k) => k.outline));
   const capBounds = boundsOf(capOutline);
+  // a key that sticks out far past its switches will not press smoothly (see reach.ts)
+  if (spec.kind === "clicker") {
+    const rc = reachCheck(capBounds, switches);
+    if (rc.message) errors.push(rc.message);
+  }
   const asked: [number, number] = [spec.width, spec.height];
   const capSize: [number, number] = [capBounds.maxX - capBounds.minX, capBounds.maxY - capBounds.minY];
   let grownFrom: [number, number] | null = null;

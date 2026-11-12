@@ -22,8 +22,11 @@ import { buildLayout, plateLayout } from "../src/lib/clicker/layout";
 import { extrudeLayout, GeometryCache, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
-import { scaleDesign } from "../src/lib/clicker/state";
+import { scaleDesign, setSize } from "../src/lib/clicker/state";
+const setSizeFor = (sp: ClickerSpec, w: number) => setSize(sp, { width: w }, DEFAULT_CLICKER_CONFIG, false);
 import { centreAndFitArt } from "../src/lib/clicker/fit-art";
+import { clampShift, maxKeySide, reachCheck, switchBlock, unionBox } from "../src/lib/clicker/reach";
+import { boundsOf } from "../src/lib/clicker/poly";
 import { designToSvg } from "../src/lib/clicker/svg";
 import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
@@ -244,13 +247,52 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("making the design 2x bigger makes the key about 2x bigger", (() => { const a = buildLayout(outlineSpec({ layers: [textLayer({ text: "HELLO", color: RED, size: 8 })] }), fonts); const b = buildLayout(scaleDesign(outlineSpec({ layers: [textLayer({ text: "HELLO", color: RED, size: 8 })] }), 2), fonts); const k = b.capSize[0] / a.capSize[0]; return k > 1.7 && k < 2.1; })());
   assert("the owner's minimum size does not apply to a key that follows its design; a fixed shape still needs it", checkAgainstConfig({ ...outlineSpec(), width: 24, height: 24 }, cfg) === null && checkAgainstConfig({ ...plain, width: 24, height: 24 }, cfg) !== null);
   assert("the server checks the size written on an outline design against the real one", await (async () => {
-    const big = outlineSpec({ layers: [textLayer({ text: "BIG", color: RED, size: 30, font: "chunky" })], width: 40, height: 40 });
+    const big = outlineSpec({ layers: [textLayer({ text: "BIG", color: RED, size: 16, font: "chunky" })], width: 30, height: 30 });
     const real = Math.max(...buildLayout(big, fonts).capSize);
     const lie = await checkDesign(big, cfg);
     const honest = await checkDesign({ ...big, width: Math.ceil(real), height: Math.ceil(real) }, cfg);
-    return real > 41 && !lie.ok && /does not match/.test(lie.error) && honest.ok;
+    return real > 31 && real < 55 && !lie.ok && /does not match/.test(lie.error) && honest.ok;
   })());
   assert("an outline key bigger than the owner's largest size is refused", await (async () => { const r = await checkDesign(outlineSpec({ layers: [textLayer({ text: "HUGEWORD", color: RED, size: 40, font: "chunky" })], width: 120, height: 120 }), cfg); return !r.ok; })());
+
+  console.log("\nthe key may not reach too far past its switches");
+  {
+    const one = [{ x: 0, y: 0 }];
+    assert("the rule: at most 20 mm past the switch on any side, and the key's middle within 6 mm of the switch's middle", FIT.maxReachMm === 20 && FIT.balanceMm === 6);
+    const key = (minX: number, maxX: number, minY = -10, maxY = 10) => ({ minX, maxX, minY, maxY });
+    assert("a key 55 mm across on one switch is allowed (the sample clickers), 56 mm is not", reachCheck(key(-27.5, 27.5), one).ok && !reachCheck(key(-28, 28), one).ok && maxKeySide(one)[0] === 55);
+    assert("a key that is long on one side only is refused as lopsided or too long", !reachCheck(key(-7.5, 27.6), one).ok && !reachCheck(key(-21, 8), one).ok && reachCheck(key(-12, 12), one).ok);
+    assert("more switches allow a bigger key: two in a row give 72 mm, six in a grid give 105 by 72", maxKeySide(switchPattern(2))[0] === 72 && maxKeySide(switchPattern(6, "grid"))[0] === 2 * (17 + 7.5 + 20) - 0 && switchBlock(switchPattern(2)).maxX === 16);
+    assert("the message says what is wrong and how to fix it", /sticks out 23 mm past the switch/.test(reachCheck(key(-30, 24), one).message ?? "") && /add another switch/.test(reachCheck(key(-30, 24), one).message ?? "") && /lopsided/.test(reachCheck(key(-8, 24), one).message ?? ""));
+
+    // the situation in the bug report: text dragged far from the switch on a key that follows its artwork
+    const far = outlineSpec({ layers: [textLayer({ text: "Press Me", size: 7, color: RED, font: "chunky", x: -26, y: 4 })] });
+    assert("text dragged far from the switch gives an error that stops the order", buildLayout(far, fonts).errors.some((e) => /sticks out|lopsided/.test(e)) && !(await checkDesign({ ...far, width: 70, height: 40 }, cfg)).ok);
+    const near0 = outlineSpec({ layers: [textLayer({ text: "Press Me", size: 7, color: RED, font: "chunky", x: -2, y: 0 })] });
+    assert("the same text near the switch is fine", buildLayout(near0, fonts).errors.length === 0);
+
+    // limiting a drag
+    const lay0 = buildLayout(near0, fonts);
+    const mine = boundsOf(lay0.layerShapes.get(near0.layers[0].id)!);
+    const move = (dx: number, dy: number) => clampShift(null, mine, dx, dy, near0.switches, near0.border);
+    const mk = (dx: number, dy: number) => ({ ...near0, layers: [{ ...near0.layers[0], x: near0.layers[0].x + dx, y: near0.layers[0].y + dy }] });
+    const sweep: string[] = [];
+    for (const [dx, dy] of [[-60, 0], [60, 0], [0, 40], [0, -40], [-50, 30], [45, -35], [10, 5], [-3, 2]]) {
+      const r = move(dx, dy);
+      if (buildLayout(mk(r.dx, r.dy), fonts).errors.length) sweep.push(`(${dx},${dy}) -> (${r.dx.toFixed(1)},${r.dy.toFixed(1)}) still breaks the rule`);
+    }
+    assert("a drag is cut back so the key never breaks the rule, however far you pull", sweep.length === 0, sweep.join(" | "));
+    assert("a small move is not limited; a big one is", !move(2, 1).limited && move(2, 1).dx === 2 && move(-60, 0).limited && move(-60, 0).dx > -60 && move(-60, 0).dx < 0);
+    assert("the limit is tight: a little more would break the rule", (() => { const r = move(-60, 0); return buildLayout(mk(r.dx - 1.5, 0), fonts).errors.length > 0; })());
+    assert("at the limit you slide along it: pulling up-left past the left limit still moves up", (() => { const r = move(-60, 6); return r.limited && r.dx > -60 && Math.abs(r.dy - 6) < 0.6; })());
+    assert("a design that is already past the limit is not dragged further out", (() => { const bad = clampShift(null, { ...mine, minX: mine.minX - 60, maxX: mine.maxX - 60 }, -5, 0, near0.switches, near0.border); return bad.dx === 0 && bad.dy === 0 && bad.limited; })());
+    assert("other artwork counts: two texts, dragging one far is limited by the other being in place", (() => { const two = outlineSpec({ layers: [textLayer({ text: "AB", size: 9, color: RED, x: 0, y: 0 }), textLayer({ text: "CD", size: 9, color: BLUE, x: 0, y: -14 })] }); const l = buildLayout(two, fonts); const [a, b] = two.layers; const ob = boundsOf(l.layerShapes.get(b.id)!); const r = clampShift(unionBox(null, ob), boundsOf(l.layerShapes.get(a.id)!), 0, 60, two.switches, two.border); return r.limited && r.dy < 60 && r.dy > 0; })());
+
+    // fixed shapes: the size is held to what the switches allow
+    assert("a fixed-shape key bigger than the switches allow is refused with the way out", (() => { const m = checkAgainstConfig({ ...plain, width: 70, height: 70 }, cfg) ?? ""; return /needs more switches/.test(m) && /at most 55 mm/.test(m) && checkAgainstConfig({ ...plain, width: 70, height: 70, switches: switchPattern(2) }, cfg) === null || /needs more switches/.test(m); })());
+    assert("setSize cannot take a fixed shape past what its switches allow", (() => { const big = setSizeFor({ ...plain, width: 40, height: 40 }, 90); return big.width === 55; })());
+    assert("name keys are exempt (their keys and switches are placed for you)", buildLayout(nameSpec({ text: "ABCDEFGH", perRow: 8 }), fonts).errors.length === 0);
+  }
 
   console.log("\nseveral switches under one key");
   assert("tidy patterns: a row, a 2 × 2 grid, 3 + 2 and 3 × 3 columns, all at least 17 mm apart, centred, never more than 6", [1, 2, 3, 4, 5, 6, 7].every((n) => ["row", "grid"].every((a) => { const p = switchPattern(n, a as "row" | "grid"); return p.length === Math.min(n, 6) && switchesApart(p) && near(p.reduce((t, q) => t + q.x, 0), 0, 0.3); })) && switchPattern(4, "grid").every((q) => Math.abs(Math.abs(q.x) - 8.5) < 0.01 && Math.abs(Math.abs(q.y) - 8.5) < 0.01));

@@ -3,6 +3,7 @@
  * colour everywhere, resize). No React and no DOM, so every rule is tested.
  */
 import type { ClickerConfig, ClickerSpec, ImageLayer, Layer, TextLayer } from "./spec";
+import { maxKeySide } from "./reach";
 import { defaultText, LIMITS, newId } from "./spec";
 import type { Traced } from "./trace";
 
@@ -121,16 +122,19 @@ export function recolour(spec: ClickerSpec, from: string, to: string, part?: "ba
 
 /** Set the width and/or height within the owner's limits; with `lock`, the other side follows so the proportions stay. */
 export function setSize(spec: ClickerSpec, patch: { width?: number; height?: number }, cfg: ClickerConfig, lock: boolean): ClickerSpec {
-  const lo = Math.max(cfg.minSize, LIMITS.minSizeMm), hi = Math.min(cfg.maxSize, LIMITS.maxSizeMm);
+  // a key may stick out only so far past its switches (reach.ts), so how big it can be depends on how many switches it has
+  const [reachW, reachH] = maxKeySide(spec.switches);
+  const lo = Math.max(cfg.minSize, LIMITS.minSizeMm), top = Math.min(cfg.maxSize, LIMITS.maxSizeMm);
+  const hiW = Math.min(top, reachW), hiH = Math.min(top, reachH);
   let { width, height } = spec;
   const ratio = spec.height / spec.width;
   if (patch.width !== undefined) {
-    width = clamp(patch.width, lo, hi);
-    if (lock) height = clamp(width * ratio, lo, hi);
+    width = clamp(patch.width, lo, hiW);
+    if (lock) height = clamp(width * ratio, lo, hiH);
   }
   if (patch.height !== undefined) {
-    height = clamp(patch.height, lo, hi);
-    if (lock) width = clamp(height / ratio, lo, hi);
+    height = clamp(patch.height, lo, hiH);
+    if (lock) width = clamp(height / ratio, lo, hiW);
   }
   return { ...spec, width: round1(width), height: round1(height) };
 }

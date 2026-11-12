@@ -26,7 +26,8 @@ import { useSession } from "@/lib/auth-client";
 import { formatPHP } from "@/lib/money";
 import { buildLayout, type Layout } from "@/lib/clicker/layout";
 import { extrudeLayout, GeometryCache } from "@/lib/clicker/extrude";
-import { pointInRegion } from "@/lib/clicker/poly";
+import { boundsOf, pointInRegion } from "@/lib/clicker/poly";
+import { clampShift, unionBox, type Box } from "@/lib/clicker/reach";
 import {
   checkAgainstConfig, clickerColours, clickerPriceDeltaCents, clickerSpecSchema, defaultSpec, KIND_LABELS, LIMITS, MAX_ADD_JSON, nameKeys, switchCount,
   type ClickerConfig, type ClickerSpec, type Kind,
@@ -276,6 +277,20 @@ export function ClickerDesigner({
     drag.current = { target: { kind: "layer", id: layer.id }, start: p, at: [layer.x, layer.y] };
     return drag.current.target;
   };
+  // How far a layer may move. For a key that follows its artwork, the key stretches with the artwork, so the artwork may only go as
+  // far as keeps the key within reach of its switches (reach.ts). For the fixed shapes the key does not change, so there is no limit.
+  const limitShift = useCallback(
+    (id: string, dx: number, dy: number) => {
+      if (spec.kind !== "clicker" || spec.shape !== "outline") return { dx, dy, limited: false };
+      const mine = layout.layerShapes.get(id);
+      if (!mine?.length) return { dx, dy, limited: false };
+      let others: Box | null = null;
+      for (const [lid, shapes] of layout.layerShapes) if (lid !== id && shapes.length) others = unionBox(others, boundsOf(shapes));
+      return clampShift(others, boundsOf(mine), dx, dy, spec.switches, spec.border);
+    },
+    [spec.kind, spec.shape, spec.switches, spec.border, layout],
+  );
+  const LIMIT_NOTE = "That is as far as the artwork can go. Further away, the key would stick out too far from the switch to press smoothly.";
   const onDragEnd = (p: [number, number]) => {
     const d = drag.current;
     drag.current = null;
@@ -285,9 +300,19 @@ export function ClickerDesigner({
       edit((s) => ({ ...s, keyring: { ...s.keyring, angle } }), "drag-keyring");
     } else {
       const id = d.target.id;
-      const x = Math.round((d.at[0] + p[0] - d.start[0]) * 10) / 10, y = Math.round((d.at[1] + p[1] - d.start[1]) * 10) / 10;
+      const r = limitShift(id, p[0] - d.start[0], p[1] - d.start[1]);
+      const x = Math.round((d.at[0] + r.dx) * 10) / 10, y = Math.round((d.at[1] + r.dy) * 10) / 10;
       if (x !== d.at[0] || y !== d.at[1]) edit((s) => updateLayer(s, id, { x, y }), `drag-${id}`);
+      if (r.limited) toast.info(LIMIT_NOTE, { id: "reach-limit" });
     }
+  };
+  // typing a position is held to the same limit
+  const placeLayer = (id: string, x: number, y: number) => {
+    const layer = spec.layers.find((l) => l.id === id);
+    if (!layer) return;
+    const r = limitShift(id, x - layer.x, y - layer.y);
+    edit((s) => updateLayer(s, id, { x: Math.round((layer.x + r.dx) * 10) / 10, y: Math.round((layer.y + r.dy) * 10) / 10 }), `place-${id}`);
+    if (r.limited) toast.info(LIMIT_NOTE, { id: "reach-limit" });
   };
 
   // --- pictures and text -----------------------------------------------------------------------------------------
@@ -538,6 +563,7 @@ export function ClickerDesigner({
                 onPick={() => goStep("colours")}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
+                limitShift={limitShift}
                 fallback={
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={flatUri} alt="Your clicker from above" className="size-full object-contain p-6" />
@@ -686,7 +712,7 @@ export function ClickerDesigner({
                         <DesignPanel
                           spec={spec} edit={edit} config={config}
                           selected={selected} setSelected={setSelected}
-                          onAddText={onAddText} onAddFile={onAddFile}
+                          onAddText={onAddText} onAddFile={onAddFile} placeLayer={placeLayer}
                           pictures={pictureSnap} retrace={retraceLayer} busy={busy} error={pictureError}
                         />
                       )}

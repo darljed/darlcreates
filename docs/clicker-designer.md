@@ -74,6 +74,20 @@ Set on **Admin → Products → (product) → Clicker designer**.
 keys with the stem socket -0.1 / 0 / +0.1 / +0.2 mm, one colour. Print it, press a switch into each base and push each key onto a stem.
 Enter the best numbers under **Printer fit**. Do this once per printer and filament.
 
+## How far the artwork and key may reach (D-57)
+A key rests on the stems of its switches and slides in the well. If it sticks out far past them, pressing the far end tilts it and it
+jams, so two rules apply to a clicker (not to name keys):
+
+- **Reach:** the key may stick out at most **20 mm** past the switch squares, on any side. With one switch that is **55 mm** across
+  (like the sample clickers that work); two switches in a row allow 72 mm; more switches allow more.
+- **Balance:** the middle of the key must be within **6 mm** of the middle of the switches, so a press is even.
+
+Where it is enforced: the layout reports an error that stops the order (the message says what is wrong and how to fix it: move the
+artwork back, make it smaller, or add a switch); the server refuses it; **dragging in Move mode stops at the limit** (the blue preview
+turns amber and a note appears), and slides along the limit rather than sticking; **typing a position** is clamped the same way; the
+size buttons and fields offer only sizes the switches allow; and the switch map will not put the switches' middle more than 6 mm
+from the key's middle. The numbers are in `FIT` (`maxReachMm`, `balanceMm`); the arithmetic is in `reach.ts`.
+
 ## Price
 `product price + size step (clicker) + extra switches x the extra-switch price + extra colours + keyring + picture` for a clicker;
 `product price + keys after the first x the key price + extra colours + keyring` for name keys (each key already has its switch). Computed in `computeUnitPrice`
@@ -82,6 +96,7 @@ and checked again on the server when the line is added.
 ## Limits
 | Limit | Value | Where |
 |---|---|---|
+| Reach past the switches | 20 mm; so one switch allows a key 55 mm across | `FIT.maxReachMm`, `reach.ts` |
 | Key size | 24 to 120 mm per side (you narrow it; your minimum does not apply to an outline key); a smaller shape is grown to fit the switches | `LIMITS`, `FIT.keepoutMm` |
 | Switches under one key | your `maxSwitches` (up to 6), at least 17 mm apart | `LIMITS.maxSwitches`, `FIT.switchPitchMm` |
 | Colours per print | your `maxColours` (X2D: 4) | `ClickerConfig` |

@@ -60,6 +60,14 @@ export const FIT = {
 
   /** The switch must fit inside the cap's outline: this square (the flange plus a little) has to lie within it. */
   keepoutMm: 15,
+  /**
+   * A key is pressed by the stems of its switches and slides in the well, guided by the wall. A key that sticks out far past
+   * its switches tilts when pressed at the far end and jams. So it may stick out at most this far past the switch squares on
+   * any side (20 mm lets a single-switch key be 55 mm across, like the sample clickers that work), and the middle of the key
+   * must stay within `balanceMm` of the middle of the switches so a press is even.
+   */
+  maxReachMm: 20,
+  balanceMm: 6,
   /** Two switches must be at least this far apart (centre to centre, along x or y): their flanges and chambers must not touch. */
   switchPitchMm: 17,
 

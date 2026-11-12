@@ -18,6 +18,7 @@ import { NAME_FONT_IDS } from "@/lib/name-mesh";
 import type { Layout } from "@/lib/clicker/layout";
 import { SHAPES_WITH_CORNER, SHAPES_WITH_POINTS, SHAPE_IDS, SHAPE_LABELS } from "@/lib/clicker/shapes";
 import { BORDER_IDS, BORDER_LABELS, BORDER_MM, FIT, RELIEF_IDS, RELIEF_LABELS, RIM_IDS, RIM_LABELS, RIM_MM } from "@/lib/clicker/fit";
+import { maxKeySide, switchBlock } from "@/lib/clicker/reach";
 import { clickerColours, LIMITS, nameKeys, sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
 import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, scaleDesign, setSize, updateLayer } from "@/lib/clicker/state";
 import type { Analysis, Pixels } from "@/lib/clicker/trace";
@@ -82,11 +83,17 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 
 export function ShapePanel({ spec, edit, config, lock, setLock, layout, onShape }: Common & { lock: boolean; setLock: (v: boolean) => void; layout: Layout; onShape: (id: (typeof SHAPE_IDS)[number]) => void }) {
   const outline = spec.shape === "outline";
-  const tiers = [...new Set([config.minSize, ...config.sizeTiers.map((t) => t.upToMm), config.maxSize].filter((v) => v >= config.minSize && v <= config.maxSize))].sort((a, b) => a - b);
+  const allTiers = [...new Set([config.minSize, ...config.sizeTiers.map((t) => t.upToMm), config.maxSize].filter((v) => v >= config.minSize && v <= config.maxSize))].sort((a, b) => a - b);
   const actual = Math.max(layout.capSize[0], layout.capSize[1]);
+  // a key may stick out only so far past its switches, so how big it can be depends on how many switches it has
+  const [reachW, reachH] = maxKeySide(spec.switches);
+  const blk = switchBlock(spec.switches);
+  const longestOk = Math.min(config.maxSize, Math.max(blk.maxX - blk.minX, blk.maxY - blk.minY) + 2 * FIT.maxReachMm);
+  const sideOk = Math.min(config.maxSize, reachW, reachH);
+  const tiers = allTiers.filter((mm) => mm <= (spec.shape === "outline" ? longestOk : sideOk) + 0.05);
   // a key that follows its artwork is sized by scaling the whole design to the longest side asked for
   const rescale = (target: number) => {
-    const t = Math.min(config.maxSize, Math.max(Math.min(LIMITS.minSizeMm, actual), target));
+    const t = Math.min(longestOk, Math.max(Math.min(LIMITS.minSizeMm, actual), target));
     edit((s) => scaleDesign(s, t / actual), "scale");
   };
   return (
@@ -159,7 +166,7 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout, onShape 
                   type="number"
                   inputMode="decimal"
                   min={LIMITS.minSizeMm}
-                  max={config.maxSize}
+                  max={longestOk}
                   step={1}
                   defaultValue={Math.round(actual * 10) / 10}
                   onBlur={(e) => e.target.value && Math.abs(Number(e.target.value) - actual) > 0.3 && rescale(Number(e.target.value))}
@@ -192,19 +199,23 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout, onShape 
             <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
               <div>
                 <Label htmlFor="width" className="text-xs font-semibold">Width (mm)</Label>
-                <Input id="width" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.width} onChange={(e) => e.target.value && edit((s) => setSize(s, { width: Number(e.target.value) }, config, lock), "size")} />
+                <Input id="width" type="number" inputMode="decimal" min={config.minSize} max={Math.min(config.maxSize, reachW)} step={0.5} value={spec.width} onChange={(e) => e.target.value && edit((s) => setSize(s, { width: Number(e.target.value) }, config, lock), "size")} />
               </div>
               <Button type="button" size="icon" variant={lock ? "default" : "outline"} aria-pressed={lock} aria-label={lock ? "Keep the proportions (on)" : "Keep the proportions (off)"} title="Keep the proportions" onClick={() => setLock(!lock)}>
                 {lock ? <Link2 className="size-4" /> : <Link2Off className="size-4" />}
               </Button>
               <div>
                 <Label htmlFor="height" className="text-xs font-semibold">Height (mm)</Label>
-                <Input id="height" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.height} onChange={(e) => e.target.value && edit((s) => setSize(s, { height: Number(e.target.value) }, config, lock), "size")} />
+                <Input id="height" type="number" inputMode="decimal" min={config.minSize} max={Math.min(config.maxSize, reachH)} step={0.5} value={spec.height} onChange={(e) => e.target.value && edit((s) => setSize(s, { height: Number(e.target.value) }, config, lock), "size")} />
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">This is the size of the key you press, from {config.minSize} to {config.maxSize} mm. The base is 5 mm bigger all round. Bigger clickers cost a little more.</p>
           </>
         )}
+        <p className="text-[11px] text-muted-foreground">
+          {spec.switches.length === 1 ? "With one switch" : `With ${spec.switches.length} switches`} a key can be at most {Math.floor(outline ? longestOk : sideOk)} mm across, because it can stick out only {FIT.maxReachMm} mm past the {spec.switches.length === 1 ? "switch" : "switches"} and still press smoothly.{" "}
+          {spec.switches.length < config.maxSwitches ? "Add a switch for a bigger key." : ""}
+        </p>
         <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs" role="status">
           Key {layout.capSize[0].toFixed(1)} × {layout.capSize[1].toFixed(1)} mm · base {layout.baseSize[0].toFixed(1)} × {layout.baseSize[1].toFixed(1)} mm · {layout.totalHeight.toFixed(1)} mm tall
           {layout.grownFrom ? <span className="mt-0.5 block text-amber-700">Made bigger than you asked so the switch fits inside this shape.</span> : null}
@@ -320,8 +331,10 @@ function PictureEditor({ layer, spec, edit, config, picture, retrace, busy }: Co
 }
 
 export function DesignPanel({
-  spec, edit, config, selected, setSelected, onAddText, onAddFile, pictures, retrace, busy, error,
+  spec, edit, config, selected, setSelected, onAddText, onAddFile, placeLayer, pictures, retrace, busy, error,
 }: Common & {
+  /** Move a layer to a position, held to the limits (the key may not stick out too far past its switches). */
+  placeLayer: (id: string, x: number, y: number) => void;
   selected: string | null;
   setSelected: (id: string | null) => void;
   onAddText: () => void;
@@ -381,15 +394,15 @@ export function DesignPanel({
           {layer.kind === "text" ? <TextEditor layer={layer} edit={edit} config={config} /> : <PictureEditor layer={layer} spec={spec} edit={edit} config={config} picture={pictures.get(layer.id)} retrace={retrace} busy={busy} />}
           <div className="space-y-3 border-t pt-3">
             <p className="text-xs font-semibold">Place it</p>
-            <p className="text-[11px] text-muted-foreground">Or switch on “Move” above the clicker and drag it.</p>
+            <p className="text-[11px] text-muted-foreground">Or choose “Move” above the clicker and drag it. The artwork can only go so far from the switch: further away the key would not press smoothly.</p>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label htmlFor={`x-${layer.id}`} className="text-xs">Across (mm)</Label>
-                <Input id={`x-${layer.id}`} type="number" inputMode="decimal" step={0.5} value={Math.round(layer.x * 10) / 10} onChange={(e) => e.target.value !== "" && edit((s) => updateLayer(s, layer.id, { x: Number(e.target.value) }), `x-${layer.id}`)} />
+                <Input id={`x-${layer.id}`} type="number" inputMode="decimal" step={0.5} value={Math.round(layer.x * 10) / 10} onChange={(e) => e.target.value !== "" && placeLayer(layer.id, Number(e.target.value), layer.y)} />
               </div>
               <div>
                 <Label htmlFor={`y-${layer.id}`} className="text-xs">Up (mm)</Label>
-                <Input id={`y-${layer.id}`} type="number" inputMode="decimal" step={0.5} value={Math.round(layer.y * 10) / 10} onChange={(e) => e.target.value !== "" && edit((s) => updateLayer(s, layer.id, { y: Number(e.target.value) }), `y-${layer.id}`)} />
+                <Input id={`y-${layer.id}`} type="number" inputMode="decimal" step={0.5} value={Math.round(layer.y * 10) / 10} onChange={(e) => e.target.value !== "" && placeLayer(layer.id, layer.x, Number(e.target.value))} />
               </div>
             </div>
             <Slider id={`rot-${layer.id}`} label="Turn" value={layer.rotation} min={-180} max={180} step={1} unit="°" onChange={(v) => edit((s) => updateLayer(s, layer.id, { rotation: v }), `rot-${layer.id}`)} />
@@ -555,6 +568,9 @@ function SwitchMap({ spec, edit, layout }: { spec: ClickerSpec; edit: EditFn; la
     const nx = Math.round(Math.max(-100, Math.min(100, x)) * 2) / 2, ny = Math.round(Math.max(-100, Math.min(100, y)) * 2) / 2;
     const next = spec.switches.map((p, j) => (j === i ? { x: nx, y: ny } : p));
     if (!switchesApart(next)) return; // too close to another switch: the square stays where it was
+    // the switches' middle stays near the key's middle, so a press is even (reach.ts)
+    const bl = switchBlock(next);
+    if (Math.abs((bl.minX + bl.maxX) / 2) > FIT.balanceMm || Math.abs((bl.minY + bl.maxY) / 2) > FIT.balanceMm) return;
     edit((s) => ({ ...s, switches: next }), `sw-${i}`);
   };
   const at = (e: React.PointerEvent) => {

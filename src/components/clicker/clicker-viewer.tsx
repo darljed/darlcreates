@@ -12,7 +12,7 @@
 import { Component, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import { BufferGeometry, DoubleSide, Float32BufferAttribute, Path, Shape, ShapeGeometry, Vector2, Vector3, type Group, type PerspectiveCamera as Cam } from "three";
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, Path, Shape, ShapeGeometry, Vector2, Vector3, type Group, type MeshBasicMaterial, type PerspectiveCamera as Cam } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Layout } from "@/lib/clicker/layout";
 import type { SolidPart } from "@/lib/clicker/extrude";
@@ -37,6 +37,8 @@ export type ClickerViewerProps = {
   moveMode: boolean;
   /** Called when a drag begins: say what is under the pointer (or null for nothing). */
   onDragStart: (p: Point) => DragTarget | null;
+  /** How far a layer may be dragged (its move, cut back to what the rules allow). The preview stops there and turns amber. */
+  limitShift?: (layerId: string, dx: number, dy: number) => { dx: number; dy: number; limited: boolean };
   /** Called once, when the pointer is released, with where it ended. */
   onDragEnd: (p: Point) => void;
   /** The flat picture shown if WebGL cannot start. */
@@ -103,8 +105,10 @@ type Live = { target: DragTarget; start: Point; cur: Point };
  * The preview that follows the pointer while you drag: a blue flat copy of the layer, or the keyring ring. Its position is
  * set every frame straight from the pointer, with no React state and no rebuild, so it keeps up however heavy the design is.
  */
-function DragGhost({ layout, live, target, z }: { layout: Layout; live: MutableRefObject<Live | null>; target: DragTarget; z: number }) {
+function DragGhost({ layout, live, target, z, limitShift }: { layout: Layout; live: MutableRefObject<Live | null>; target: DragTarget; z: number; limitShift?: ClickerViewerProps["limitShift"] }) {
   const group = useRef<Group | null>(null);
+  const mat = useRef<MeshBasicMaterial | null>(null);
+  const wasLimited = useRef(false);
   const geometry = useMemo(() => {
     if (target.kind !== "layer") return null;
     const shapes = layout.layerShapes.get(target.id);
@@ -120,7 +124,15 @@ function DragGhost({ layout, live, target, z }: { layout: Layout; live: MutableR
   useFrame(() => {
     const g = group.current, l = live.current;
     if (!g || !l) return;
-    if (l.target.kind === "layer") g.position.set(l.cur[0] - l.start[0], l.cur[1] - l.start[1], 0);
+    if (l.target.kind === "layer") {
+      const raw = { dx: l.cur[0] - l.start[0], dy: l.cur[1] - l.start[1], limited: false };
+      const r = limitShift ? limitShift(l.target.id, raw.dx, raw.dy) : raw;
+      g.position.set(r.dx, r.dy, 0);
+      if (r.limited !== wasLimited.current) {
+        wasLimited.current = r.limited;
+        mat.current?.color.set(r.limited ? "#f59e0b" : "#0ea5e9"); // amber: this is as far as it can go
+      }
+    }
     else {
       const kr = layout.keyring;
       const r = kr ? Math.hypot(kr.cx, kr.cy) : 0;
@@ -132,7 +144,7 @@ function DragGhost({ layout, live, target, z }: { layout: Layout; live: MutableR
     <group ref={group}>
       {geometry && (
         <mesh geometry={geometry} position={[0, 0, z]} renderOrder={18}>
-          <meshBasicMaterial color="#0ea5e9" transparent opacity={0.6} depthTest={false} side={DoubleSide} />
+          <meshBasicMaterial ref={mat} color="#0ea5e9" transparent opacity={0.6} depthTest={false} side={DoubleSide} />
         </mesh>
       )}
       {target.kind === "keyring" && layout.keyring && (
@@ -166,7 +178,7 @@ function SelectionBox({ layout, layerId, z }: { layout: Layout; layerId: string 
   );
 }
 
-function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPick, onDragStart, onDragEnd }: Omit<ClickerViewerProps, "fallback">) {
+function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPick, onDragStart, onDragEnd, limitShift }: Omit<ClickerViewerProps, "fallback">) {
   const controls = useRef<OrbitControlsImpl | null>(null);
   const camera = useRef<Cam | null>(null);
   const dragging = useRef(false);
@@ -295,7 +307,7 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
           <meshBasicMaterial transparent opacity={0} depthWrite={false} side={DoubleSide} />
         </mesh>
       )}
-      {ghostFor && <DragGhost layout={layout} live={live} target={ghostFor.target} z={top + 0.12} />}
+      {ghostFor && <DragGhost layout={layout} live={live} target={ghostFor.target} z={top + 0.12} limitShift={limitShift} />}
     </>
   );
 }

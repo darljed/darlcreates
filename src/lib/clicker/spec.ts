@@ -9,6 +9,7 @@
 import { z } from "zod";
 import { NAME_FONT_IDS } from "../name-mesh";
 import { FIT, RELIEF_IDS, RIM_IDS } from "./fit";
+import { maxKeySide } from "./reach";
 import { SHAPE_IDS } from "./shapes";
 
 export const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -344,6 +345,10 @@ export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): strin
   // a key that follows its artwork is as big as the artwork and the switches need, so the owner's minimum does not apply to it
   if (spec.shape !== "outline" && Math.min(spec.width, spec.height) < cfg.minSize - 1e-9) return `The clicker must be at least ${cfg.minSize} mm.`;
   if (Math.max(spec.width, spec.height) > cfg.maxSize + 1e-9) return `The clicker can be at most ${cfg.maxSize} mm.`;
+  if (spec.shape !== "outline") {
+    const [mw, mh] = maxKeySide(spec.switches);
+    if (spec.width > mw + 0.05 || spec.height > mh + 0.05) return `A key this big needs more switches. With ${spec.switches.length === 1 ? "one switch" : `${spec.switches.length} switches`} it can be at most ${Math.floor(Math.min(mw, mh))} mm across, or it will not press smoothly.`;
+  }
   if (spec.layers.length > cfg.maxLayers) return `A clicker can have at most ${cfg.maxLayers} design layers.`;
   if (!cfg.allowImages && spec.layers.some((l) => l.kind === "image")) return "Pictures are not available for this clicker.";
   if (!cfg.allowText && spec.layers.some((l) => l.kind === "text")) return "Text is not available for this clicker.";
