@@ -9,7 +9,7 @@ import {
   productOptionValues,
   productPhotos,
 } from "@/db/schema";
-import { and, asc, eq, inArray, type SQLWrapper } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductOptionInput } from "./pricing";
 
@@ -59,6 +59,21 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
     updatedAtMs: p.updatedAt.getTime(),
   }));
   return items;
+}
+
+/** Slug of the first published product that is a clicker designer (its text option holds a `clicker` config), or null. */
+export async function findClickerProductSlug(): Promise<string | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("products");
+  const [row] = await db
+    .select({ slug: products.slug })
+    .from(products)
+    .innerJoin(productOptions, eq(productOptions.productId, products.id))
+    .where(and(eq(products.status, "published"), sql`${productOptions.constraints} ? 'clicker'`))
+    .orderBy(asc(products.createdAt))
+    .limit(1);
+  return row?.slug ?? null;
 }
 
 export type FullProduct = {

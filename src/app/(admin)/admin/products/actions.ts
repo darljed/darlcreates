@@ -20,6 +20,7 @@ import { plateObjectNear } from "@/lib/threemf";
 import { loadSurface } from "@/lib/name-surface";
 import { measureSpace } from "@/lib/name-space";
 import type { SpaceTable } from "@/lib/name-mesh";
+import { clickerConfigSchema, type ClickerConfig } from "@/lib/clicker/spec";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
 
 type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
@@ -417,5 +418,59 @@ export async function deletePhotoAction(input: unknown): Promise<Result> {
   await deleteObject(photo.s3Key).catch(() => {});
 
   invalidate(await slugOf(photo.productId));
+  return { ok: true };
+}
+
+const clickerActionSchema = z.object({
+  productId: z.string().uuid(),
+  /** null turns the product back into a normal one. */
+  config: clickerConfigSchema.nullable(),
+});
+
+/**
+ * Make a product a clicker designer (or back to a normal product). The settings live in the constraints of one
+ * required text option, "Your clicker"; no table changes. Refused when the product has other options, because the
+ * designer replaces the option form and would ignore them.
+ */
+export async function saveClickerConfigAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = clickerActionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid clicker settings" };
+  const { productId, config } = parsed.data;
+  const slug = await slugOf(productId);
+  if (!slug) return { ok: false, error: "Product not found" };
+
+  if (config) {
+    if (config.minSize > config.maxSize) return { ok: false, error: "The smallest size is larger than the largest size" };
+    if (new Set(config.palette.map((c) => c.toLowerCase())).size !== config.palette.length) return { ok: false, error: "The colour list has the same colour twice" };
+    const tiers = config.sizeTiers.map((t) => t.upToMm);
+    if (tiers.some((t, i) => i > 0 && t <= tiers[i - 1])) return { ok: false, error: "Size steps must go up from small to large" };
+    if (tiers[tiers.length - 1] < config.maxSize) return { ok: false, error: `The last size step must reach the largest size (${config.maxSize} mm)` };
+  }
+
+  const options = await db.select().from(productOptions).where(eq(productOptions.productId, productId));
+  const existing = options.find((o) => (o.constraints as { clicker?: unknown } | null)?.clicker);
+  if (options.some((o) => o !== existing)) {
+    return { ok: false, error: "Remove this product's other customization options first. The clicker designer replaces them." };
+  }
+
+  const saved: ClickerConfig | null = config;
+  if (!saved) {
+    if (existing) await db.delete(productOptions).where(eq(productOptions.id, existing.id));
+  } else if (existing) {
+    await db.update(productOptions).set({ constraints: { ...(existing.constraints as object), clicker: saved } }).where(eq(productOptions.id, existing.id));
+  } else {
+    await db.insert(productOptions).values({
+      productId,
+      type: "text",
+      label: "Your clicker",
+      required: true,
+      priceDeltaCents: 0,
+      constraints: { maxLen: 20, clicker: saved },
+      sort: 0,
+    });
+  }
+  invalidate(slug);
+  revalidatePath(`/admin/products/${productId}`);
   return { ok: true };
 }

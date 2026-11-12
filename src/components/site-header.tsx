@@ -38,11 +38,21 @@ function ShopLink() {
   );
 }
 
+/** "Design a clicker" (text from the sm breakpoint; phones get it from the shop). */
+function ClickerLink() {
+  return (
+    <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+      <Link href="/clicker">Design a clicker</Link>
+    </Button>
+  );
+}
+
 /** Static fallback shown while the session resolves (streamed). */
 export function SiteHeaderSkeleton() {
   return (
     <HeaderShell>
       <ShopLink />
+      <ClickerLink />
       <Button asChild variant="ghost" size="icon" aria-label="Cart">
         <Link href="/cart">
           <ShoppingBag className="size-5" />
@@ -60,6 +70,7 @@ export async function SiteHeader() {
   return (
     <HeaderShell>
       <ShopLink />
+      <ClickerLink />
       {user && (
         <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
           <Link href="/orders">My Orders</Link>

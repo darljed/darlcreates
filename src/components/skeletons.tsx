@@ -226,6 +226,49 @@ export function ProductPageSkeleton() {
   );
 }
 
+/** The clicker designer: viewer and clicker list on the left, the tools on the right, then the price bar. */
+export function ClickerDesignerSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="space-y-3">
+          <Skeleton className="aspect-square max-h-[70vh] w-full rounded-xl border-2 lg:aspect-[4/3]" />
+          <div className="space-y-2 rounded-xl border-2 border-border p-3">
+            <div className="flex gap-2">
+              <Skeleton className="h-11 w-32 rounded-lg" />
+              <Skeleton className="h-9 w-32 rounded-lg" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-[2.75rem] w-[8.5rem] rounded-lg" />
+              <Skeleton className="ml-auto h-8 w-28 rounded-lg" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border-2 border-border bg-card">
+          <div className="flex gap-4 border-b-2 border-border px-3 py-3">
+            {[16, 12, 14, 10, 14].map((w, i) => (
+              <Skeleton key={i} className="h-4" style={{ width: `${w * 4}px` }} />
+            ))}
+          </div>
+          <div className="space-y-4 p-4">
+            <Skeleton className="h-10 w-full rounded-lg" />
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Skeleton className="h-16 w-full rounded-lg" />
+            <Lines n={2} />
+          </div>
+        </div>
+      </div>
+      <div className="flex items-end justify-between rounded-xl border-2 border-border bg-muted/40 p-4">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <Skeleton className="h-11 w-56 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 function CartLineSkeleton() {
   return (
     <div className="flex gap-4 rounded-xl border-2 border-border bg-card p-4">

@@ -6,6 +6,8 @@ import { getProductReviews } from "@/lib/reviews";
 import { fileUrl } from "@/lib/storage";
 import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
+import { ClickerDesigner } from "@/components/clicker/clicker-designer";
+import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { ProductPageSkeleton } from "@/components/skeletons";
 import { ProductReviews } from "@/components/product-reviews";
 import { JsonLd } from "@/components/json-ld";
@@ -55,6 +57,7 @@ async function ProductContent({
   const product = await getProductBySlug(slug, { publishedOnly: true });
   if (!product) notFound();
 
+  const clicker = clickerOptionOf(product.options);
   const stlUrl = fileUrl(product.stlKey);
   const photos = product.photos.flatMap((p) => {
     const url = fileUrl(p.key);
@@ -98,14 +101,23 @@ async function ProductContent({
           </p>
         </div>
 
-        <ProductCustomizer
-          productId={product.id}
-          productName={product.name}
-          basePriceCents={product.basePriceCents}
-          options={product.options}
-          stlUrl={stlUrl}
-          photos={photos}
-        />
+        {clicker ? (
+          <ClickerDesigner
+            productId={product.id}
+            basePriceCents={product.basePriceCents}
+            optionId={clicker.option.id}
+            config={clicker.config}
+          />
+        ) : (
+          <ProductCustomizer
+            productId={product.id}
+            productName={product.name}
+            basePriceCents={product.basePriceCents}
+            options={product.options}
+            stlUrl={stlUrl}
+            photos={photos}
+          />
+        )}
 
         <ProductReviews
           productId={product.id}

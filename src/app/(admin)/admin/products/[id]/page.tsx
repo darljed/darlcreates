@@ -5,6 +5,8 @@ import { SchemaBuilder } from "@/components/admin/schema-builder";
 import { ProductFiles } from "@/components/admin/product-files";
 import { fileUrl } from "@/lib/storage";
 import { PageHeader } from "@/components/shell/ui";
+import { ClickerSetup } from "@/components/admin/clicker-setup";
+import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
 
 export const metadata = { title: "Edit product · Admin" };
@@ -19,6 +21,7 @@ export default async function EditProductPage({
   const { id } = await params;
   const product = await getProductById(id);
   if (!product) notFound();
+  const clicker = clickerOptionOf(product.options);
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -49,12 +52,16 @@ export default async function EditProductPage({
         />
       </div>
 
-      <div>
-        <h2 className="mb-2 text-sm font-bold">Customization options</h2>
-        <SchemaBuilder productId={product.id} options={product.options} />
-      </div>
+      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} />
 
-      {product.stlKey && /\.(stl|3mf)$/i.test(product.stlKey) && product.options.some((o) => o.type === "text") && (
+      {!clicker && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold">Customization options</h2>
+          <SchemaBuilder productId={product.id} options={product.options} />
+        </div>
+      )}
+
+      {!clicker && product.stlKey && /\.(stl|3mf)$/i.test(product.stlKey) && product.options.some((o) => o.type === "text") && (
         <NameSlotEditor
           productId={product.id}
           modelUrl={fileUrl(product.stlKey) ?? ""}
