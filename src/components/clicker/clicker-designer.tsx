@@ -63,6 +63,22 @@ function firstSpec(config: ClickerConfig): ClickerSpec {
   return { ...s, layers: s.layers.map((l, i) => ({ ...l, id: `first${i}` })) };
 }
 
+/**
+ * A key colour that does not swallow the picture: keep the current one if the picture does not use it, else white, else
+ * the first colour on offer that the picture leaves free.
+ */
+function capColourFor(spec: ClickerSpec, config: ClickerConfig, pictureColours: string[]): string {
+  const used = new Set(pictureColours.map((c) => c.toLowerCase()));
+  // the artwork already on the key must stay visible too
+  for (const l of spec.layers) {
+    if (!l.visible) continue;
+    if (l.kind === "text") used.add(l.color.toLowerCase());
+    else for (const r of l.regions) if (r.shapes.length) used.add(r.color.toLowerCase());
+  }
+  if (!used.has(spec.capColor.toLowerCase())) return spec.capColor;
+  return config.palette.find((c) => !used.has(c.toLowerCase()) && c.toLowerCase() !== spec.baseColor.toLowerCase()) ?? config.palette.find((c) => !used.has(c.toLowerCase())) ?? spec.capColor;
+}
+
 /** One line under a step's title once it is done. */
 function stepSummary(id: StepId, spec: ClickerSpec, config: ClickerConfig): string {
   switch (id) {
@@ -247,17 +263,20 @@ export function ClickerDesigner({
         layer = imageLayerFrom(traced, spec, file.name.replace(/\.[^.]+$/, ""));
       } else {
         const pixels = await readRaster(file);
-        const analysis = analyzeImage(pixels, 4);
+        // base + key take two of the printer's colours, so start with what is left for the picture
+        const wanted = Math.max(2, config.maxColours - 2);
+        const analysis = analyzeImage(pixels, wanted);
         if (!analysis.palette.length) throw new Error("That picture looks empty or fully transparent.");
         const d = defaultTrace(analysis, config.palette);
-        const settings: PictureSettings = { colours: 4, keep: d.keep, target: d.target, smoothing: 1, detail: 0.6 };
+        const settings: PictureSettings = { colours: wanted, keep: d.keep, target: d.target, smoothing: 1, detail: 0.6 };
         const traced = traceAnalysis(analysis, settings);
         if (!traced.groups.length) throw new Error("We couldn't find any shapes to print in that picture. Try one with clearer colours.");
         layer = imageLayerFrom(traced, spec, file.name.replace(/\.[^.]+$/, ""));
         pictures.current.set(layer.id, { analysis, settings, pixels });
         setPictureSnap(new Map(pictures.current));
       }
-      edit((s) => addLayer(s, layer, config));
+      const pictureColours = layer.regions.filter((r) => r.shapes.length).map((r) => r.color);
+      edit((s) => ({ ...addLayer(s, layer, config), capColor: capColourFor(s, config, pictureColours) }));
       setSelected(layer.id);
       setStep("design");
     } catch (e) {
@@ -410,8 +429,10 @@ export function ClickerDesigner({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
-        {/* the view: pinned to the top on a phone so you always see what you are making */}
-        <div className="sticky top-16 z-20 -mx-6 space-y-3 bg-background/95 px-6 pb-2 pt-1 backdrop-blur lg:static lg:z-auto lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        {/* on a phone the two columns dissolve into one list, so the 3D view can stay pinned while the steps scroll under it;
+            on a desktop the view column stays in sight while the steps scroll */}
+        <div className="contents lg:block lg:sticky lg:top-20 lg:space-y-3 lg:self-start">
+          <div className="sticky top-16 z-20 -mx-6 bg-background/95 px-6 pb-2 pt-1 backdrop-blur lg:static lg:z-auto lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
           <div className="relative overflow-hidden rounded-xl border-2 border-border bg-gradient-to-b from-muted/40 to-card">
             <div className="h-[36vh] min-h-[230px] w-full lg:aspect-[4/3] lg:h-auto lg:max-h-[70vh]" aria-live="polite">
               <ClickerViewer
@@ -444,7 +465,7 @@ export function ClickerDesigner({
               </Button>
               {spec.kind === "clicker" && (
                 <Button type="button" size="sm" variant={moveMode ? "default" : "outline"} aria-pressed={moveMode} className="h-8 bg-background/90 backdrop-blur" onClick={() => { setMoveMode((m) => !m); setExplode(false); }} title="Drag the artwork or the keyring tab">
-                  {moveMode ? <Hand className="mr-1.5 size-4" /> : <View className="mr-1.5 size-4" />} {moveMode ? "Move" : "Orbit"}
+                  {moveMode ? <Hand className="size-4 sm:mr-1.5" /> : <View className="size-4 sm:mr-1.5" />} <span className="hidden sm:inline">{moveMode ? "Move" : "Orbit"}</span><span className="sr-only sm:hidden">{moveMode ? "Move" : "Orbit"}</span>
                 </Button>
               )}
             </div>
@@ -461,6 +482,8 @@ export function ClickerDesigner({
               <span className="font-semibold text-foreground">Key {layout.capSize[0].toFixed(0)} × {layout.capSize[1].toFixed(0)} mm · base {layout.baseSize[0].toFixed(0)} × {layout.baseSize[1].toFixed(0)} mm · {layout.totalHeight.toFixed(1)} mm tall</span>
               <span className="hidden sm:inline"> · {moveMode ? "Drag the artwork or the ring." : "Click a part to change its colour. Drag to turn, scroll to zoom."}</span>
             </p>
+          </div>
+
           </div>
 
           {/* the list of clickers in this order */}
@@ -508,7 +531,7 @@ export function ClickerDesigner({
         </div>
 
         {/* what to make, then the steps */}
-        <div className="space-y-3">
+        <div className="contents lg:block lg:space-y-3">
           {config.allowName && (
             <div role="group" aria-label="What are you making?" className="grid grid-cols-2 gap-2">
               {(["clicker", "name"] as const).map((k) => (

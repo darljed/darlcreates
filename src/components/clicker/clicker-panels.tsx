@@ -218,7 +218,7 @@ function PictureEditor({ layer, spec, edit, config, picture, retrace, busy }: Co
             <p className="text-xs font-semibold">Colours in your picture</p>
             {busy && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Working" />}
           </div>
-          <Slider id={`ncol-${layer.id}`} label="Number of colours to look for" value={picture.settings.colours} min={2} max={8} unit="" onChange={(v) => retrace(layer.id, { colours: Math.round(v) })} />
+          <Slider id={`ncol-${layer.id}`} label="Number of colours to look for" value={picture.settings.colours} min={2} max={Math.max(2, config.maxColours - 1)} unit="" hint={`The printer holds ${config.maxColours} colours at once, and the base and the key each use one.`} onChange={(v) => retrace(layer.id, { colours: Math.round(v) })} />
           <ul className="space-y-2">
             {picture.analysis.palette.map((p, i) => (
               <li key={i} className="space-y-1.5 rounded-md bg-muted/40 p-2">

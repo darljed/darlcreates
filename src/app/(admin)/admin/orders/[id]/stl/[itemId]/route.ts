@@ -38,7 +38,7 @@ export async function GET(
   const itemProduct = await getProductById(item.productId);
   const design = itemProduct ? designOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
   if (design) {
-    const built = await buildClickerPrint(design.spec, `Clicker ${itemId.slice(0, 8)}`);
+    const built = await buildClickerPrint(design.spec, `Clicker ${itemId.slice(0, 8)}`, design.config.tune);
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     return new Response(bytesToStream(built.file), {
       headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="clicker-${itemId.slice(0, 8)}.3mf"`, "Cache-Control": "private, no-store" },

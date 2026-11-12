@@ -65,7 +65,16 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 - Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
 
 ### Clicker designer
-On a product's page, **Clicker designer → Make this a clicker product** (only when the product has no other options). Set the smallest and largest size, the price added by size, the price for each colour after the second, for a keyring hole and for a picture, and the colours (filaments) you have. The shop then shows the designer on that product, and **Design a clicker** in the header goes to the first published clicker product. Each ordered clicker has a **Download** button on the order that builds a 3MF with one part per colour. Open it in Bambu Studio and check the colours before printing. See [clicker-designer.md](./clicker-designer.md).
+On a product's page, **Clicker designer → Make this a clicker product** (only when the product has no other options). Then set:
+- **Key size** range and the **price by size**; the price for each colour after the second, for a keyring tab and for a picture.
+- **Switches you fit:** a name, a price per switch and "In stock" for clicky, tactile and linear. Untick "In stock" when you run out.
+- **Most colours per print:** your printer's limit (X2D: 4). The base, the key and the artwork share it.
+- **Name keys:** on or off, the most keys, and the price of each key after the first.
+- **Printer fit:** see below.
+
+Each ordered clicker has a **Download** button on the order. It gives one file with the base and the key already laid out on the plate (base 3 walls, key 1 wall). Open it in Bambu Studio, check the colours, print, press a real switch into the base, and push the key onto the stem. The order lists the switch type to fit.
+
+**First time on a printer (do this before taking orders):** download **the fit test** (link under Printer fit), print it, press a switch into each of the four bases and push each of the four keys onto a switch stem. Enter the number of the base and key that fit best (plus loosens, minus tightens). Reprint when you change filament brand. See [clicker-designer.md](./clicker-designer.md).
 
 ### Putting the customer's name on a product
 

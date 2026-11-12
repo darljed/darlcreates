@@ -446,6 +446,9 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
     const tiers = config.sizeTiers.map((t) => t.upToMm);
     if (tiers.some((t, i) => i > 0 && t <= tiers[i - 1])) return { ok: false, error: "Size steps must go up from small to large" };
     if (tiers[tiers.length - 1] < config.maxSize) return { ok: false, error: `The last size step must reach the largest size (${config.maxSize} mm)` };
+    if (!config.switches.some((sw) => sw.available)) return { ok: false, error: "Keep at least one switch in stock" };
+    if (new Set(config.switches.map((sw) => sw.type)).size !== config.switches.length) return { ok: false, error: "Each switch type can be listed once" };
+    if (config.maxColours > config.palette.length) return { ok: false, error: "The number of colours per print cannot be more than the colours you offer" };
   }
 
   const options = await db.select().from(productOptions).where(eq(productOptions.productId, productId));

@@ -122,28 +122,28 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
   const top = layout.totalHeight;
 
   // put the camera where the chosen view wants it (also when the clicker's size changes enough to need re-framing)
-  const frame = useRef({ size, view });
+  const frame = useRef({ size, view, explode });
   useEffect(() => {
     const cam = camera.current, ctl = controls.current;
     if (!cam || !ctl) return;
-    const changedView = frame.current.view !== view;
+    const changedView = frame.current.view !== view || frame.current.explode !== explode;
     const changedSize = Math.abs(frame.current.size - size) / size > 0.25;
-    frame.current = { size, view };
+    frame.current = { size, view, explode };
     if (!changedView && !changedSize && cam.userData.framed) return;
     cam.userData.framed = true;
-    const d = size * 1.9;
-    const p = view === "top" ? new Vector3(0, -d * 0.0001, d) : new Vector3(size * 0.35, -size * 1.15, size * 1.25);
+    const d = size * (explode ? 3.3 : 2.4);
+    const p = view === "top" ? new Vector3(0, -d * 0.0001, d) : new Vector3(size * 0.5, -size * (explode ? 2.4 : 1.75), size * (explode ? 1.5 : 1.2));
     cam.position.copy(p);
-    ctl.target.set((layout.bounds.minX + layout.bounds.maxX) / 2, (layout.bounds.minY + layout.bounds.maxY) / 2, view === "top" ? 0 : layout.totalHeight * 0.45);
+    ctl.target.set((layout.bounds.minX + layout.bounds.maxX) / 2, (layout.bounds.minY + layout.bounds.maxY) / 2, view === "top" ? 0 : layout.totalHeight * 0.45 + (explode ? 12 : 0));
     ctl.update();
-  }, [view, size, layout.totalHeight, layout.bounds.minX, layout.bounds.maxX, layout.bounds.minY, layout.bounds.maxY]);
+  }, [view, explode, size, layout.totalHeight, layout.bounds.minX, layout.bounds.maxX, layout.bounds.minY, layout.bounds.maxY]);
 
   const toPoint = (e: ThreeEvent<PointerEvent>): Point => [e.point.x, e.point.y];
   const kr = layout.keyring;
 
   return (
     <>
-      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={2000} up={[0, 0, 1]} position={[size * 0.35, -size * 1.15, size * 1.25]} />
+      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={2000} up={[0, 0, 1]} position={[size * 0.5, -size * 1.75, size * 1.2]} />
       <ambientLight intensity={0.95} />
       <directionalLight position={[size, -size * 1.2, size * 2]} intensity={1.15} />
       <directionalLight position={[-size, size, size * 0.8]} intensity={0.35} />

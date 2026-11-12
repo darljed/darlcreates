@@ -42,7 +42,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 
 - **Font choice for the name**: when the product offers several fonts, a Font picker redraws the name on the 3D model; the choice is kept in the order
 
-- **Clicker designer** (`/clicker`): customers design their own clicker in 3D (shape, size, text, pictures, colours, emboss/engrave, border, keyring, several clickers per order). See [clicker-designer.md](./clicker-designer.md)
+- **Clicker designer** (`/clicker`): customers design a mechanical-switch clicker (a base and a key around a real MX switch) in 3D with an "Inside" view, or name keys with one switch per letter; shape, size, text, pictures, colours (within the printer's 4), flat or raised artwork, wall height, switch type, keyring tab; several per order; phone layout. See [clicker-designer.md](./clicker-designer.md)
 
 ## Admin (owner) ✅
 - RBAC-gated inset-sidebar layout (compact, square tables), dashboard (verified revenue, 30-day chart,

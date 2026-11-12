@@ -23,7 +23,7 @@ import { extrudeLayout, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
 import { designToSvg } from "../src/lib/clicker/svg";
-import { buildClickerPrint, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
+import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
 import { computeUnitPrice, normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
 import { summarizeConfig } from "../src/lib/config-summary";
@@ -313,6 +313,14 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     assert("the filament colours are listed for the slicer", JSON.parse(strFromU8(files["Metadata/project_settings.config"])).filament_colour.length === print.report.filaments.length);
     assert("the report names the sizes and the switch", near(print.report.capSize[0], 40, 0.1) && near(print.report.baseSize[0], 45, 0.1) && print.report.switches === 1 && print.report.switchType === "clicky" && near(print.report.totalHeightMm, 22.6, 0.01));
   }
+  console.log("\nthe fit test plate");
+  const fit = await buildFitTest();
+  const fitFiles = unzipSync(fit.file);
+  const fitModel = strFromU8(fitFiles["3D/3dmodel.model"]), fitBambu = strFromU8(fitFiles["Metadata/model_settings.config"]);
+  assert("the fit test has a base and a key for each of four steps, in one colour, in two objects", (fitBambu.match(/<part /g) ?? []).length === 4 * 5 + 4 * 5 && (fitModel.match(/<base /g) ?? []).length === 1 && (fitModel.match(/<item objectid/g) ?? []).length === 2 && /BASES/.test(fitBambu) && /KEYS/.test(fitBambu));
+  assert("each base's pocket differs: the steps -0.1, 0, +0.1, +0.2 are named in the file", ["Pocket -0.1", "Pocket +0.0", "Pocket +0.1", "Pocket +0.2", "Stem -0.1", "Stem +0.2"].every((n) => fitBambu.includes(n)));
+  assert("the fit test lies on the plate with margins", (() => { const xs = [...fitModel.matchAll(/<vertex x="([\d.-]+)" y="([\d.-]+)"/g)].map((m) => [Number(m[1]), Number(m[2])]); return xs.length > 100 && Math.min(...xs.map((v) => v[0])) >= 5.99 && Math.max(...xs.map((v) => v[0])) <= 250 && Math.min(...xs.map((v) => v[1])) >= 5.99 && Math.max(...xs.map((v) => v[1])) <= 250; })());
+
   const nameprint = await buildClickerPrint(nameSpec(), "Name");
   assert("name keys print too: three switches, all pieces closed", nameprint.ok && nameprint.report.switches === 3 && nameprint.report.pieces.every((p) => p.watertight));
   assert("a design that cannot be drawn is refused rather than written", (await buildClickerPrint(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "日" })] }))).ok === false);

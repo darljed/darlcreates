@@ -1,6 +1,6 @@
 # Clicker redesign: research and plan (for review)
 
-Status: **plan only, nothing built yet.** Written 2026-11-12 after trying the two reference sites.
+Status: **built on `feat/clicker-v2`** (Phases 1 to 4, name keys included). Phase 5 (polish) and printing a test are open. Written 2026-11-12 after trying the two reference sites; the decisions in section 11 were answered by "go with your recommendations".
 
 ## 1. The finding
 

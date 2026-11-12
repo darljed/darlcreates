@@ -2,7 +2,8 @@
 
 /**
  * Admin: turn a product into a "design your own clicker" product and set what customers may do: the size range, the
- * price steps by size, the colours on offer, and the extras that cost more. Saves into the product's one text option
+ * price steps by size, the colours on offer (and how many one print can hold), the switches you fit and their prices, name
+ * keys, and the fit for your printer. Saves into the product's one text option
  * (see saveClickerConfigAction). The shop shows the designer in place of the option form.
  */
 import { useState, useTransition } from "react";
@@ -57,10 +58,10 @@ export function ClickerSetup({ productId, initial, canSwitchOn }: { productId: s
     <Panel title="Clicker designer" description="Settings for the designer on this product's page. The product price above is the starting price.">
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-4">
-          <Field label="Smallest (mm)" hint={`${LIMITS.minSizeMm}+`}>
+          <Field label="Smallest key (mm)" hint={`${LIMITS.minSizeMm}+`}>
             <Input type="number" min={LIMITS.minSizeMm} max={LIMITS.maxSizeMm} value={c.minSize} onChange={(e) => set({ minSize: num(e.target.value) })} />
           </Field>
-          <Field label="Largest (mm)" hint={`up to ${LIMITS.maxSizeMm}`}>
+          <Field label="Largest key (mm)" hint={`up to ${LIMITS.maxSizeMm}`}>
             <Input type="number" min={LIMITS.minSizeMm} max={LIMITS.maxSizeMm} value={c.maxSize} onChange={(e) => set({ maxSize: num(e.target.value) })} />
           </Field>
           <Field label="Most layers" hint="texts and pictures">
@@ -130,6 +131,54 @@ export function ClickerSetup({ productId, initial, canSwitchOn }: { productId: s
             )}
           </div>
           <p className="text-xs text-muted-foreground">The first colour is the starting body colour. Pictures are matched to the nearest of these.</p>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold">Switches you fit</h3>
+          <p className="text-[11px] text-muted-foreground">Each key has a real switch under it. The price is added per switch. Untick &quot;In stock&quot; when you run out.</p>
+          {c.switches.map((o, i) => (
+            <div key={o.type} className="flex flex-wrap items-end gap-2">
+              <Field label={`${o.type[0].toUpperCase()}${o.type.slice(1)} switch name`}>
+                <Input className="w-56" value={o.label} maxLength={40} onChange={(e) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
+              </Field>
+              <Field label="Adds (₱) each">
+                <Input type="number" className="w-28" min={0} step="0.01" defaultValue={pesos(o.cents)} onChange={(e) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, cents: toCents(e.target.value) } : x)) })} />
+              </Field>
+              <div className="pb-2"><Check label="In stock" checked={o.available} onChange={(v) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, available: v } : x)) })} /></div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Field label="Most colours per print" hint="your printer (X2D: 4)">
+            <Input type="number" min={2} max={8} value={c.maxColours} onChange={(e) => set({ maxColours: Math.round(num(e.target.value)) })} />
+          </Field>
+          <Field label="Most keys (name keys)" hint="1 to 12">
+            <Input type="number" min={1} max={12} value={c.maxKeys} onChange={(e) => set({ maxKeys: Math.round(num(e.target.value)) })} />
+          </Field>
+          <Field label="Each key after the 1st (₱)">
+            <Input type="number" min={0} step="0.01" defaultValue={pesos(c.keyCents)} onChange={(e) => set({ keyCents: toCents(e.target.value) })} />
+          </Field>
+          <div className="self-end pb-2"><Check label="Name keys on offer" checked={c.allowName} onChange={(v) => set({ allowName: v })} /></div>
+        </div>
+
+        <div className="space-y-2 rounded-lg border-2 border-border p-3">
+          <h3 className="text-xs font-bold">Printer fit</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Every printer and filament fits a little differently. <a className="font-semibold text-primary underline" href="/admin/clicker-fit-test">Download the fit test</a>, print it,
+            press a switch into each base and push each key onto a switch stem. Enter the number of the one that fits best. Plus loosens, minus tightens (mm). Start at 0.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Switch pocket" hint="base">
+              <Input type="number" step="0.05" min={-0.5} max={0.5} value={c.tune.pocket} onChange={(e) => set({ tune: { ...c.tune, pocket: num(e.target.value) } })} />
+            </Field>
+            <Field label="Stem socket" hint="key">
+              <Input type="number" step="0.05" min={-0.5} max={0.5} value={c.tune.stem} onChange={(e) => set({ tune: { ...c.tune, stem: num(e.target.value) } })} />
+            </Field>
+            <Field label="Gap round the key" hint="key to wall">
+              <Input type="number" step="0.05" min={-0.5} max={0.5} value={c.tune.gap} onChange={(e) => set({ tune: { ...c.tune, gap: num(e.target.value) } })} />
+            </Field>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-5">

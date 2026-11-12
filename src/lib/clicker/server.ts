@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { isWatertight, meshBounds, NAME_FONT_IDS, type Font, type NameFontId } from "../name-mesh";
 import { loadFont } from "../name-3mf";
-import { clickerTo3mf, moveMesh, type PrintObject } from "./export-3mf";
+import { clickerTo3mf, moveMesh, type PrintObject, type PrintPiece } from "./export-3mf";
 import { DEFAULT_TUNE, FIT, type Tune } from "./fit";
 import { extrudeLayout, meshOfPart } from "./extrude";
 import { buildLayout, plateLayout } from "./layout";
@@ -100,4 +100,42 @@ export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
   if (svgCache.size >= 200) svgCache.delete(svgCache.keys().next().value as string);
   svgCache.set(key, uri);
   return uri;
+}
+
+/**
+ * A small plate to find the right fit for your printer and filament: four bases whose switch pocket is a little tighter or
+ * looser, and four keys whose stem socket is a little tighter or looser. Print it, press a real switch into each base and
+ * push each key onto a switch stem, then enter the best numbers in the admin (Printer fit). One colour, nothing to arrange.
+ */
+export async function buildFitTest(steps: number[] = [-0.1, 0, 0.1, 0.2]): Promise<{ file: Uint8Array; steps: number[] }> {
+  const fonts = await loadAllFonts();
+  const spec = clickerSpecSchema.parse({
+    v: 2, kind: "clicker", switchType: "clicky", shape: "square", width: 24, height: 24, corner: 3, points: 5,
+    baseColor: "#f8fafc", capColor: "#f8fafc", relief: "flat", rim: "low",
+    keyring: { on: false, angle: 0, hole: 5, wall: 2.4 }, layers: [],
+  });
+  const m = FIT.plateMarginMm, g = FIT.plateGapMm;
+  const bases: PrintPiece[] = [];
+  const caps: PrintPiece[] = [];
+  let baseW = 0, baseH = 0, capW = 0, capH = 0;
+  steps.forEach((t, i) => {
+    const mark = `${t >= 0 ? "+" : ""}${t.toFixed(1)}`;
+    const forPocket = buildLayout(spec, (id) => fonts.get(id), { pocket: t, stem: 0, gap: 0 });
+    const forStem = buildLayout(spec, (id) => fonts.get(id), { pocket: 0, stem: t, gap: 0 });
+    baseW = forPocket.bounds.maxX - forPocket.bounds.minX; baseH = forPocket.bounds.maxY - forPocket.bounds.minY;
+    capW = forStem.capBounds.maxX - forStem.capBounds.minX; capH = forStem.capBounds.maxY - forStem.capBounds.minY;
+    const bx = m + i * (baseW + g) - forPocket.bounds.minX, by = m - forPocket.bounds.minY;
+    for (const part of extrudeLayout(forPocket).filter((p) => p.object === "housing")) bases.push({ name: `Pocket ${mark} ${part.name}`, color: part.color, mesh: moveMesh(meshOfPart(part), bx, by, 0) });
+    const cx = m + i * (capW + g) - forStem.capBounds.minX, cy = m + baseH + g - forStem.capBounds.minY;
+    for (const part of extrudeLayout(forStem).filter((p) => p.object === "cap")) caps.push({ name: `Stem ${mark} ${part.name}`, color: part.color, mesh: moveMesh(meshOfPart(part), cx, cy, -FIT.capRestZ) });
+  });
+  void capH;
+  const file = clickerTo3mf(
+    [
+      { name: "Fit test - BASES (pocket " + steps.join(", ") + ")", wallLoops: FIT.wallLoopsBase, pieces: bases },
+      { name: "Fit test - KEYS (stem " + steps.join(", ") + ")", wallLoops: FIT.wallLoopsCap, pieces: caps },
+    ],
+    "Clicker fit test",
+  );
+  return { file, steps };
 }

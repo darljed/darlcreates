@@ -226,13 +226,13 @@ export function ProductPageSkeleton() {
   );
 }
 
-/** The clicker designer: viewer and clicker list on the left, the tools on the right, then the price bar. */
+/** The clicker designer: viewer and clicker list on the left; the two kinds and the step list on the right; then the price bar. */
 export function ClickerDesignerSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
         <div className="space-y-3">
-          <Skeleton className="aspect-square max-h-[70vh] w-full rounded-xl border-2 lg:aspect-[4/3]" />
+          <Skeleton className="h-[36vh] min-h-[230px] w-full rounded-xl border-2 lg:aspect-[4/3] lg:h-auto lg:max-h-[70vh]" />
           <div className="space-y-2 rounded-xl border-2 border-border p-3">
             <div className="flex gap-2">
               <Skeleton className="h-11 w-32 rounded-lg" />
@@ -244,18 +244,20 @@ export function ClickerDesignerSkeleton() {
             </div>
           </div>
         </div>
-        <div className="rounded-xl border-2 border-border bg-card">
-          <div className="flex gap-4 border-b-2 border-border px-3 py-3">
-            {[16, 12, 14, 10, 14].map((w, i) => (
-              <Skeleton key={i} className="h-4" style={{ width: `${w * 4}px` }} />
-            ))}
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Skeleton className="h-[3.75rem] rounded-xl" />
+            <Skeleton className="h-[3.75rem] rounded-xl" />
           </div>
-          <div className="space-y-4 p-4">
-            <Skeleton className="h-10 w-full rounded-lg" />
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Lines n={2} />
-          </div>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl border-2 border-border bg-card px-3 py-2.5">
+              <Skeleton className="size-7 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       <div className="flex items-end justify-between rounded-xl border-2 border-border bg-muted/40 p-4">

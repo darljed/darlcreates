@@ -95,6 +95,7 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 ### Notes added with the clicker designer
 - A design is stored as plain data and validated with `clickerSpecSchema` and the owner's settings (`checkAgainstConfig`): every colour must be in the palette, sizes in range, point and JSON caps hold. The print file and the cart picture are rebuilt on the server; no mesh, SVG or HTML from the browser is used. The cart picture is an SVG in an `<img>` (no inline markup).
 - Pictures are traced in the browser and never uploaded, so there is no new file-upload surface. `saveClickerConfigAction` is admin-only and Zod-validated.
+- `GET /admin/clicker-fit-test` is admin-only (`requireAdmin`) and builds a fixed file with no input from the request. The colour limit, key count and switch availability are checked on the server (`checkAgainstConfig`), not only in the browser.
 - The Server Action body limit is 4 MB (`next.config.ts`) so a design can be sent; `MAX_ADD_JSON` rejects anything over 3.5 MB.
 
 ## 9. Secrets
