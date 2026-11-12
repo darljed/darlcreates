@@ -231,11 +231,22 @@ export const DEFAULT_CLICKER_CONFIG: ClickerConfig = {
   tune: { pocket: 0, stem: 0, gap: 0 },
 };
 
-/** The owner's settings from an option's constraints, or null when the product is not a clicker designer. */
+let lastWarned = 0;
+/**
+ * The owner's settings from an option's constraints, or null when the product is not a clicker designer. If the product IS a
+ * clicker designer (it has clicker settings) but they are damaged, it stays one and uses the default settings, so its designs are
+ * still checked and priced; it is logged so the owner can fix it. (Treating it as a plain product would drop the design and sell
+ * it for the base price.)
+ */
 export function clickerConfigOf(constraints: { clicker?: unknown } | null | undefined): ClickerConfig | null {
   if (!constraints?.clicker) return null;
   const r = clickerConfigSchema.safeParse({ ...DEFAULT_CLICKER_CONFIG, ...(constraints.clicker as object) });
-  return r.success ? r.data : null;
+  if (r.success) return r.data;
+  if (Date.now() - lastWarned > 60_000) {
+    lastWarned = Date.now();
+    console.error("A clicker product has damaged settings; using the default settings until it is saved again in the admin:", r.error.issues[0]?.message, r.error.issues[0]?.path.join("."));
+  }
+  return DEFAULT_CLICKER_CONFIG;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

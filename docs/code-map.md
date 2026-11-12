@@ -115,6 +115,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes; `GeometryCache` (least-recently-used) so editing reuses finished geometry |
 | `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
 | `clicker/export-3mf.ts` | **Pure.** The clicker 3MF: two objects (base, top) with a part and filament per colour piece, walls per object |
+| `clicker/budget-cache.ts` | **Pure.** `BudgetCache`: a string cache limited by total size (and per entry), used for the server's design pictures |
 | `clicker/reach.ts` | **Pure.** How far a key may reach past its switches (20 mm) and how far off-centre it may be (6 mm): `reachCheck`, `maxKeySide`, `clampShift` (limits a drag of the artwork) |
 | `clicker/fit-art.ts` | **Pure.** `centreAndFitArt`: when the shape changes, put the artwork in the middle of the key and shrink the whole design just enough that nothing is cut off |
 | `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |

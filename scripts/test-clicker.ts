@@ -29,6 +29,8 @@ import { clampShift, maxKeySide, reachCheck, switchBlock, unionBox } from "../sr
 import { boundsOf } from "../src/lib/clicker/poly";
 import { designToSvg } from "../src/lib/clicker/svg";
 import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
+import { BudgetCache } from "../src/lib/clicker/budget-cache";
+import { clickerTo3mf } from "../src/lib/clicker/export-3mf";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
 import { computeUnitPrice, normalizeSelection, type ProductOptionInput } from "../src/lib/pricing";
 import { summarizeConfig } from "../src/lib/config-summary";
@@ -343,6 +345,29 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     assert("name keys are left alone", (() => { const n = nameSpec(); return centreAndFitArt(n, fonts, cfg.tune) === n; })());
   }
 
+  console.log("\nrobustness found in review");
+  {
+    const empty = (text: string) => buildLayout({ ...nameSpec(), name: { ...nameSpec().name!, text } }, fonts);
+    assert("a name clicker with no letters (the field cleared) is an empty layout with a finite size and a clear message, not NaN", ["", "   "].every((t) => { const l = empty(t); return l.keys.length === 0 && l.parts.length === 0 && l.capSize.every(Number.isFinite) && l.baseSize.every(Number.isFinite) && Number.isFinite(l.bounds.minX) && l.errors[0] === "Type at least one letter."; }));
+    assert("the server refuses it too", !(await checkDesign({ ...nameSpec(), name: { ...nameSpec().name!, text: "   " } }, cfg)).ok);
+    assert("a key that follows its artwork with every layer hidden still builds (the switch square is the floor)", (() => { const l = buildLayout(outlineSpec({ layers: [{ ...textLayer({ text: "HI" }), visible: false }] }), fonts); return l.errors.length === 0 && l.capSize.every((v) => v > 15 && v < 20) && l.parts.length > 0; })());
+
+    const cache = new BudgetCache(100, 60);
+    cache.set("a", "x".repeat(40)); cache.set("b", "x".repeat(40)); cache.get("a"); cache.set("c", "x".repeat(40));
+    assert("the picture cache is limited by how much it holds: the oldest goes first, and a recently used one stays", cache.chars <= 100 && cache.get("b") === undefined && cache.get("a") !== undefined && cache.get("c") !== undefined);
+    assert("one huge picture is not kept at all, and replacing a key does not double count", !cache.set("big", "x".repeat(61)) && cache.get("big") === undefined && (() => { const c = new BudgetCache(100, 60); c.set("k", "x".repeat(50)); c.set("k", "x".repeat(10)); return c.chars === 10 && c.size === 1; })());
+    assert("200 large distinct designs cannot make the cache hold more than its budget", (() => { const c = new BudgetCache(16_000_000, 600_000); for (let i = 0; i < 200; i++) c.set(`k${i}`, "x".repeat(500_000)); return c.chars <= 16_000_000 && c.size <= 32; })());
+
+    // a clicker product whose stored settings are damaged must not turn into a plain product that drops the design and sells at the base price
+    const damaged: ProductOptionInput = { id: "opt-damaged", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: { ...cfg, palette: ["nope"] } }, values: [] };
+    assert("damaged settings: the product stays a clicker designer on the default settings (design kept, checked and priced)", clickerOptionOf([damaged]) !== null && normalizeSelection([damaged], { [damaged.id]: { design: plain } }, () => false).config[damaged.id]?.design !== undefined && computeUnitPrice(10000, [damaged], { [damaged.id]: { design: plain } }).unitPriceCents === 10000 + clickerPriceDeltaCents(plain, cfg) && computeUnitPrice(10000, [damaged], { [damaged.id]: { design: { ...plain, width: 95 } } }).errors.length === 1);
+
+    const tricky = clickerTo3mf([{ name: `a"b<c>&'d`, wallLoops: 3, pieces: [{ name: `p"q`, color: "#ef4444", mesh: meshOfPart(extrudeLayout(buildLayout(plain, fonts))[0]) }] }], `t"i<t>&'le`);
+    const cfgXml = strFromU8(unzipSync(tricky)["Metadata/model_settings.config"]), modelXml = strFromU8(unzipSync(tricky)["3D/3dmodel.model"]);
+    assert("names with quotes, angle brackets, ampersands and apostrophes are escaped in the 3MF (the file stays well formed)", !/a"b|t"i|p"q/.test(cfgXml + modelXml) && cfgXml.includes("a&#34;b&#60;c&#62;&#38;&#39;d") && modelXml.includes("t&#34;i&#60;t&#62;&#38;&#39;le") && cfgXml.includes("p&#34;q"));
+    assert("a name set too wide for the plate is stopped by the server's check (it reads the layout's errors as well)", await (async () => { const r = await checkDesign(nameSpec({ text: "ABCDEFGHIJKL", perRow: 12 }, {}), { ...cfg, maxKeys: 12 }); return !r.ok && /too big/.test(r.error); })());
+  }
+
   console.log("\nthe geometry cache (smooth editing)");
   {
     const cache = new GeometryCache(40);
@@ -418,7 +443,7 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
 
   console.log("\nthe product option, the price and the cart line");
   const option: ProductOptionInput = { id: "opt-clicker", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: cfg }, values: [] };
-  assert("a text option with clicker settings is the designer; a plain text option is not", clickerOptionOf([option])?.option.id === "opt-clicker" && clickerOptionOf([{ ...option, constraints: { maxLen: 10 } }]) === null && clickerConfigOf({ clicker: { palette: ["nope"] } }) === null);
+  assert("a text option with clicker settings is the designer (damaged settings fall back to the defaults); a plain text option is not", clickerOptionOf([option])?.option.id === "opt-clicker" && clickerOptionOf([{ ...option, constraints: { maxLen: 10 } }]) === null && clickerConfigOf({ clicker: { palette: ["nope"] } })?.maxColours === 4 && clickerConfigOf({}) === null && clickerConfigOf(null) === null);
   const sel = { [option.id]: { design: plain } };
   assert("computeUnitPrice adds the design's price to the product price", computeUnitPrice(10000, [option], sel).unitPriceCents === 10000 + clickerPriceDeltaCents(plain, cfg) && computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 50, height: 50 } } }).unitPriceCents === 10000 + clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg));
   assert("a missing design is an error when required; an invalid or off-limits one says why", computeUnitPrice(10000, [option], {}).errors[0] === "Your clicker is required" && computeUnitPrice(10000, [option], { [option.id]: { design: { nope: 1 } } }).errors.length === 1 && /at most/.test(computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 90 } } }).errors[0]));

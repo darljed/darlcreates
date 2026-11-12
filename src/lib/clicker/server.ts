@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { isWatertight, meshBounds, NAME_FONT_IDS, type Font, type NameFontId } from "../name-mesh";
 import { loadFont } from "../name-3mf";
+import { BudgetCache } from "./budget-cache";
 import { clickerTo3mf, moveMesh, type PrintObject, type PrintPiece } from "./export-3mf";
 import { DEFAULT_TUNE, FIT, type Tune } from "./fit";
 import { extrudeLayout, meshOfPart } from "./extrude";
@@ -94,7 +95,8 @@ export async function buildClickerPrint(spec: ClickerSpec, title = "Custom click
   };
 }
 
-const svgCache = new Map<string, string>();
+/** About 16 MB of pictures in all, and none over 600 KB on its own (a design can be 300 KB of data, so its picture is similar). */
+const svgCache = new BudgetCache(16_000_000, 600_000);
 /** A picture of the design as a data: URL for an <img> (an image cannot run scripts), cached by the design's content. */
 export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
   const key = createHash("sha1").update(JSON.stringify(spec)).digest("hex");
@@ -102,7 +104,6 @@ export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
   if (hit) return hit;
   const fonts = await loadAllFonts();
   const uri = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(designToSvg(spec, (id) => fonts.get(id), { margin: 1.5 }));
-  if (svgCache.size >= 200) svgCache.delete(svgCache.keys().next().value as string);
   svgCache.set(key, uri);
   return uri;
 }
@@ -122,19 +123,22 @@ export async function buildFitTest(steps: number[] = [-0.1, 0, 0.1, 0.2]): Promi
   const m = FIT.plateMarginMm, g = FIT.plateGapMm;
   const bases: PrintPiece[] = [];
   const caps: PrintPiece[] = [];
-  let baseW = 0, baseH = 0, capW = 0, capH = 0;
-  steps.forEach((t, i) => {
-    const mark = `${t >= 0 ? "+" : ""}${t.toFixed(1)}`;
-    const forPocket = buildLayout(spec, (id) => fonts.get(id), { pocket: t, stem: 0, gap: 0 });
-    const forStem = buildLayout(spec, (id) => fonts.get(id), { pocket: 0, stem: t, gap: 0 });
-    baseW = forPocket.bounds.maxX - forPocket.bounds.minX; baseH = forPocket.bounds.maxY - forPocket.bounds.minY;
-    capW = forStem.capBounds.maxX - forStem.capBounds.minX; capH = forStem.capBounds.maxY - forStem.capBounds.minY;
+  const at = (t: number) => ({
+    mark: `${t >= 0 ? "+" : ""}${t.toFixed(1)}`,
+    forPocket: buildLayout(spec, (id) => fonts.get(id), { pocket: t, stem: 0, gap: 0 }),
+    forStem: buildLayout(spec, (id) => fonts.get(id), { pocket: 0, stem: t, gap: 0 }),
+  });
+  const layouts = steps.map(at);
+  // one spacing for the whole row, from the biggest base and key, so a step of a different size can never overlap its neighbour
+  const baseW = Math.max(...layouts.map((l) => l.forPocket.bounds.maxX - l.forPocket.bounds.minX));
+  const baseH = Math.max(...layouts.map((l) => l.forPocket.bounds.maxY - l.forPocket.bounds.minY));
+  const capW = Math.max(...layouts.map((l) => l.forStem.capBounds.maxX - l.forStem.capBounds.minX));
+  layouts.forEach(({ mark, forPocket, forStem }, i) => {
     const bx = m + i * (baseW + g) - forPocket.bounds.minX, by = m - forPocket.bounds.minY;
     for (const part of extrudeLayout(forPocket).filter((p) => p.object === "housing")) bases.push({ name: `Pocket ${mark} ${part.name}`, color: part.color, mesh: moveMesh(meshOfPart(part), bx, by, 0) });
     const cx = m + i * (capW + g) - forStem.capBounds.minX, cy = m + baseH + g - forStem.capBounds.minY;
     for (const part of extrudeLayout(forStem).filter((p) => p.object === "cap")) caps.push({ name: `Stem ${mark} ${part.name}`, color: part.color, mesh: moveMesh(meshOfPart(part), cx, cy, -FIT.capRestZ) });
   });
-  void capH;
   const file = clickerTo3mf(
     [
       { name: "Fit test - BASES (pocket " + steps.join(", ") + ")", wallLoops: FIT.wallLoopsBase, pieces: bases },

@@ -175,9 +175,19 @@ function placeKeys(spec: ClickerSpec, clickerArt: Region[]): { cx: number; cy: n
   return [{ cx: 0, cy: 0, char: null, ring: shapeRing(spec.shape, size.w, size.h, { corner: spec.corner, points: spec.points }), color: lc(spec.capColor), switches: spec.switches }];
 }
 
+/** What comes back when there is nothing to build (for example a name clicker with no letters): empty, finite sizes, and the reason. */
+function nothingToBuild(spec: ClickerSpec, reason: string): Layout {
+  const zero: Bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  return {
+    parts: [], keys: [], switches: [], capOutline: [], housingOutline: [], bounds: zero, capBounds: zero, keyring: null,
+    layerShapes: new Map(), warnings: [], errors: [reason], totalHeight: totalHeightMm(spec.relief), capSize: [0, 0], baseSize: [0, 0], grownFrom: null,
+  };
+}
+
 export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = DEFAULT_TUNE): Layout {
   const warnings: string[] = [];
   const errors: string[] = [];
+  if (spec.kind === "name" && (!spec.name || nameKeys(spec.name).length === 0)) return nothingToBuild(spec, "Type at least one letter.");
 
   // --- the artwork of a clicker is placed first: a key that follows it needs to know where it is -----------------
   const early = spec.kind === "clicker" ? placeClickerLayers(spec, fonts, errors) : { placed: [] as PlacedLayer[], layerShapes: new Map<string, Region[]>() };
