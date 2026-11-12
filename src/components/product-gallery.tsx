@@ -25,6 +25,7 @@ export function ProductGallery({
   overlay,
   overlayColor,
   partColors,
+  engraved,
 }: {
   productName: string;
   modelUrl: string | null;
@@ -36,6 +37,8 @@ export function ProductGallery({
   overlayColor?: string;
   /** Colours for named parts of a multi-colour model (mesh name -> hex), see part-colors.ts. */
   partColors?: Record<string, string>;
+  /** The name is engraved: the viewer cuts it into the model (see CarvedName). */
+  engraved?: boolean;
 }) {
   // -1 = the 3D model; 0..n-1 = photo index. Default to 3D when there is one.
   const [active, setActive] = useState<number>(modelUrl ? -1 : 0);
@@ -52,7 +55,7 @@ export function ProductGallery({
         aria-live="polite"
       >
         {showing3d ? (
-          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} overlayColor={overlayColor} partColors={partColors} />
+          <StlViewer url={modelUrl} color={color} className="size-full" overlay={overlay} overlayColor={overlayColor} partColors={partColors} engraved={engraved} />
         ) : photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

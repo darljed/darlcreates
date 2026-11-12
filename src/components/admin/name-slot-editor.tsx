@@ -45,8 +45,6 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 
 /** Wall the slicer needs left behind an engraving (mm); the same number as MIN_WALL_BEHIND_MM in name-3mf.ts (server only). */
 const WALL_BEHIND_MM = 0.8;
-/** Colour of an engraved name in the preview: a dark cut, not a filament. */
-const ENGRAVED_PREVIEW = "#1f2937";
 
 export function NameSlotEditor({ productId, modelUrl, options, colors = [], canEngrave = false }: { productId: string; modelUrl: string; options: NameSlotOption[]; colors?: ColorSwatch[]; canEngrave?: boolean }) {
   const router = useRouter();
@@ -222,7 +220,7 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [], canE
       )}
       <div className="mt-3 grid gap-4 md:grid-cols-[1fr_260px]">
         <div className="aspect-square overflow-hidden rounded-lg border-2 bg-card md:aspect-[4/3]">
-          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={engraved ? ENGRAVED_PREVIEW : previewColor} onPick={onPick} />
+          <StlViewer url={modelUrl} className="size-full" overlay={build?.ok ? build.geometry : null} overlayColor={engraved ? undefined : previewColor} engraved={engraved} onPick={onPick} />
         </div>
         <div className="space-y-3">
           <Field label="Sample name" hint="to preview">

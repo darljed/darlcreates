@@ -100,7 +100,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-92 | ✅ 2026-11-11 | **Admin could enter sizes that overflow the model** | Inputs are limited to the measured room at the spot (`measureNameSpaceAction`); save still checks |
 | G-89 | ✅ 2026-11-11 | **Engraved (negative part) names** | Detected from a Bambu negative text, saved as `mode: engraved`, added to the print file as a negative part, wall check, dark decal preview (D-43). Marker-part detection for other slicers is still not built (G-93) |
 | G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
-| G-94 | 🟡 | **Engraved preview is a decal; print files not opened in a slicer yet** | A true cut preview needs CSG in the browser. Open `pb-out`-style files in Bambu Studio once before the first real order |
+| G-94 | 🟡 | **Print files not opened in a slicer yet** | The engraved preview is now a stencil-carved recess (D-43). Open a downloaded engraved 3MF in Bambu Studio once before the first real order |
 | G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
 | ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |
 | G-96 | 🟡 | **Painted-area preview is dense** | A finely painted outline is tens of thousands of triangles; a lighter preview model (G-86) would help. Only Bambu/Orca/PrusaSlicer paint attributes are read |

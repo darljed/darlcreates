@@ -30,9 +30,6 @@ import { addManyToCartAction, addToCartAction } from "@/app/(shop)/cart/actions"
 
 /** Most names in one order (the server enforces the same limit: MAX_NAMES_PER_ADD in cart-service.ts). */
 const MAX_NAMES = 20;
-/** How an engraved name looks in the preview: a dark cut. */
-const ENGRAVED_PREVIEW = "#1f2937";
-
 type Row = { key: string; selection: ConfigSelection; qty: number };
 
 export function ProductCustomizer({
@@ -297,7 +294,12 @@ export function ProductCustomizer({
   const sharedOptions = options.filter((o) => !perName.has(o.id));
   const nameColours = !engraved ? (nameSlot?.nameColors ?? []) : [];
   const count = rows.length;
-  const overlayColor = engraved ? ENGRAVED_PREVIEW : chosenSlot?.nameColor?.hex;
+  // an engraving has no colour of its own: it is cut into a part and shows that part's colour
+  const cutColor = (() => {
+    const opt = options.find((o) => o.type === "color" && !o.constraints.paintFrom && o.constraints.partName && o.constraints.parts?.some((p) => p.objectId === nameSlot?.object));
+    return (opt && partColors[opt.constraints.partName!]) ?? activeColor;
+  })();
+  const overlayColor = engraved ? cutColor : chosenSlot?.nameColor?.hex;
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -310,6 +312,7 @@ export function ProductCustomizer({
           overlay={nameBuild?.ok ? nameBuild.geometry : null}
           overlayColor={overlayColor}
           partColors={partColors}
+          engraved={engraved}
         />
         {nameOpt && count > 1 && (
           <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
