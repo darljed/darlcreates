@@ -64,6 +64,9 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 - Areas the designer **painted in another filament** (for example an outline) become their own colour option, "Outline colour" (rename it if you like). Customers change that colour on the 3D preview and in the print file.
 - Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
 
+### Clicker designer
+On a product's page, **Clicker designer → Make this a clicker product** (only when the product has no other options). Set the smallest and largest size, the price added by size, the price for each colour after the second, for a keyring hole and for a picture, and the colours (filaments) you have. The shop then shows the designer on that product, and **Design a clicker** in the header goes to the first published clicker product. Each ordered clicker has a **Download** button on the order that builds a 3MF with one part per colour. Open it in Bambu Studio and check the colours before printing. See [clicker-designer.md](./clicker-designer.md).
+
 ### Putting the customer's name on a product
 
 For a product with an **STL or 3MF** model and a **text** option (for example "Name"): open the product, scroll to **Name on the model**, and click the spot on the 3D model where the name should go. Drag to turn the model first if you need another face. Then set:

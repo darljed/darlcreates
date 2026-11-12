@@ -24,6 +24,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `clicker` | the clicker designer: schema, shapes, geometry (144 shape x mode x border x keyring combinations are closed solids that tile the outline), text, tracing, price rules, 3MF, cart integration (DB for the cart part) |
 | `deploy` | connection options for direct / pooler / Vercel; the streamed download returns the same bytes in chunks (no DB) |
 | `cart-speed` | twenty cart lines of one product cost about one line (needs the DB); product read returns photos, options and values in order |
 | `loading` | every page has a `loading.tsx` skeleton; no bare "Loading…" text |

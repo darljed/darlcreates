@@ -92,6 +92,11 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - `measureNameSpaceAction` is admin-only, validates its numbers with the slot schema, and reads only the product's own stored model; the in-memory model cache holds at most two models for ten minutes. A customer's name colour is accepted only if it is in the slot's list (`normalizeSelection`).
 - Auto-configuration opens an uploaded 3MF on the server: the zip is capped at 120 MB unzipped and 3 million triangles, nesting depth is limited, and any failure leaves the file attached as uploaded.
 
+### Notes added with the clicker designer
+- A design is stored as plain data and validated with `clickerSpecSchema` and the owner's settings (`checkAgainstConfig`): every colour must be in the palette, sizes in range, point and JSON caps hold. The print file and the cart picture are rebuilt on the server; no mesh, SVG or HTML from the browser is used. The cart picture is an SVG in an `<img>` (no inline markup).
+- Pictures are traced in the browser and never uploaded, so there is no new file-upload surface. `saveClickerConfigAction` is admin-only and Zod-validated.
+- The Server Action body limit is 4 MB (`next.config.ts`) so a design can be sent; `MAX_ADD_JSON` rejects anything over 3.5 MB.
+
 ## 9. Secrets
 
 `.env.local` is gitignored; `.env.example` lists the keys with empty values. `NEXT_PUBLIC_*` values are visible to everyone, so only non-secrets go there (GCash name and number, business name and email). The database password and the S3 key were shown in terminal output during setup and should be rotated (G-13, G-28); rotation steps are in [operations.md](./operations.md).

@@ -310,3 +310,15 @@ The database can be far away (about 250 to 500 ms per round trip over Tailscale 
 
 ## D-47 — Hosting on Vercel: what the model processing needs
 The name, engraving and colour work is plain JavaScript (zip + XML parsing, opentype.js, three), with no native library, so it runs in a Vercel function. Measured: a 3.5 MB upload took 1.3 s and about 530 MB; a 7.5 MB print file 1.7 s and about 690 MB (Vercel's default is 2 GB and 300 s). Two things were needed: (1) the print-file download is sent as a stream (`bytesToStream`) because Vercel refuses a buffered response over 4.5 MB; (2) the database must be reached through the PgBouncer pooler on `darl-workspace-db.darl.dev:6432` (public, TLS, SCRAM; see the wiki runbook "DB Stack Networking"), with prepared statements off and one connection per instance (`src/db/options.ts`). The Cloudflare tunnel carries only HTTP services, not Postgres, so it is not the route for the database. The fonts were already in the function trace (`.next/server/**/*.nft.json` lists all six), so no tracing config is needed. Before launch: put the Vercel region near the database, set `DATABASE_URL` to the pooled URL, and run `test-deploy.ts`.
+
+## D-48 — A clicker is a stack of flat pieces, one per colour
+Each colour must be its own filament piece, so the design is cut into non-overlapping flat pieces (body, top minus design, border, one per design colour) and upper layers cover lower ones. Every piece is extruded to a closed solid. Found by testing, all required for watertight output: collinear points are dropped before triangulation (earcut would leave gaps), each piece is opened to remove zero-width slivers, and every vertex gets a deterministic sub-micrometre offset so letters on one baseline are not exactly collinear. `clipper-lib` (pure JS) does the polygon work; `clipper2-js` (broken negative offsets), `js-angusj-clipper` (wasm) and `polygon-clipping` (no offset) were rejected.
+
+## D-49 — The design is plain data; the server rebuilds the geometry
+`config[optionId].design` holds a `ClickerSpec` (text and font for text, traced outlines for pictures). The server validates it against the owner's settings and rebuilds the solids for the print file. A mesh from the browser is never used. Pictures are traced in the browser and never uploaded. No migration: the owner's settings live in the constraints of one text option.
+
+## D-50 — The price is recomputed on the server
+Product price + size step + extra colours + keyring + picture, from the owner's settings. `computeUnitPrice` runs on the server when a line is added; the browser's number is only a preview.
+
+## D-51 — Size limits for designs
+A design with traced pictures can be a few MB of JSON. Caps: 16,000 points in all pictures, 300,000 characters per design, 3.5 MB per add to cart. The Server Action body limit is raised to 4 MB in `next.config.ts` (the default is 1 MB).

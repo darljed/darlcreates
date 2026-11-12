@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (G-79 to G-97)
+Last updated: 2026-11-12 (G-79 to G-99)
 
 ---
 
@@ -102,6 +102,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
 | G-94 | 🟡 | **Print files not opened in a slicer yet** | The engraved preview is now a stencil-carved recess (D-43). Open a downloaded engraved 3MF in Bambu Studio once before the first real order |
 | G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
+| G-98 | 🟡 | **Clicker 3MF not opened in a slicer yet** | The part and colour metadata follows Bambu/Orca's format but has only been checked as a zip and XML. Open a downloaded clicker in Bambu Studio before the first order |
+| G-99 | 🟡 | **Clicker designer has no resize handles** | "Move" mode drags layers and the keyring; size comes from the slider. SVG import is tested in the browser only; the engraved preview is a stencil carve |
 | G-97 | 🟡 | **Cart lines have no stable order** | `cart_items` has no created-at column, so lines come back in the database's order and a line may move after its quantity is changed. Fix: add the column (a migration) and sort by it |
 | ✅ | 2026-11-12 | **Cart and checkout slow; no loading skeletons; quantity typed by hand; font as a plain select** | D-46. Batched product reads, per-request session/consent cache, skeletons for every page, `QuantityStepper`, `FontPicker`. Tests: `test-cart-speed.ts`, `test-loading.ts` |
 | ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |

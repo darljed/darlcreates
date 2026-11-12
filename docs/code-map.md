@@ -15,7 +15,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 |---|---|
 | `/` | Landing page from the CMS (`site_content` "home"): hero, highlights, featured products, FAQ, CTA |
 | `/products` | Catalog with instant search and category filter |
-| `/products/[slug]` | Product page: gallery + 3D viewer, customizer, add to cart, reviews. `review-actions.ts` holds the review actions |
+| `/products/[slug]` | Product page: gallery + 3D viewer, customizer (or the clicker designer for a clicker product), add to cart, reviews. `review-actions.ts` holds the review actions |
+| `/clicker` | Short link: redirects to the first published clicker product (404 if none). Header link "Design a clicker" |
 | `/cart` | Cart with line editing |
 | `/checkout` | Address, shipping, order summary, place order |
 | `/sign-in` | Google sign-in card |
@@ -103,6 +104,18 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
 | `name-space.ts` | **Pure (server use).** `SurfaceProbe` and `measureSpace`: how much room a name has at a spot, as a table of widest-area-per-height |
 | `name-surface.ts` | **Service (server).** The product model as one mesh, cached in memory for 10 minutes |
+| `clicker/spec.ts` | **Pure.** Clicker design schema (`ClickerSpec`), owner settings (`ClickerConfig`), limits, defaults, colours in use, price, readable summary |
+| `clicker/shapes.ts` | **Pure.** The shape outlines and keyring placement |
+| `clicker/poly.ts` | **Pure.** 2D polygon work on `clipper-lib`: union, difference, intersect, offset, small-feature removal |
+| `clicker/text.ts` | **Pure.** Text layers to flat regions |
+| `clicker/trace.ts` | **Pure.** Picture colour analysis and tracing into outlines (runs in the browser) |
+| `clicker/layout.ts` | **Pure.** `buildLayout`: the flat pieces of a clicker, the keyring, warnings and errors |
+| `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes |
+| `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
+| `clicker/export-3mf.ts` | **Pure.** The clicker 3MF print file, one part and colour per piece |
+| `clicker/state.ts` | **Pure.** Undo/redo history and layer helpers for the designer |
+| `clicker/of-product.ts` | **Pure.** Finds the clicker option and a line's design on a product |
+| `clicker/server.ts` | **Service (server).** `checkDesign`, `buildClickerPrint`, `designSvgDataUri`, font loading |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
 | `like.ts` | Escapes `%` and `_` for SQL `LIKE` searches |
 | `money.ts` | **The only money path.** Integer centavos ↔ ₱ display and parsing |
@@ -191,12 +204,25 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `three/stl-viewer-lazy.tsx` | Dynamic import wrapper (`ssr: false`) |
 | `three/viewer-loading.tsx` | Loading animation |
 
+### Clicker designer (`components/clicker`)
+
+| File | Purpose |
+|---|---|
+| `clicker-designer.tsx` | The designer: viewer, tools, list of clickers, price, undo/redo, draft, add to cart |
+| `clicker-panels.tsx` | The tool tabs: shape and size, design, colours, style, keyring |
+| `clicker-viewer.tsx` | Three.js view of the clicker with orbit, top view and drag in Move mode (client only) |
+| `image-import.ts` | Reads a PNG/JPG/WebP (canvas) or SVG (three's `SVGLoader`) in the browser |
+| `palette-picker.tsx` | Colour swatches limited to the owner's palette |
+| `shape-thumb.tsx` | Small outline icon of a shape |
+| `use-fonts.ts` | Loads the name fonts for the layout and tells when one arrives |
+
 ### Admin (`components/admin`)
 
 | File | Purpose |
 |---|---|
 | `admin-account-menu.tsx` | Name, email and sign-out in the sidebar and top bar |
 | `branding-editor.tsx` | Six logo upload slots with previews |
+| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette and extras |
 | `confirm-dialog.tsx` | Confirmation dialog |
 | `content-editor.tsx` | Landing-page editor |
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |
@@ -250,6 +276,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
+| `test-clicker.ts` | Clicker designer: schema, shapes, geometry (all combinations watertight), text, tracing, price, 3MF, cart integration |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
 | `test-deploy.ts` | Connection options (direct / pooler / Vercel) and the streamed download body; no database |
@@ -271,8 +298,9 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 
 | Path | Purpose |
 |---|---|
-| `next.config.ts` | `cacheComponents`, `partialPrefetching`, dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
+| `next.config.ts` | `cacheComponents`, `partialPrefetching`, Server Action body limit 4 MB (clicker designs), dev-only `allowedDevOrigins`, Tailwind loader for Turbopack (headers only for `/sw.js`; no security headers yet: G-65) |
 | `drizzle.config.ts` | drizzle-kit config |
+| `src/types/clipper-lib.d.ts` | Type declarations for `clipper-lib` (it ships none) |
 | `public/fonts/` | The six name fonts (OFL, Permanent Marker Apache 2.0; licence files included) used by the preview and the print file |
 | `public/sw.js`, `public/offline.html` | PWA service worker (caches build assets and logos, never pages) and its offline page |
 | `components.json` | shadcn config |
