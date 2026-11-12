@@ -22,6 +22,8 @@ export type OptionConstraints = {
   parts?: { objectId: string; partId: string }[];
   filaments?: Record<string, number>;
   defaultHex?: string;
+  /** Colour options for a PAINTED area of a part (not a part of its own): the filament it was painted with. `parts` are the painted parts. */
+  paintFrom?: number;
   formats?: string[];
   maxBytes?: number;
   minW?: number;

@@ -103,6 +103,14 @@ Six heavy fonts are bundled in `public/fonts` (Bold = Poppins ExtraBold, Chunky 
 - **Several names in one order.** The product page lists names. Each has text, font, name colour, part colours and quantity; other options are shared. "Add another name" copies the last name's colours (up to 20). "Add all" calls `addManyToCartAction`; every line is its own cart item. The 3D preview shows the name being edited.
 - Verified in a browser with the owner's `pickleball-clicker_negative_name.3mf`: ball and holder colour independently, the chain hole and example text are not drawn, two names became two cart lines, and the downloaded 3MFs had the right filament per part and a negative part named "Name: Maria" / "Name: Jose". Not yet opened in Bambu Studio.
 
+### Painted areas (an outline, a logo): their own colour picker (2026-11-12)
+Slicers let the designer paint areas of a part in other filaments. Bambu/Orca store that as a `paint_color` code on each triangle (PrusaSlicer: `slic3rpe:mmu_segmentation`): the slicer's own subdivision tree, read from the last character, 4 bits per code. `threemf.ts` decodes it with the slicer's split rules (`paintLeaves`, checked against Bambu Studio's `TriangleSelector` source: the leaf areas of every painted triangle add up exactly, all 2,199 codes of the pickleball file decode, and re-encoding with no change gives back the same string).
+- **On upload** a painted filament becomes a colour option "Outline colour" (`constraints.paintFrom` = the painted filament, `parts` = the painted parts). Several painted filaments give "Outline 1 colour", "Outline 2 colour". The label is editable.
+- **Preview.** The viewer cannot show paint, so the stored copy gets helper meshes (`addPaintPreview`): the unpainted area and one mesh per painted filament, as type "other" objects and `modifier_part` parts named `dc-preview …`. The original mesh keeps its paint and is hidden in the viewer.
+- **Print file.** `stripPreviewParts` removes the helpers (they are surface shells, not solids, and must never be printed), then `recolorPaint` rewrites every painted leaf of the chosen area to the chosen filament. The print is the designer's file with the paint remapped.
+- The pickleball file's holder has a painted outline (about 78k small triangles), so the stored model is about 6 MB and the preview loads more geometry (G-86 applies).
+- Unreadable paint is left alone and reported in the upload notes.
+
 ## Tests
 
 `npx tsx scripts/test-name-mesh.ts` (no DB, no network): slot validation, left-to-right orientation on a top face and a side wall, position and thickness, width fit, refusal of unprintable names, both fonts, 3MF structure (content types, relationships, two objects, triangle counts, indices in range), XML escaping, `slotOf` / `personalizedName` / `nameProblem`.

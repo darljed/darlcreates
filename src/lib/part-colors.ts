@@ -51,11 +51,24 @@ export function defaultPartSelection(options: ProductOptionInput[]): ConfigSelec
 export function filamentAssignments(options: ProductOptionInput[], config: ConfigSelection): { objectId: string; partId: string; filament: number }[] {
   const out: { objectId: string; partId: string; filament: number }[] = [];
   for (const o of options) {
-    if (o.type !== "color" || !o.constraints.parts || !o.constraints.filaments) continue;
+    if (o.type !== "color" || !o.constraints.parts || !o.constraints.filaments || o.constraints.paintFrom) continue;
     const hex = chosenHex(o, config);
     const filament = hex ? Object.entries(o.constraints.filaments).find(([h]) => h.toLowerCase() === hex.toLowerCase())?.[1] : undefined;
     if (!filament) continue;
     for (const p of o.constraints.parts) out.push({ objectId: p.objectId, partId: p.partId, filament });
+  }
+  return out;
+}
+
+/** Which filament each painted area prints with, from the customer's choices (for `recolorPaint`). */
+export function paintAssignments(options: ProductOptionInput[], config: ConfigSelection): { objectId: string; partId: string; from: number; to: number }[] {
+  const out: { objectId: string; partId: string; from: number; to: number }[] = [];
+  for (const o of options) {
+    if (o.type !== "color" || !o.constraints.paintFrom || !o.constraints.parts || !o.constraints.filaments) continue;
+    const hex = chosenHex(o, config);
+    const to = hex ? Object.entries(o.constraints.filaments).find(([h]) => h.toLowerCase() === hex.toLowerCase())?.[1] : undefined;
+    if (!to) continue;
+    for (const p of o.constraints.parts) out.push({ objectId: p.objectId, partId: p.partId, from: o.constraints.paintFrom, to });
   }
   return out;
 }

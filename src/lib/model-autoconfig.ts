@@ -18,7 +18,7 @@ import { zipSync } from "fflate";
 import { colorName } from "./color-name";
 import { fontChoices, slotMaxHeight, type NameSlot } from "./name-mesh";
 import { checkFit, detectNameSlot, fitScale, MIN_WALL_BEHIND_MM, open3mf, projectFilaments, shrinkSlot, stripPlaceholder, threeMfSurface, wallThickness } from "./name-3mf";
-import { annotateGroups, colorGroups, groupMeshName, type Files } from "./threemf";
+import { addPaintPreview, annotateGroups, colorGroups, groupMeshName, type Files } from "./threemf";
 import { buildKey, getObject, putObject } from "./storage";
 
 export type AutoConfig = {
@@ -149,8 +149,12 @@ export async function autoConfigureModel(productId: string, key: string): Promis
   const filaments = [...new Set(projectFilaments(files).map((c) => c.toUpperCase()))];
   const groups = colorGroups(stored).slice(0, 6);
   const annotated = annotateGroups(stored, groups);
+  // areas painted in other filaments (an outline, a stripe) become colour options of their own; the preview gets helper meshes
+  const paint = addPaintPreview(annotated.files, groups.length);
+  out.notes.push(...paint.notes);
+  annotated.files = paint.files;
   if (annotated.skipped.length) out.notes.push(`Parts of the model share one mesh (${annotated.skipped.map((g) => groups[g].label).join(", ")}), so they cannot be coloured separately.`);
-  if (strippedExample || annotated.named.length >= 2 || annotated.hidden) {
+  if (strippedExample || annotated.named.length >= 2 || annotated.hidden || paint.layers.length) {
     const cleanKey = buildKey("model", "model-ready.3mf");
     await putObject(cleanKey, zipSync(annotated.files, { level: 1 }), "model/3mf");
     await db.update(products).set({ stlKey: cleanKey, updatedAt: new Date() }).where(eq(products.id, productId));
@@ -179,13 +183,19 @@ export async function autoConfigureModel(productId: string, key: string): Promis
       const startSort = (await db.select({ sort: productOptions.sort }).from(productOptions).where(eq(productOptions.productId, productId))).reduce((m, r) => Math.max(m, r.sort + 1), 0);
 
       // one option per colour group when a part of the model can be coloured on its own, else one "Colors" for all
-      const perPart = annotated.named.length >= 2;
+      const perPart = annotated.named.length >= 2 || paint.layers.length > 0;
       const specs = perPart
-        ? annotated.named.map((gi) => ({
-            label: `${groups[gi].label} colour`,
-            constraints: { partName: groupMeshName(gi), parts: groups[gi].parts, filaments: filamentOf, defaultHex: projectList[groups[gi].filament - 1] },
-          }))
-        : [{ label: "Colors", constraints: groups.length === 1 ? { parts: groups[0].parts, filaments: filamentOf, defaultHex: projectList[groups[0].filament - 1] } : {} }];
+        ? [
+            ...annotated.named.map((gi) => ({
+              label: `${groups[gi].label} colour`,
+              constraints: { partName: groupMeshName(gi), parts: groups[gi].parts, filaments: filamentOf, defaultHex: projectList[groups[gi].filament - 1] } as Record<string, unknown>,
+            })),
+            ...paint.layers.map((l, i) => ({
+              label: paint.layers.length === 1 ? "Outline colour" : `Outline ${i + 1} colour`,
+              constraints: { partName: l.partName, parts: l.parts, paintFrom: l.state, filaments: filamentOf, defaultHex: projectList[l.state - 1] } as Record<string, unknown>,
+            })),
+          ]
+        : [{ label: "Colors", constraints: (groups.length === 1 ? { parts: groups[0].parts, filaments: filamentOf, defaultHex: projectList[groups[0].filament - 1] } : {}) as Record<string, unknown> }];
       let sort = startSort;
       for (const spec of specs) {
         const [opt] = await db

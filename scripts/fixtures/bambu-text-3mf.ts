@@ -12,7 +12,7 @@ export const boxObj = (id: number, x0: number, x1: number, y0: number, y1: numbe
   return `<object id="${id}" type="${type}"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
 };
 // a 20 mm cube plus a text part 10 x 4 x 1 lying on its top face (object space z = 20), the plate item rotated 90 degrees about Y
-export const withText = (subtype: string, text: string, textFaces = 12, extra: { textExt?: number; filaments?: string[]; engraved?: boolean; second?: boolean } = {}) => {
+export const withText = (subtype: string, text: string, textFaces = 12, extra: { textExt?: number; filaments?: string[]; engraved?: boolean; second?: boolean; paint?: string } = {}) => {
   const bytes = zipSync({
     "3D/3dmodel.model": strToU8(`<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"><resources>
  <object id="3" type="model"><components>
@@ -21,7 +21,7 @@ export const withText = (subtype: string, text: string, textFaces = 12, extra: {
  </components></object>
 ${extra.second ? `<object id="4" type="model"><components><component p:path="/3D/Objects/o.model" objectid="5" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>` : ""}
 </resources><build><item objectid="3" transform="0 0 -1 0 1 0 1 0 0 100 100 50" printable="1"/>${extra.second ? `<item objectid="4" transform="1 0 0 0 1 0 0 0 1 300 0 0" printable="1"/>` : ""}</build></model>`),
-    "3D/Objects/o.model": strToU8(`<model><resources>${boxObj(1, 0, 20, 0, 20, 0, 20)}${extra.engraved ? boxObj(2, -5, 5, -2, 2, -1.5, 0.01, "other") : boxObj(2, -5, 5, -2, 2, 0, 1)}${extra.second ? boxObj(5, 0, 10, 0, 10, 0, 10) : ""}</resources></model>`),
+    "3D/Objects/o.model": strToU8(`<model><resources>${extra.paint ? boxObj(1, 0, 20, 0, 20, 0, 20).replace('<triangle v1="0" v2="2" v3="1"/>', `<triangle v1="0" v2="2" v3="1" paint_color="${extra.paint}"/>`) : boxObj(1, 0, 20, 0, 20, 0, 20)}${extra.engraved ? boxObj(2, -5, 5, -2, 2, -1.5, 0.01, "other") : boxObj(2, -5, 5, -2, 2, 0, 1)}${extra.second ? boxObj(5, 0, 10, 0, 10, 0, 10) : ""}</resources></model>`),
     "Metadata/model_settings.config": strToU8(`<config>
 <object id="3">
   <metadata key="extruder" value="1"/>

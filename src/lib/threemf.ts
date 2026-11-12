@@ -263,12 +263,12 @@ export type ColorGroup = {
 const prettyPartName = (n: string) =>
   n.replace(/\.(stl|3mf|obj|step)$/i, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim() || "Part";
 
-/** Groups of ordinary printed parts (not negative parts, modifiers or the example text) by the filament they use. */
-export function colorGroups(files: Files): ColorGroup[] {
+/** Groups of ordinary printed parts (not negative parts, modifiers or the example text) by the filament they use. `exclude` skips parts as `objectId:partId`. */
+export function colorGroups(files: Files, exclude: Set<string> = new Set()): ColorGroup[] {
   const groups = new Map<number, ColorGroup>();
   for (const o of readConfigObjects(files)) {
     for (const p of o.parts) {
-      if (p.subtype !== "normal_part" || p.text !== null) continue;
+      if (p.subtype !== "normal_part" || p.text !== null || exclude.has(`${o.id}:${p.id}`)) continue;
       const filament = p.extruder ?? o.extruder ?? 1;
       let g = groups.get(filament);
       if (!g) groups.set(filament, (g = { filament, label: prettyPartName(p.name || o.name), parts: [] }));
@@ -385,6 +385,329 @@ export function setFilaments(files: Files, assigns: FilamentAssign[]): Files {
     });
   }
   return { ...files, [CFG]: strToU8(cfg) };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Painted areas (Bambu Studio / Orca / PrusaSlicer colour painting) -> parts of their own
+// ---------------------------------------------------------------------------------------------------------------------
+
+type V3 = [number, number, number];
+export type PaintLeaf = { state: number; tri: [V3, V3, V3] };
+
+const mid = (p: V3, q: V3): V3 => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
+
+/**
+ * Decode a triangle's paint string (`paint_color` in Bambu/Orca, `slic3rpe:mmu_segmentation` in PrusaSlicer) into the
+ * small triangles it was cut into, each with its state (0 = unpainted, k = filament k). This is the slicer's own
+ * encoding (TriangleSelector::serialize): the hex string read from its LAST character is a stream of 4-bit codes; a code
+ * holds the number of split sides (low 2 bits) and, for a split triangle, which side is special (high 2 bits), followed
+ * by its children in descending order; a leaf holds its state, with 0b11 meaning "3 + the next code". The split rules
+ * below are the slicer's `perform_split`. null when the string cannot be read.
+ */
+export function paintLeaves(code: string, a: V3, b: V3, c: V3): PaintLeaf[] | null {
+  const nibbles: number[] = [];
+  for (let i = code.length - 1; i >= 0; i--) {
+    const n = parseInt(code[i], 16);
+    if (Number.isNaN(n)) return null;
+    nibbles.push(n);
+  }
+  let at = 0;
+  const leaves: PaintLeaf[] = [];
+  const next = () => {
+    if (at >= nibbles.length) throw new Error("short");
+    return nibbles[at++];
+  };
+  const walk = (t: [V3, V3, V3], depth: number) => {
+    if (depth > 12) throw new Error("deep");
+    const c0 = next();
+    const splits = c0 & 3;
+    if (splits === 0) {
+      let state = c0 >> 2;
+      if ((c0 & 12) === 12) {
+        let n = next(), runs = 0;
+        while (n === 15) { runs++; n = next(); }
+        state = n + 15 * runs + 3;
+      }
+      leaves.push({ state, tri: t });
+      return;
+    }
+    const special = (c0 >> 2) % 3;
+    const [A, B, C] = [t[special], t[(special + 1) % 3], t[(special + 2) % 3]];
+    let kids: [V3, V3, V3][];
+    if (splits === 1) {
+      const m = mid(C, B);
+      kids = [[A, B, m], [m, C, A]];
+    } else if (splits === 2) {
+      const m1 = mid(B, A), m2 = mid(A, C);
+      kids = [[A, m1, m2], [m1, B, m2], [B, C, m2]];
+    } else {
+      const m1 = mid(B, A), m2 = mid(C, B), m3 = mid(A, C);
+      kids = [[A, m1, m3], [m1, B, m2], [m2, C, m3], [m1, m2, m3]];
+    }
+    for (let i = splits; i >= 0; i--) walk(kids[i], depth + 1); // children are stored last-first
+  };
+  try {
+    walk([a, b, c], 0);
+  } catch {
+    return null;
+  }
+  return at === nibbles.length ? leaves : null; // leftover codes mean we misread it: do not guess
+}
+
+/**
+ * Rewrite the states of a paint string (see `paintLeaves`) with `f`, keeping its structure. The leaf with state k is
+ * written as the slicer does (one code for 0..2, 0b11 followed by k - 3 in base 15 for larger). null if unreadable.
+ */
+export function mapPaintStates(code: string, f: (state: number) => number): string | null {
+  const nibbles: number[] = [];
+  for (let i = code.length - 1; i >= 0; i--) {
+    const n = parseInt(code[i], 16);
+    if (Number.isNaN(n)) return null;
+    nibbles.push(n);
+  }
+  const out: number[] = [];
+  let at = 0;
+  const next = () => {
+    if (at >= nibbles.length) throw new Error("short");
+    return nibbles[at++];
+  };
+  const walk = (depth: number) => {
+    if (depth > 12) throw new Error("deep");
+    const c0 = next();
+    if ((c0 & 3) !== 0) {
+      out.push(c0);
+      for (let i = 0; i <= (c0 & 3); i++) walk(depth + 1);
+      return;
+    }
+    let state = c0 >> 2;
+    if ((c0 & 12) === 12) {
+      let n = next(), runs = 0;
+      while (n === 15) { runs++; n = next(); }
+      state = n + 15 * runs + 3;
+    }
+    const ns = Math.max(0, Math.round(f(state)));
+    if (ns < 3) out.push(ns << 2);
+    else {
+      out.push(12);
+      let k = ns - 3;
+      while (k >= 15) { out.push(15); k -= 15; }
+      out.push(k);
+    }
+  };
+  try {
+    walk(0);
+  } catch {
+    return null;
+  }
+  if (at !== nibbles.length) return null;
+  return out.reverse().map((n) => n.toString(16).toUpperCase()).join("");
+}
+
+const PAINT_ATTRS = ["paint_color", "slic3rpe:mmu_segmentation"];
+
+/** Welded triangle soup (positions rounded to 1e-5 mm so shared corners are one vertex). */
+function soup() {
+  const index = new Map<string, number>();
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const at = (p: V3) => {
+    const key = `${p[0].toFixed(5)},${p[1].toFixed(5)},${p[2].toFixed(5)}`;
+    let i = index.get(key);
+    if (i === undefined) {
+      i = pos.length / 3;
+      index.set(key, i);
+      pos.push(...p);
+    }
+    return i;
+  };
+  return {
+    add: (t: [V3, V3, V3]) => idx.push(at(t[0]), at(t[1]), at(t[2])),
+    mesh: (): Mesh => ({ positions: Float32Array.from(pos), indices: Uint32Array.from(idx) }),
+    count: () => idx.length / 3,
+  };
+}
+
+/** Part-list name of the helper parts that only exist for the 3D preview (removed again for printing). */
+export const PREVIEW_PART_PREFIX = "dc-preview";
+
+export type PaintLayer = {
+  /** The filament the designer painted this area with. */
+  state: number;
+  /** Mesh name the 3D viewer colours. */
+  partName: string;
+  /** The painted slicer parts (the originals, which keep their paint codes for printing). */
+  parts: PartRef[];
+};
+
+/** Mesh-object tag of a component's geometry, and where it lives. */
+function meshObjectOf(files: Files, rootDefs: Map<string, ObjectDef>, objectId: string, partIndex: number) {
+  const comp = rootDefs.get(objectId)?.components[partIndex];
+  if (!comp) return null;
+  const t = componentTarget(comp);
+  return files[t.file] ? { ...t, comp } : null;
+}
+
+/**
+ * A slicer lets you paint areas of a part in other filaments (the outline of a logo, a stripe). That is a per-triangle
+ * code the 3D viewer cannot show and a colour picker cannot change. For the PREVIEW, each painted part is cut into
+ * helper meshes: its unpainted area (taking over the part's viewer name) and one mesh per painted filament (named
+ * `dc-slot-<n>`, so each can be coloured). The original mesh, with its paint intact, stays for printing but is hidden
+ * in the viewer. Helper meshes are type "other" and `modifier_part` parts named `dc-preview …`: a slicer ignores them,
+ * and `stripPreviewParts` removes them from every print file. They are surface shells, not solids, so they must never
+ * be printed. The surface the viewer sees is identical to the original.
+ * Parts whose paint cannot be read are left alone and reported. `firstIndex` numbers the `dc-slot-<n>` names.
+ */
+export function addPaintPreview(files: Files, firstIndex: number): { files: Files; layers: PaintLayer[]; notes: string[] } {
+  const notes: string[] = [];
+  const rootPath = "3D/3dmodel.model";
+  let root = strFromU8(files[rootPath]);
+  const rootDefs = parseObjects(root);
+  let cfg = files[CFG] ? strFromU8(files[CFG]) : null;
+  if (!cfg) return { files, layers: [], notes };
+  const texts = new Map<string, string>();
+  const textOf = (file: string) => texts.get(file) ?? strFromU8(files[file]);
+
+  let nextId = 0;
+  for (const f of Object.keys(files)) if (/\.model$/.test(f)) for (const m of strFromU8(files[f]).matchAll(/<object\b[^>]*\bid="(\d+)"/g)) nextId = Math.max(nextId, Number(m[1]));
+  const withP = /xmlns:p="/.test(root);
+  const uuid = () => (withP ? randomUUID() : "");
+  const layerOf = new Map<number, PaintLayer>();
+  const layerFor = (state: number) => {
+    let l = layerOf.get(state);
+    if (!l) layerOf.set(state, (l = { state, partName: groupMeshName(firstIndex + layerOf.size), parts: [] }));
+    return l;
+  };
+
+  for (const co of readConfigObjects(files)) {
+    const plate = rootDefs.get(co.id);
+    if (!plate || plate.components.length !== co.parts.length) continue;
+    for (const part of co.parts) {
+      if (part.subtype !== "normal_part" || part.text !== null) continue;
+      const mo = meshObjectOf(files, rootDefs, co.id, part.index);
+      if (!mo) continue;
+      const src = textOf(mo.file);
+      const om = new RegExp(`(<object\\b[^>]*\\bid="${mo.id}"[^>]*>)([\\s\\S]*?)(</object>)`).exec(src);
+      if (!om || !om[2].includes("<mesh") || !PAINT_ATTRS.some((a) => om[2].includes(`${a}="`))) continue;
+
+      const verts: V3[] = [];
+      for (const v of om[2].matchAll(/<vertex\b([^>]*?)\/?>/g)) verts.push([Number(attr(v[1], "x")), Number(attr(v[1], "y")), Number(attr(v[1], "z"))]);
+      const baseFilament = part.extruder ?? co.extruder ?? 1;
+      const base = soup();
+      const painted = new Map<number, ReturnType<typeof soup>>();
+      let unreadable = false;
+      for (const tr of om[2].matchAll(/<triangle\b([^>]*?)\/?>/g)) {
+        const tri = [attr(tr[1], "v1"), attr(tr[1], "v2"), attr(tr[1], "v3")].map((i) => verts[Number(i)]) as [V3, V3, V3];
+        const code = PAINT_ATTRS.map((a) => attr(tr[1], a)).find((x) => x);
+        const leaves = tri.some((p) => !p) ? null : code ? paintLeaves(code, ...tri) : [{ state: 0, tri }];
+        if (!leaves) { unreadable = true; break; }
+        for (const lf of leaves) {
+          if (lf.state === 0 || lf.state === baseFilament) base.add(lf.tri);
+          else {
+            if (!painted.has(lf.state)) painted.set(lf.state, soup());
+            painted.get(lf.state)!.add(lf.tri);
+          }
+        }
+      }
+      const name = part.name.replace(/\.(stl|3mf|obj|step)$/i, "") || co.name;
+      if (unreadable) { notes.push(`Colour painting on "${name}" could not be read, so it is left as painted in the slicer (no preview, no colour option).`); continue; }
+      if (painted.size === 0) continue;
+
+      const plateTag = new RegExp(`(<object\\b[^>]*\\bid="${co.id}"[^>]*>)([\\s\\S]*?)(</object>)`).exec(root);
+      const compTag = [...(plateTag?.[2] ?? "").matchAll(/<component\b[^>]*?\/>/g)][part.index]?.[0];
+      const partBlock = new RegExp(`<part\\s+id="${part.id}"[^>]*>[\\s\\S]*?</part>`).exec(cfg);
+      if (!plateTag || !compTag || !partBlock) { notes.push(`Colour painting on "${name}" could not be previewed (unexpected layout).`); continue; }
+
+      const origName = attr(om[1], "name");
+      let nextPart = Math.max(0, ...[...(new RegExp(`<object\\s+id="${co.id}">[\\s\\S]*?</object>`).exec(cfg)?.[0].matchAll(/<part\s+id="(\d+)"/g) ?? [])].map((m) => Number(m[1])));
+      let newObjects = "", newComps = "", newParts = "";
+      const addPiece = (mesh: Mesh, pieceName: string | undefined, label: string) => {
+        const id = ++nextId;
+        newObjects += `\n  <object id="${id}"${withP ? ` p:UUID="${uuid()}"` : ""}${pieceName ? ` name="${esc(pieceName)}"` : ""} type="other">${meshXml(mesh)}</object>`;
+        newComps += compTag.replace(/objectid="\d+"/, `objectid="${id}"`).replace(/p:UUID="[^"]*"/, withP ? `p:UUID="${uuid()}"` : "");
+        newParts += `\n    <part id="${++nextPart}" subtype="modifier_part">\n      <metadata key="name" value="${esc(`${PREVIEW_PART_PREFIX} ${label}`)}"/>\n      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n    </part>`;
+      };
+      if (base.count() > 0) addPiece(base.mesh(), origName && origName !== HIDDEN_MESH_NAME ? origName : undefined, `${name} base`);
+      for (const [state, sp] of [...painted].sort((x, y) => x[0] - y[0])) {
+        const layer = layerFor(state);
+        if (!layer.parts.some((r) => r.objectId === co.id && r.partId === part.id)) layer.parts.push({ objectId: co.id, partId: part.id });
+        addPiece(sp.mesh(), layer.partName, `${name} painted ${state}`);
+      }
+      // the original keeps its paint for printing and is hidden in the viewer
+      const hiddenTag = withObjectName(om[1], om[1].slice("<object".length, -1), HIDDEN_MESH_NAME);
+      texts.set(mo.file, src.replace(om[0], () => hiddenTag + om[2] + om[3] + newObjects));
+      root = root.replace(plateTag[0], () => plateTag[1] + plateTag[2].replace(/<\/components>/, () => `${newComps}</components>`) + plateTag[3]);
+      cfg = cfg.replace(new RegExp(`(<object\\s+id="${co.id}">[\\s\\S]*)(</object>)`), (_m, a: string, z: string) => a.replace(/\s*$/, "") + newParts + "\n  " + z);
+    }
+  }
+  if (layerOf.size === 0) return { files, layers: [], notes };
+  const out: Files = { ...files, [rootPath]: strToU8(root), [CFG]: strToU8(cfg) };
+  for (const [f, text] of texts) out[f] = strToU8(text);
+  return { files: out, layers: [...layerOf.values()].sort((x, y) => x.state - y.state), notes };
+}
+
+/** Remove the preview helper parts (`addPaintPreview`) so the file prints exactly as the designer made it. */
+export function stripPreviewParts(files: Files): Files {
+  let out = files;
+  for (const co of readConfigObjects(files)) {
+    const helpers = co.parts.filter((p) => p.name.startsWith(PREVIEW_PART_PREFIX)).map((p) => p.index).sort((a, b) => b - a);
+    for (const i of helpers) out = removePart(out, co.id, i);
+  }
+  return out;
+}
+
+export type PaintAssign = { objectId: string; partId: string; from: number; to: number };
+
+/** Print the painted area of a part in another filament: every painted leaf with state `from` becomes `to`. */
+export function recolorPaint(files: Files, assigns: PaintAssign[]): Files {
+  if (assigns.length === 0) return files;
+  const rootDefs = parseObjects(strFromU8(files["3D/3dmodel.model"]));
+  const cfg = readConfigObjects(files);
+  const out: Files = { ...files };
+  for (const a of assigns) {
+    const part = cfg.find((o) => o.id === a.objectId)?.parts.find((p) => p.id === a.partId);
+    const mo = part ? meshObjectOf(files, rootDefs, a.objectId, part.index) : null;
+    if (!mo) continue;
+    const src = strFromU8(out[mo.file]);
+    const re = new RegExp(`(<object\\b[^>]*\\bid="${mo.id}"[^>]*>)([\\s\\S]*?)(</object>)`);
+    const m = re.exec(src);
+    if (!m) continue;
+    const body = m[2].replace(new RegExp(`(\\s(?:${PAINT_ATTRS.join("|")})=")([^"]*)(")`, "g"), (whole, pre: string, code: string, post: string) => {
+      const mapped = mapPaintStates(code, (s) => (s === a.from ? a.to : s));
+      return mapped === null ? whole : pre + mapped + post;
+    });
+    out[mo.file] = strToU8(src.replace(m[0], m[1] + body + m[3]));
+  }
+  return out;
+}
+
+/**
+ * Remove one part of a plate object: its component, its mesh object (unless another component still uses it) and its
+ * entry in the slicer's part list. `index` is the position among the object's components, which equals the part's.
+ */
+export function removePart(files: Files, objectId: string, index: number): Files {
+  const rootXml = strFromU8(files["3D/3dmodel.model"]);
+  const plate = parseObjects(rootXml).get(objectId);
+  const comp = plate?.components[index];
+  if (!plate || !comp) throw new Error("Part not found");
+  const t = componentTarget(comp);
+  const out: Files = { ...files };
+
+  let n = -1;
+  const objRe = new RegExp(`(<object\\b[^>]*\\bid="${objectId}"[^>]*>)([\\s\\S]*?)(</object>)`);
+  out["3D/3dmodel.model"] = strToU8(rootXml.replace(objRe, (_m, a, body, c) => a + body.replace(/\s*<component\b[^>]*?\/>/g, (x: string) => (++n === index ? "" : x)) + c));
+
+  const stillUsed = plate.components.some((c, i) => i !== index && c.id === comp.id && (c.path ?? "") === (comp.path ?? ""));
+  if (!stillUsed) {
+    const src = strFromU8(out[t.file] ?? files[t.file]);
+    out[t.file] = strToU8(src.replace(new RegExp(`\\s*<object\\b[^>]*\\bid="${comp.id}"[^>]*>[\\s\\S]*?</object>`), ""));
+  }
+
+  if (files[CFG]) {
+    let k = -1;
+    out[CFG] = strToU8(strFromU8(files[CFG]).replace(new RegExp(`(<object\\s+id="${objectId}">)([\\s\\S]*?)(</object>)`), (_m, a, body, c) =>
+      a + body.replace(/\s*<part\b[\s\S]*?<\/part>/g, (x: string) => (++k === index ? "" : x)) + c));
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

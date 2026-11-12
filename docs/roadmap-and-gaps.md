@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-11 (name-on-model: G-79 to G-95)
+Last updated: 2026-11-11 (name-on-model: G-79 to G-96)
 
 ---
 
@@ -102,6 +102,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-93 | 🟡 | **No marker-part detection for slicers other than Bambu/Orca text** | Only the Bambu text element is read. Other slicers: the admin clicks the spot |
 | G-94 | 🟡 | **Engraved preview is a decal; print files not opened in a slicer yet** | A true cut preview needs CSG in the browser. Open `pb-out`-style files in Bambu Studio once before the first real order |
 | G-95 | 🟡 | **Part colours follow the product's current options (like G-80)** | `filamentAssignments` reads the option values by id at download time; deleting a colour value later breaks old orders' colours. Snapshot with G-80 |
+| ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |
+| G-96 | 🟡 | **Painted-area preview is dense** | A finely painted outline is tens of thousands of triangles; a lighter preview model (G-86) would help. Only Bambu/Orca/PrusaSlicer paint attributes are read |
 | ✅ | 2026-11-11 | **Multiple names per order; multi-colour base** | D-44 / D-43. Tests: `test-multi-name-cart.ts`, `test-name-mesh.ts`, `test-model-autoconfig.ts` |
 | G-90 | 🟡 | **No admin upload of custom fonts** | Fonts are files in `public/fonts`. `opentype.js` cannot read every font (Bangers failed on its GSUB table) |
 

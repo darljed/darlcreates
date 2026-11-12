@@ -61,6 +61,7 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 ### Engraved names, part colours and bulk orders
 - **Style** (under Name on the model): Raised or Engraved. Engraved needs a 3MF project and cuts the name in; set **Cut depth** (the editor shows how thick the model is behind the name and limits the depth). Uploading a 3MF whose example text is a **negative part** sets this up by itself.
 - A 3MF made of parts in different filaments (for example a ball and its holder) gets one colour option per part on upload. Customers colour each part; the print file uses their choices.
+- Areas the designer **painted in another filament** (for example an outline) become their own colour option, "Outline colour" (rename it if you like). Customers change that colour on the 3D preview and in the print file.
 - Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
 
 ### Putting the customer's name on a product

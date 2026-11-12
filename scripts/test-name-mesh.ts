@@ -15,8 +15,8 @@ import { summarizeConfig } from "../src/lib/config-summary";
 import { addNameTo3mf, buildColoredFile, buildPrintFile, checkFit, engraveProblem, wallThickness, detectNameSlot, loadFont, nameProblem, open3mf, readStlMesh, stripPlaceholder, threeMfSurface, fitScale, shrinkSlot, FIT_TOLERANCE_MM } from "../src/lib/name-3mf";
 import { strToU8, zipSync } from "fflate";
 import { withText } from "./fixtures/bambu-text-3mf";
-import { annotateGroups, colorGroups, plateObjectNear, readConfigObjects, setFilaments } from "../src/lib/threemf";
-import { defaultPartSelection, filamentAssignments, partColorsFor, wholeModelColor } from "../src/lib/part-colors";
+import { addPaintPreview, annotateGroups, colorGroups, mapPaintStates, paintLeaves, plateObjectNear, readConfigObjects, recolorPaint, setFilaments, stripPreviewParts } from "../src/lib/threemf";
+import { defaultPartSelection, filamentAssignments, paintAssignments, partColorsFor, wholeModelColor } from "../src/lib/part-colors";
 import { prepareMultiPart, HIDDEN_PART_NAME } from "../src/lib/viewer-framing";
 import { Group, Mesh as ThreeMesh, MeshStandardMaterial, BoxGeometry } from "three";
 
@@ -390,10 +390,42 @@ const cubeStl = cubeFile.buffer.slice(cubeFile.byteOffset, cubeFile.byteOffset +
   assert("the viewer gets mesh name -> chosen hex (default when nothing is chosen)", JSON.stringify(partColorsFor(partOpts, { c1: { valueId: "c1b" } })) === JSON.stringify({ "dc-slot-0": "#F95D73", "dc-slot-1": "#00FF00" }));
   assert("the print file gets filament numbers per slicer part", JSON.stringify(filamentAssignments(partOpts, { c0: { valueId: "c0c" }, c1: { valueId: "c1b" } })) === JSON.stringify([{ objectId: "3", partId: "1", filament: 3 }, { objectId: "4", partId: "1", filament: 2 }]));
   assert("an option that colours the whole model sets the single-colour look; part options do not", wholeModelColor([...partOpts, { ...colOpt("w", "", "3", ""), constraints: {} }], { w: { valueId: "wb" }, c0: { valueId: "c0c" } }) === "#00FF00");
+  const paintOpt: ProductOptionInput = { ...colOpt("p", "dc-slot-2", "3", "#0000FF"), constraints: { partName: "dc-slot-2", parts: [{ objectId: "3", partId: "1" }], paintFrom: 3, filaments: { "#F95D73": 1, "#00FF00": 2, "#0000FF": 3 }, defaultHex: "#0000FF" } };
+  assert("a painted-area option gives paint assignments (from the painted filament to the chosen one), not part assignments", JSON.stringify(paintAssignments([paintOpt], { p: { valueId: "pb" } })) === JSON.stringify([{ objectId: "3", partId: "1", from: 3, to: 2 }]) && filamentAssignments([paintOpt], { p: { valueId: "pb" } }).length === 0);
   assert("an engraved name drops any name colour the client sent", (() => {
     const o: ProductOptionInput = { id: "t", type: "text", label: "Name", required: false, priceDeltaCents: 0, values: [], constraints: { slot: { font: "bold", mode: "engraved", nameColors: [{ hex: "#FF0000" }] } } };
     return normalizeSelection([o], { t: { text: "Ana", nameColor: "#FF0000" } }, () => false).config.t.nameColor === undefined;
   })());
+
+
+  console.log("\nareas painted in other filaments (slicer colour painting)");
+  {
+    const A: [number, number, number] = [0, 0, 0], B: [number, number, number] = [10, 0, 0], C: [number, number, number] = [0, 10, 0];
+    const area = (t: [number, number, number][]) => Math.hypot(...[0, 1, 2].map((k) => { const u = [t[1][0] - t[0][0], t[1][1] - t[0][1], t[1][2] - t[0][2]], v = [t[2][0] - t[0][0], t[2][1] - t[0][1], t[2][2] - t[0][2]]; return [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]][k]; })) / 2;
+    const whole = paintLeaves("0C", A, B, C);
+    assert("a whole triangle painted with filament 3 is one leaf of state 3", whole?.length === 1 && whole[0].state === 3 && near(area(whole[0].tri), 50, 0.001));
+    const one = paintLeaves("0C01", A, B, C);
+    assert("one split side: two halves, the first-read child is the last one (A,B,midpoint of C-B)", one?.length === 2 && one.map((l) => l.state).sort().join() === "0,3" && near(area(one.find((l) => l.state === 3)!.tri), 25, 0.001) && one.find((l) => l.state === 3)!.tri[2].join() === "5,5,0", JSON.stringify(one?.map((l) => [l.state, l.tri[2]])));
+    assert("areas of all leaves add up to the triangle", near(one!.reduce((a, l) => a + area(l.tri), 0), 50, 0.001));
+    assert("a string with codes left over, or not hex, is refused instead of guessed", paintLeaves("0C0C", A, B, C) === null && paintLeaves("ZZ", A, B, C) === null && paintLeaves("", A, B, C) === null);
+    assert("mapPaintStates keeps the structure and re-encodes: 3 -> 2 gives 801; identity gives the same string; 3 -> 5 uses the long form", mapPaintStates("0C01", (s) => (s === 3 ? 2 : s)) === "801" && mapPaintStates("0C01", (s) => s) === "0C01" && mapPaintStates("0C", () => 5) === "2C" && mapPaintStates("0C", () => 20) === "2FC");
+  }
+  {
+    const files = open3mf(withText("normal_part", "Cams", 12, { paint: "0C01", filaments: ["#111111", "#222222", "#333333"] }));
+    const before = threeMfSurface(files).mesh;
+    const prev = addPaintPreview(files, 1);
+    assert("a painted part gets one layer per painted filament, pointing at the original part", prev.layers.length === 1 && prev.layers[0].state === 3 && prev.layers[0].partName === "dc-slot-1" && prev.layers[0].parts[0].objectId === "3" && prev.layers[0].parts[0].partId === "1", JSON.stringify(prev.layers));
+    const model = strFromU8(prev.files["3D/Objects/o.model"]);
+    assert("the preview gets helper meshes (type other) and the original is hidden", /type="other"/.test(model) && (model.match(/name="dc-slot-1"/g) ?? []).length >= 1 && model.includes('name="dc-hide"'));
+    assert("helper parts are modifiers named dc-preview in the part list, kept in step with the components", readConfigObjects(prev.files).find((o) => o.id === "3")!.parts.filter((p) => p.subtype === "modifier_part" && p.name.startsWith("dc-preview")).length === 2 && (strFromU8(prev.files["3D/3dmodel.model"]).match(/<component /g) ?? []).length === 4);
+    assert("the product surface is unchanged (helpers are skipped)", threeMfSurface(prev.files).mesh.indices.length === before.indices.length);
+    const stripped = stripPreviewParts(prev.files);
+    assert("stripping the helpers returns the original parts, geometry and paint", readConfigObjects(stripped).find((o) => o.id === "3")!.parts.length === 2 && strFromU8(stripped["3D/Objects/o.model"]).includes('paint_color="0C01"') && !/type="other"/.test(strFromU8(stripped["3D/Objects/o.model"])));
+    const re = recolorPaint(stripped, [{ objectId: "3", partId: "1", from: 3, to: 2 }]);
+    assert("recolouring the painted area rewrites only its paint code", strFromU8(re["3D/Objects/o.model"]).includes('paint_color="801"') && !strFromU8(re["3D/Objects/o.model"]).includes('paint_color="0C01"'));
+    assert("an unpainted model gets no layers and is returned untouched", addPaintPreview(open3mf(withText("normal_part", "Cams")), 1).layers.length === 0);
+    assert("unreadable paint is left as it is, with a note", (() => { const bad = addPaintPreview(open3mf(withText("normal_part", "Cams", 12, { paint: "0C0C" })), 1); return bad.layers.length === 0 && bad.notes.length === 1; })());
+  }
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }
   console.log("\nAll name-mesh checks passed.");

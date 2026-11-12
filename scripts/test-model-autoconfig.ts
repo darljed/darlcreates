@@ -89,6 +89,22 @@ async function main() {
     const single = (o1c.find((o) => o.type === "color")?.constraints ?? {}) as PartCons;
     assert("a one-group model keeps ONE Colors option (whole model), with its filament map for the print file", o1c.filter((o) => o.type === "color").length === 1 && !single.partName && single.parts?.length === 1 && single.defaultHex === "#F95D73", JSON.stringify(single));
 
+    console.log("\nmodel with an area painted in another filament: an Outline colour option");
+    const p6 = await newProduct("test-autocfg-6");
+    const key8 = await upload(withText("normal_part", "Cams", 12, { paint: "0C01", filaments: ["#F95D73", "#00FF00", "#0000FF"] }), "painted.3mf");
+    const r8 = await autoConfigureModel(p6.id, key8);
+    keys.push(r8.modelKey);
+    const o6 = (await optionsOf(p6.id)).filter((o) => o.type === "color").sort((a, b) => a.sort - b.sort);
+    const out6 = o6.find((o) => o.label === "Outline colour")?.constraints as PartCons & { paintFrom?: number } | undefined;
+    assert("Body colour and Outline colour were created", o6.map((o) => o.label).join() === "Body colour,Outline colour", o6.map((o) => o.label).join());
+    assert("the outline option knows its filament (3), its painted part and the filament map", out6?.paintFrom === 3 && out6.parts?.[0].objectId === "3" && out6.defaultHex === "#0000FF" && out6.filaments?.["#00FF00"] === 2 && out6.partName === "dc-slot-1", JSON.stringify(out6));
+    assert("the stored copy has preview helper meshes, and the original keeps its paint for printing", r8.modelKey !== key8 && await (async () => {
+      const o = await storage.getObject(r8.modelKey);
+      const f = unzipSync(new Uint8Array(await new Response(o!.stream).arrayBuffer()));
+      const m = strFromU8(f["3D/Objects/o.model"]);
+      return m.includes('type="other"') && m.includes('paint_color="0C01"') && m.includes('name="dc-hide"');
+    })());
+
     console.log("\n3MF whose example is a negative part: engraved");
     const p5 = await newProduct("test-autocfg-5");
     const key7 = await upload(withText("negative_part", "Cams", 12, { engraved: true, filaments: ["#F95D73", "#00FF00"] }), "engraved.3mf");

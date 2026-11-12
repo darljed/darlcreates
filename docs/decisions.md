@@ -301,3 +301,6 @@ A model made of parts in different filaments (the ball and the holder) gets one 
 
 ## D-44 — A bulk order is a list of names; each name is its own cart line
 The product page of a name product is a list of rows (text, font, name colour, part colours, quantity); size, image and other text are shared. `addManyToCart` validates every row and inserts all lines in one statement, so a bad name adds nothing. Each line keeps its own snapshot, price and print file, so they ship and print separately. Limit 20 names per add (`MAX_NAMES_PER_ADD`).
+
+## D-45 — Painted areas: split for the preview only, never for printing
+A painted part is one closed solid whose SURFACE is coloured. Cutting the paint into separate meshes gives open shells that a slicer cannot print. So the print model keeps the paint codes (and only remaps the painted filament); the split meshes exist only as hidden-in-print preview helpers (type other, modifier parts named `dc-preview`), removed from every print file. The decoder follows Bambu Studio's TriangleSelector (read from the last hex character, children stored last-first, one/two/three-side split rules).

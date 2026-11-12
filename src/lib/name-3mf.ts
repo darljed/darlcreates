@@ -16,8 +16,8 @@ import {
   type Font, type Mesh, type NameFontId, type NameSlot,
 } from "./name-mesh";
 import {
-  addPartTo3mf, componentTarget, esc, meshXml, open3mf, parseObjects, projectFilaments, readConfigObjects, setFilaments, threeMfSurface,
-  type ConfigPart, type FilamentAssign, type Files, type ObjectDef, type SurfaceMesh,
+  addPartTo3mf, componentTarget, esc, meshXml, open3mf, parseObjects, projectFilaments, readConfigObjects, recolorPaint, removePart, setFilaments, stripPreviewParts, threeMfSurface,
+  type ConfigPart, type FilamentAssign, type Files, type ObjectDef, type PaintAssign, type SurfaceMesh,
 } from "./threemf";
 
 export { open3mf, projectFilaments, threeMfSurface };
@@ -200,35 +200,7 @@ function describe(
  * model_settings.config are removed, so neither the preview nor the print file shows the example.
  */
 export function stripPlaceholder(files: Files, objectId: string, componentIndex: number): Files {
-  const rootXml = strFromU8(files["3D/3dmodel.model"]);
-  const plate = parseObjects(rootXml).get(objectId);
-  const comp = plate?.components[componentIndex];
-  if (!plate || !comp) throw new Error("Placeholder text not found");
-  const file = comp.path ? comp.path.replace(/^\//, "") : "3D/3dmodel.model";
-
-  // 1) drop the <component> (the n-th one inside the plate object)
-  let n = -1;
-  const objRe = new RegExp(`(<object\\b[^>]*\\bid="${objectId}"[^>]*>)([\\s\\S]*?)(</object>)`);
-  const out: Files = { ...files };
-  const root2 = rootXml.replace(objRe, (_m, a, body, c) => a + body.replace(/\s*<component\b[^>]*?\/>/g, (t: string) => (++n === componentIndex ? "" : t)) + c);
-  out["3D/3dmodel.model"] = strToU8(root2);
-
-  // 2) drop the placeholder's mesh object, unless another component still uses it
-  const stillUsed = plate.components.some((c, i) => i !== componentIndex && c.id === comp.id && (c.path ?? "") === (comp.path ?? ""));
-  if (!stillUsed) {
-    const src = strFromU8(out[file] ?? files[file]);
-    out[file] = strToU8(src.replace(new RegExp(`\\s*<object\\b[^>]*\\bid="${comp.id}"[^>]*>[\\s\\S]*?</object>`), ""));
-  }
-
-  // 3) drop its part from the slicer's part list
-  const cfgPath = "Metadata/model_settings.config";
-  if (files[cfgPath]) {
-    let k = -1;
-    const cfg = strFromU8(files[cfgPath]).replace(new RegExp(`(<object\\s+id="${objectId}">)([\\s\\S]*?)(</object>)`), (_m, a, body, c) =>
-      a + body.replace(/\s*<part\b[\s\S]*?<\/part>/g, (t: string) => (++k === componentIndex ? "" : t)) + c);
-    out[cfgPath] = strToU8(cfg);
-  }
-  return out;
+  return removePart(files, objectId, componentIndex);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -368,8 +340,13 @@ export async function nameProblem(slot: NameSlot, text: string): Promise<string 
 }
 
 /** The base 3MF with the customer's part colours applied (which filament each part prints with); no name. */
-export function buildColoredFile(base: ArrayBuffer, colors: FilamentAssign[]): Uint8Array {
-  return zipSync(setFilaments(open3mf(base), colors), { level: 1 });
+export function buildColoredFile(base: ArrayBuffer, colors: FilamentAssign[], paint: PaintAssign[] = []): Uint8Array {
+  return zipSync(forPrinting(open3mf(base), colors, paint), { level: 1 });
+}
+
+/** A stored model ready to print: preview helper parts removed, the customer's part colours and painted-area colours applied. */
+function forPrinting(files: Files, colors: FilamentAssign[], paint: PaintAssign[]): Files {
+  return recolorPaint(setFilaments(stripPreviewParts(files), colors), paint);
 }
 
 export type PrintFile =
@@ -382,7 +359,7 @@ export type PrintFile =
     };
 
 /** Original model (STL or 3MF) + the name at `slot`, as a 3MF. Refuses names that cannot be printed (see `buildName`). */
-export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"; text: string; slot: NameSlot; colors?: FilamentAssign[] }): Promise<PrintFile> {
+export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"; text: string; slot: NameSlot; colors?: FilamentAssign[]; paint?: PaintAssign[] }): Promise<PrintFile> {
   if (o.slot.mode === "engraved" && o.kind !== "3mf") return { ok: false, error: "Engraved names need a 3MF slicer project (an STL has no way to cut a part out)" };
   const font = await loadFont(o.slot.font);
   const built = buildName(font, o.text, o.slot);
@@ -396,7 +373,7 @@ export async function buildPrintFile(o: { base: ArrayBuffer; kind: "stl" | "3mf"
       surface = readStlMesh(o.base);
       file = writeThreeMf(`Personalized: ${o.text}`, surface, name, label);
     } else {
-      const files = setFilaments(open3mf(o.base), o.colors ?? []); // the customer's part colours, then the name
+      const files = forPrinting(open3mf(o.base), o.colors ?? [], o.paint ?? []); // the customer's colours, then the name
       surface = threeMfSurface(files).mesh;
       file = zipSync(addNameTo3mf(files, name, label, { filament: o.slot.nameColor?.filament, engraved: o.slot.mode === "engraved", objectId: o.slot.object }), { level: 1 });
     }
