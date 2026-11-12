@@ -174,8 +174,8 @@ export function ClickerDesigner({
     [active],
   );
   const setQty = (qty: number) => setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) ? { ...s, qty } : s)));
-  const doUndo = () => setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) ? { ...s, h: undo(s.h) } : s)));
-  const doRedo = () => setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) ? { ...s, h: redo(s.h) } : s)));
+  const doUndo = useCallback(() => setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) ? { ...s, h: undo(s.h) } : s))), [active]);
+  const doRedo = useCallback(() => setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) ? { ...s, h: redo(s.h) } : s))), [active]);
 
   function addSlot(from?: ClickerSpec) {
     if (slots.length >= config.maxClickers) return;
@@ -431,7 +431,7 @@ export function ClickerDesigner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [doUndo, doRedo]); // registered once per active clicker, not on every render
 
   // --- add to cart -----------------------------------------------------------------------------------------------
   const addNow = useCallback(

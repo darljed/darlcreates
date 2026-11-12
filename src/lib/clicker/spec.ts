@@ -329,7 +329,7 @@ export function clickerPriceDeltaCents(spec: ClickerSpec, cfg: ClickerConfig): n
 /** Why a design is not allowed for this product, or null. Checked in the browser and again on the server. */
 export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): string | null {
   const palette = new Set(cfg.palette.map(lc));
-  const stray = [spec.baseColor, ...clickerColours(spec)].map(lc).find((c) => !palette.has(c));
+  const stray = clickerColours(spec).map(lc).find((c) => !palette.has(c)); // (the base colour is the first of these)
   if (stray) return `The colour ${stray} is not available. Pick one of the offered colours.`;
   const n = clickerColours(spec).length;
   if (n > cfg.maxColours) return `A clicker can use at most ${cfg.maxColours} colours in all (the base and the cap count). This one uses ${n}.`;
