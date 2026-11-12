@@ -4,13 +4,15 @@
  * The 3D view of a clicker being designed. It draws the very pieces the printer will get (one solid per colour), with
  * orbit, zoom and a top view. "Inside" lifts the key off the base to show the switch pocket and a ghost switch. Clicking a
  * part picks it (so the designer can offer its colour). In "move" mode a drag on the clicker moves the design layer under
- * the pointer, or swings the keyring round the edge; the camera stays put while you do. If WebGL is not available it
- * falls back to a flat picture.
+ * the pointer, or swings the keyring tab round the base; the camera stays put while you do. While you drag, a light preview
+ * (a blue copy of the layer, or the ring) follows the pointer on the graphics card, and the clicker itself is rebuilt once,
+ * when you let go: rebuilding on every pointer move is far too slow to feel smooth. If WebGL is not available it falls back to
+ * a flat picture.
  */
-import { Component, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Component, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
-import { BufferGeometry, DoubleSide, Float32BufferAttribute, Vector3, type Group, type PerspectiveCamera as Cam } from "three";
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, Path, Shape, ShapeGeometry, Vector2, Vector3, type Group, type PerspectiveCamera as Cam } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Layout } from "@/lib/clicker/layout";
 import type { SolidPart } from "@/lib/clicker/extrude";
@@ -19,6 +21,8 @@ import { FIT } from "@/lib/clicker/fit";
 
 export type ViewMode = "3d" | "top";
 export type Point = [number, number];
+/** What a drag in Move mode is moving: a design layer, or the keyring tab. */
+export type DragTarget = { kind: "layer"; id: string } | { kind: "keyring" };
 
 export type ClickerViewerProps = {
   solids: SolidPart[];
@@ -31,9 +35,10 @@ export type ClickerViewerProps = {
   onPick?: (part: { object: "housing" | "cap"; role: string; color: string }) => void;
   /** When on, dragging on the clicker moves things instead of orbiting the camera. */
   moveMode: boolean;
-  onDragStart: (p: Point) => void;
-  onDrag: (p: Point) => void;
-  onDragEnd: () => void;
+  /** Called when a drag begins: say what is under the pointer (or null for nothing). */
+  onDragStart: (p: Point) => DragTarget | null;
+  /** Called once, when the pointer is released, with where it ended. */
+  onDragEnd: (p: Point) => void;
   /** The flat picture shown if WebGL cannot start. */
   fallback: ReactNode;
 };
@@ -42,8 +47,7 @@ export type ClickerViewerProps = {
 const LIFT = 26;
 
 function Parts({ solids, explode, onPick, moveMode }: { solids: SolidPart[]; explode: boolean; onPick?: ClickerViewerProps["onPick"]; moveMode: boolean }) {
-  // the geometries belong to the layout that made them; free the GPU copies when a newer set replaces them
-  useEffect(() => () => solids.forEach((s) => s.geometry.dispose()), [solids]);
+  // (the geometries belong to the designer's cache, which frees them when it drops them)
   const cap = useRef<Group | null>(null);
   useFrame((_, dt) => {
     const g = cap.current;
@@ -93,6 +97,54 @@ function GhostSwitches({ layout, show }: { layout: Layout; show: boolean }) {
   );
 }
 
+type Live = { target: DragTarget; start: Point; cur: Point };
+
+/**
+ * The preview that follows the pointer while you drag: a blue flat copy of the layer, or the keyring ring. Its position is
+ * set every frame straight from the pointer, with no React state and no rebuild, so it keeps up however heavy the design is.
+ */
+function DragGhost({ layout, live, target, z }: { layout: Layout; live: MutableRefObject<Live | null>; target: DragTarget; z: number }) {
+  const group = useRef<Group | null>(null);
+  const geometry = useMemo(() => {
+    if (target.kind !== "layer") return null;
+    const shapes = layout.layerShapes.get(target.id);
+    if (!shapes?.length) return null;
+    const list = shapes.map((r) => {
+      const sh = new Shape(r.outer.map(([x, y]) => new Vector2(x, y)));
+      for (const h of r.holes) sh.holes.push(new Path(h.map(([x, y]) => new Vector2(x, y))));
+      return sh;
+    });
+    return new ShapeGeometry(list);
+  }, [layout, target]);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  useFrame(() => {
+    const g = group.current, l = live.current;
+    if (!g || !l) return;
+    if (l.target.kind === "layer") g.position.set(l.cur[0] - l.start[0], l.cur[1] - l.start[1], 0);
+    else {
+      const kr = layout.keyring;
+      const r = kr ? Math.hypot(kr.cx, kr.cy) : 0;
+      const a = Math.atan2(l.cur[1], l.cur[0]);
+      g.position.set(r * Math.cos(a) - (kr?.cx ?? 0), r * Math.sin(a) - (kr?.cy ?? 0), 0);
+    }
+  });
+  return (
+    <group ref={group}>
+      {geometry && (
+        <mesh geometry={geometry} position={[0, 0, z]} renderOrder={18}>
+          <meshBasicMaterial color="#0ea5e9" transparent opacity={0.6} depthTest={false} side={DoubleSide} />
+        </mesh>
+      )}
+      {target.kind === "keyring" && layout.keyring && (
+        <mesh position={[layout.keyring.cx, layout.keyring.cy, FIT.keyringMm + 0.2]} renderOrder={19}>
+          <ringGeometry args={[layout.keyring.holeR + 0.2, layout.keyring.holeR + 1.1, 40]} />
+          <meshBasicMaterial color="#0ea5e9" side={DoubleSide} depthTest={false} transparent opacity={0.9} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
 /** A thin box round the selected layer, so you can see what you are moving. */
 function SelectionBox({ layout, layerId, z }: { layout: Layout; layerId: string | null; z: number }) {
   const geometry = useMemo(() => {
@@ -114,10 +166,26 @@ function SelectionBox({ layout, layerId, z }: { layout: Layout; layerId: string 
   );
 }
 
-function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPick, onDragStart, onDrag, onDragEnd }: Omit<ClickerViewerProps, "fallback">) {
+function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPick, onDragStart, onDragEnd }: Omit<ClickerViewerProps, "fallback">) {
   const controls = useRef<OrbitControlsImpl | null>(null);
   const camera = useRef<Cam | null>(null);
   const dragging = useRef(false);
+  const live = useRef<Live | null>(null);
+  // the preview stays on screen until the rebuilt clicker arrives, so the layer does not jump back for a moment
+  const [ghostFor, setGhostFor] = useState<{ target: DragTarget; since: Layout | null } | null>(null);
+  useEffect(() => {
+    if (!ghostFor || ghostFor.since === null) return;
+    if (layout !== ghostFor.since) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the new layout has arrived: drop the preview
+      setGhostFor(null);
+      live.current = null;
+    }
+  }, [layout, ghostFor]);
+  useEffect(() => {
+    if (!ghostFor || ghostFor.since === null) return;
+    const t = setTimeout(() => { setGhostFor(null); live.current = null; }, 2500); // nothing changed, or a very slow rebuild
+    return () => clearTimeout(t);
+  }, [ghostFor]);
   const size = Math.max(layout.bounds.maxX - layout.bounds.minX, layout.bounds.maxY - layout.bounds.minY, layout.totalHeight * 1.3, 30);
   const top = layout.totalHeight;
 
@@ -184,7 +252,7 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
       <GhostSwitches layout={layout} show={explode && !moveMode} />
       <SelectionBox layout={layout} layerId={selectedLayerId} z={top + 0.08} />
 
-      {moveMode && kr && (
+      {moveMode && kr && ghostFor?.target.kind !== "keyring" && (
         <mesh position={[kr.cx, kr.cy, FIT.keyringMm + 0.1]} renderOrder={19}>
           <ringGeometry args={[kr.holeR + 0.2, kr.holeR + 0.9, 40]} />
           <meshBasicMaterial color="#0ea5e9" side={DoubleSide} depthTest={false} transparent opacity={0.8} />
@@ -197,27 +265,35 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
           position={[0, 0, top]}
           onPointerDown={(e) => {
             e.stopPropagation();
+            const p = toPoint(e);
+            const t = onDragStart(p);
+            if (!t) return;
             (e.target as Element | null)?.setPointerCapture?.(e.pointerId);
             dragging.current = true;
-            onDragStart(toPoint(e));
+            live.current = { target: t, start: p, cur: p };
+            setGhostFor({ target: t, since: null });
           }}
           onPointerMove={(e) => {
-            if (!dragging.current) return;
+            if (!dragging.current || !live.current) return;
             e.stopPropagation();
-            onDrag(toPoint(e));
+            live.current.cur = toPoint(e);
           }}
           onPointerUp={(e) => {
             if (!dragging.current) return;
             e.stopPropagation();
             dragging.current = false;
             (e.target as Element | null)?.releasePointerCapture?.(e.pointerId);
-            onDragEnd();
+            const p = toPoint(e);
+            if (live.current) live.current.cur = p;
+            setGhostFor((g) => (g ? { ...g, since: layout } : g));
+            onDragEnd(p);
           }}
         >
           <planeGeometry args={[size * 8, size * 8]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} side={DoubleSide} />
         </mesh>
       )}
+      {ghostFor && <DragGhost layout={layout} live={live} target={ghostFor.target} z={top + 0.12} />}
     </>
   );
 }

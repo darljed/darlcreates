@@ -112,7 +112,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/text.ts` | **Pure.** Text layers to flat regions |
 | `clicker/trace.ts` | **Pure.** Picture colour analysis and tracing into outlines (runs in the browser) |
 | `clicker/layout.ts` | **Pure.** `buildLayout`: the base and key pieces (a chamber, clip windows, cavity and socket for every switch; deck, rim, skin, artwork), the outline key that follows the artwork, key placement for name keys, the keyring tab, warnings and errors; `plateLayout` |
-| `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes |
+| `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes; `GeometryCache` (least-recently-used) so editing reuses finished geometry |
 | `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
 | `clicker/export-3mf.ts` | **Pure.** The clicker 3MF: two objects (base, top) with a part and filament per colour piece, walls per object |
 | `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |

@@ -19,7 +19,7 @@ import {
 } from "../src/lib/clicker/spec";
 import { BORDER_MM, FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../src/lib/clicker/fit";
 import { buildLayout, plateLayout } from "../src/lib/clicker/layout";
-import { extrudeLayout, meshOfPart } from "../src/lib/clicker/extrude";
+import { extrudeLayout, GeometryCache, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
 import { scaleDesign } from "../src/lib/clicker/state";
@@ -276,6 +276,21 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   })());
   assert("switches placed too close together (bypassing the schema) are an error naming the rule", buildLayout({ ...plain, switches: [{ x: 0, y: 0 }, { x: 8, y: 0 }] }, fonts).errors.some((e) => /too close/.test(e)));
   assert("every switch is covered by the key on every shape (4 switches in a grid)", SHAPE_IDS.every((shape) => { const l = buildLayout(clickerSpecSchema.parse({ ...plain, shape, switches: switchPattern(4, "grid"), layers: [] }), fonts); return l.switches.every((p) => totalArea(difference([{ outer: [[p.x - 7.5, p.y - 7.5], [p.x + 7.5, p.y - 7.5], [p.x + 7.5, p.y + 7.5], [p.x - 7.5, p.y + 7.5]], holes: [] }], l.capOutline)) < 0.05); }));
+
+  console.log("\nthe geometry cache (smooth editing)");
+  {
+    const cache = new GeometryCache(40);
+    const fixed = clickerSpecSchema.parse({ ...plain, layers: [textLayer({ text: "Hi", color: RED })] });
+    const a = extrudeLayout(buildLayout(fixed, fonts), cache);
+    const moved = extrudeLayout(buildLayout({ ...fixed, layers: fixed.layers.map((l) => ({ ...l, x: l.x + 2 })) }, fonts), cache);
+    const byId = (list: typeof a, id: string) => list.find((p) => p.id.startsWith(id))!;
+    assert("moving the artwork reuses the base and the key's body from the cache (the very same geometry)", ["h-floor", "h-body", "h-deck", "h-rim", "c-face"].every((id) => byId(a, id).geometry === byId(moved, id).geometry));
+    assert("the parts that did change (the artwork and the skin round it) are built again", byId(a, "art").geometry !== byId(moved, "art").geometry && byId(a, "c-skin").geometry !== byId(moved, "c-skin").geometry);
+    assert("a cached result is the same solid as a fresh one", extrudeLayout(buildLayout(fixed, fonts)).every((p) => isWatertight(meshOfPart(p))) && a.every((p) => isWatertight(meshOfPart(p))));
+    const tiny = new GeometryCache(3);
+    extrudeLayout(buildLayout(fixed, fonts), tiny);
+    assert("the cache never holds more than its limit, and frees what it drops", tiny.size === 3);
+  }
 
   console.log("\nthe keyring");
   const ringProblems: string[] = [];

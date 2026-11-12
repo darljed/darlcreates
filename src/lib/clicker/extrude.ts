@@ -40,8 +40,70 @@ export function extrudePart(part: LayoutPart): BufferGeometry {
   return geometry;
 }
 
-export function extrudeLayout(layout: Layout): SolidPart[] {
-  return layout.parts.filter((p) => p.z1 - p.z0 > 1e-6).map((p) => ({ ...p, geometry: extrudePart(p) }));
+/**
+ * A small least-recently-used cache of finished geometries, for the designer: when only the artwork changes, the base and the
+ * key's body come out of the layout identical, so they are reused instead of being triangulated again. The cache owns the
+ * geometries (it disposes them when it drops them), so the viewer must not.
+ */
+export class GeometryCache {
+  private map = new Map<string, BufferGeometry>();
+  constructor(private max = 160) {}
+  get(key: string): BufferGeometry | undefined {
+    const g = this.map.get(key);
+    if (g) {
+      this.map.delete(key);
+      this.map.set(key, g);
+    }
+    return g;
+  }
+  set(key: string, g: BufferGeometry) {
+    this.map.set(key, g);
+    while (this.map.size > this.max) {
+      const oldest = this.map.keys().next().value as string;
+      this.map.get(oldest)?.dispose();
+      this.map.delete(oldest);
+    }
+  }
+  get size() {
+    return this.map.size;
+  }
+  clear() {
+    this.map.forEach((g) => g.dispose());
+    this.map.clear();
+  }
+}
+
+/** A fingerprint of a piece: what it is, its heights, and every point of its outlines (to 1 micrometre). */
+function fingerprint(p: LayoutPart): string {
+  let h = 2166136261;
+  const mix = (n: number) => {
+    h = Math.imul(h ^ (Math.round(n * 1000) | 0), 16777619);
+  };
+  let points = 0;
+  for (const r of p.regions) for (const ring of [r.outer, ...r.holes]) {
+    mix(ring.length);
+    for (const [x, y] of ring) {
+      mix(x);
+      mix(y);
+      points++;
+    }
+  }
+  return `${p.id}|${p.object}|${p.color}|${p.z0.toFixed(3)}|${p.z1.toFixed(3)}|${points}|${(h >>> 0).toString(36)}`;
+}
+
+export function extrudeLayout(layout: Layout, cache?: GeometryCache): SolidPart[] {
+  return layout.parts
+    .filter((p) => p.z1 - p.z0 > 1e-6)
+    .map((p) => {
+      if (!cache) return { ...p, geometry: extrudePart(p) };
+      const key = fingerprint(p);
+      let geometry = cache.get(key);
+      if (!geometry) {
+        geometry = extrudePart(p);
+        cache.set(key, geometry);
+      }
+      return { ...p, geometry };
+    });
 }
 
 /** The piece as a welded, indexed mesh (what 3MF stores and what the watertight check reads). */

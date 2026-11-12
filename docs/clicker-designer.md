@@ -23,7 +23,7 @@ Two printed objects around a real switch:
   alternate), letter colour. Priced per key.
 - **Inside** view lifts the key off to show the switch pocket and a ghost switch. Click any part of the model to change its colour.
 - Several clickers in one order, each its own cart line with its own copies. Undo and redo, "Move" mode to drag the artwork or the
-  keyring tab, a draft kept in the browser, and a layout made for phones (3D view pinned at the top, buy bar at the bottom).
+  keyring tab (a light blue preview follows the pointer and the clicker is rebuilt once when you let go, because rebuilding on every pointer move is too slow), a draft kept in the browser, and a layout made for phones (3D view pinned at the top, buy bar at the bottom).
 - Pictures are traced in the browser into flat colour areas and are never uploaded.
 
 ## The 4-colour rule
@@ -39,7 +39,7 @@ ClickerSpec (plain data, stored in the cart/order line)
   -> buildClickerPrint()  two objects laid out on the plate, 3MF             (src/lib/clicker/server.ts, export-3mf.ts)
 ```
 All mechanical numbers are in one table, `FIT` in `src/lib/clicker/fit.ts`. All 2D work uses `clipper-lib` (micrometres inside).
-The browser shows the same solids it would print. The server **never trusts a mesh from the browser**: it rebuilds everything from the
+The browser shows the same solids it would print. To keep editing smooth it keeps finished geometry in a small cache (`GeometryCache`), so a change to the artwork only rebuilds the artwork and the skin round it; the thumbnails of the other clickers are drawn 350 ms after the last change. The server **never trusts a mesh from the browser**: it rebuilds everything from the
 saved design. Heights are "assembled with the key up"; the print file moves the key down to the bed.
 
 The dimensions were measured from a clicker that prints and clicks well (a 50 × 33 mm key sits in a 55 × 38 mm base, 22.6 mm tall).

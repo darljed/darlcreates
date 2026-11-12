@@ -25,7 +25,7 @@ import { addManyToCartAction } from "@/app/(shop)/cart/actions";
 import { useSession } from "@/lib/auth-client";
 import { formatPHP } from "@/lib/money";
 import { buildLayout, type Layout } from "@/lib/clicker/layout";
-import { extrudeLayout } from "@/lib/clicker/extrude";
+import { extrudeLayout, GeometryCache } from "@/lib/clicker/extrude";
 import { pointInRegion } from "@/lib/clicker/poly";
 import {
   checkAgainstConfig, clickerColours, clickerPriceDeltaCents, clickerSpecSchema, defaultSpec, KIND_LABELS, LIMITS, MAX_ADD_JSON, nameKeys, switchCount,
@@ -36,7 +36,7 @@ import { addLayer, canRedo, canUndo, commit, imageLayerFrom, newHistory, newText
 import { layoutToSvg } from "@/lib/clicker/svg";
 import { analyzeImage, defaultTrace, traceAnalysis } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
-import type { ViewMode } from "@/components/clicker/clicker-viewer";
+import type { DragTarget, ViewMode } from "@/components/clicker/clicker-viewer";
 
 const ClickerViewer = dynamic(() => import("@/components/clicker/clicker-viewer"), {
   ssr: false,
@@ -77,6 +77,14 @@ function capColourFor(spec: ClickerSpec, config: ClickerConfig, pictureColours: 
   }
   if (!used.has(spec.capColor.toLowerCase())) return spec.capColor;
   return config.palette.find((c) => !used.has(c.toLowerCase()) && c.toLowerCase() !== spec.baseColor.toLowerCase()) ?? config.palette.find((c) => !used.has(c.toLowerCase())) ?? spec.capColor;
+}
+
+/** True when two designs differ only in the size written on an outline key (every other part is the very same object). */
+function sameShape(a: ClickerSpec, b: ClickerSpec): boolean {
+  if (a.shape !== "outline" || b.shape !== "outline") return false;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ClickerSpec>;
+  for (const k of keys) if (k !== "width" && k !== "height" && !Object.is(a[k], b[k])) return false;
+  return true;
 }
 
 /** One line under a step's title once it is done. */
@@ -162,13 +170,20 @@ export function ClickerDesigner({
   // --- fonts, layout and the solids ------------------------------------------------------------------------------
   const fonts = useClickerFonts(slots.map((s) => s.h.present));
   const deferredSpec = useDeferredValue(spec);
+  // The size written on a key that follows its artwork is bookkeeping and does not change its shape. Rewriting it makes a new
+  // design object, so the layout is built from this stable copy instead, which only changes when something else does.
+  const [layoutSpec, setLayoutSpec] = useState(deferredSpec);
+  if (layoutSpec !== deferredSpec && !sameShape(layoutSpec, deferredSpec)) setLayoutSpec(deferredSpec);
   const layout: Layout = useMemo(
-    () => buildLayout(deferredSpec, fonts.lookup, config.tune),
+    () => buildLayout(layoutSpec, fonts.lookup, config.tune),
     // `fonts.version` changes when a font arrives, so text appears without another edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [deferredSpec, fonts.lookup, fonts.version, config.tune],
+    [layoutSpec, fonts.lookup, fonts.version, config.tune],
   );
-  const solids = useMemo(() => extrudeLayout(layout), [layout]);
+  // finished geometry is kept between edits: when only the artwork changes, the base and the key's body are reused as they are
+  const [geomCache] = useState(() => new GeometryCache());
+  useEffect(() => () => geomCache.clear(), [geomCache]);
+  const solids = useMemo(() => extrudeLayout(layout, geomCache), [layout, geomCache]);
   const stale = deferredSpec !== spec;
 
   // A key that follows its artwork has the size the artwork makes. Keep the size written on the design equal to the real one
@@ -182,16 +197,30 @@ export function ClickerDesigner({
     setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) && s.h.present === spec ? { ...s, h: { ...s.h, present: { ...spec, width: w, height: h } } } : s)));
   }, [layout, spec, deferredSpec, active]);
 
-  const flatUri = useMemo(() => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(layoutToSvg(layout, { margin: 2 })), [layout]);
-  const thumbs = useMemo(() => {
-    const m = new Map<ClickerSpec, string>();
-    for (const s of slots) {
-      m.set(s.h.present, "data:image/svg+xml;charset=utf-8," + encodeURIComponent(layoutToSvg(buildLayout(s.h.present, fonts.lookup, config.tune), { margin: 1 })));
-    }
-    return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fonts.version: redraw when a font arrives
-  }, [slots, fonts.lookup, fonts.version, config.tune]);
-  const thumbOf = (s: ClickerSpec, current: boolean) => (current ? flatUri : (thumbs.get(s) ?? ""));
+  // The small pictures (the flat view and the clickers' thumbnails) are not needed while you are busy editing: they follow
+  // 300 ms after the last change, and only the clickers whose design changed are redrawn.
+  const [settled, setSettled] = useState(layout);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(layout), 300);
+    return () => clearTimeout(t);
+  }, [layout]);
+  const flatUri = useMemo(() => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(layoutToSvg(settled, { margin: 2 })), [settled]);
+  const [thumbs, setThumbs] = useState<Map<ClickerSpec, { v: number; uri: string }>>(() => new Map());
+  useEffect(() => {
+    const activeIdx = Math.min(active, slots.length - 1);
+    const need = slots.filter((s, i) => i !== activeIdx && thumbs.get(s.h.present)?.v !== fonts.version);
+    if (!need.length) return;
+    const t = setTimeout(() => {
+      setThumbs((prev) => {
+        const m = new Map<ClickerSpec, { v: number; uri: string }>();
+        for (const s of slots) if (prev.has(s.h.present)) m.set(s.h.present, prev.get(s.h.present)!);
+        for (const s of need) m.set(s.h.present, { v: fonts.version, uri: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(layoutToSvg(buildLayout(s.h.present, fonts.lookup, config.tune), { margin: 1 })) });
+        return m;
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [slots, active, thumbs, fonts.version, fonts.lookup, config.tune]);
+  const thumbOf = (s: ClickerSpec, current: boolean) => (current ? flatUri : thumbs.get(s)?.uri);
 
   // --- prices and problems ---------------------------------------------------------------------------------------
   const unitOf = (s: ClickerSpec) => basePriceCents + clickerPriceDeltaCents(s, config);
@@ -199,13 +228,14 @@ export function ClickerDesigner({
   const problem = checkAgainstConfig(spec, config) ?? layout.errors[0] ?? null;
 
   // --- direct manipulation in the 3D view ------------------------------------------------------------------------
-  const drag = useRef<{ kind: "layer"; id: string; start: [number, number]; at: [number, number] } | { kind: "keyring" } | null>(null);
-  const onDragStart = (p: [number, number]) => {
-    if (spec.kind !== "clicker" && !spec.keyring.on) return;
+  // The viewer moves a light preview while the pointer is down; the clicker is rebuilt once, here, when it is let go.
+  const drag = useRef<{ target: DragTarget; start: [number, number]; at: [number, number] } | null>(null);
+  const onDragStart = (p: [number, number]): DragTarget | null => {
+    if (spec.kind !== "clicker" && !spec.keyring.on) return null;
     const k = layout.keyring;
     if (spec.keyring.on && k && Math.hypot(p[0] - k.cx, p[1] - k.cy) <= k.loopR + 1) {
-      drag.current = { kind: "keyring" };
-      return;
+      drag.current = { target: { kind: "keyring" }, start: p, at: [0, 0] };
+      return drag.current.target;
     }
     let hit: string | null = null;
     for (let i = spec.layers.length - 1; i >= 0 && !hit; i--) {
@@ -216,25 +246,25 @@ export function ClickerDesigner({
     const layer = spec.layers.find((l) => l.id === id);
     if (!layer) {
       drag.current = null;
-      return;
+      return null;
     }
     setSelected(layer.id);
     setStep("design");
-    drag.current = { kind: "layer", id: layer.id, start: p, at: [layer.x, layer.y] };
+    drag.current = { target: { kind: "layer", id: layer.id }, start: p, at: [layer.x, layer.y] };
+    return drag.current.target;
   };
-  const onDrag = (p: [number, number]) => {
+  const onDragEnd = (p: [number, number]) => {
     const d = drag.current;
+    drag.current = null;
     if (!d) return;
-    if (d.kind === "keyring") {
+    if (d.target.kind === "keyring") {
       const angle = Math.round((Math.atan2(p[1], p[0]) * 180) / Math.PI);
       edit((s) => ({ ...s, keyring: { ...s.keyring, angle } }), "drag-keyring");
     } else {
+      const id = d.target.id;
       const x = Math.round((d.at[0] + p[0] - d.start[0]) * 10) / 10, y = Math.round((d.at[1] + p[1] - d.start[1]) * 10) / 10;
-      edit((s) => updateLayer(s, d.id, { x, y }), `drag-${d.id}`);
+      if (x !== d.at[0] || y !== d.at[1]) edit((s) => updateLayer(s, id, { x, y }), `drag-${id}`);
     }
-  };
-  const onDragEnd = () => {
-    drag.current = null;
   };
 
   // --- pictures and text -----------------------------------------------------------------------------------------
@@ -462,7 +492,6 @@ export function ClickerDesigner({
                 explode={explode}
                 onPick={() => goStep("colours")}
                 onDragStart={onDragStart}
-                onDrag={onDrag}
                 onDragEnd={onDragEnd}
                 fallback={
                   // eslint-disable-next-line @next/next/no-img-element
@@ -478,11 +507,11 @@ export function ClickerDesigner({
                   </button>
                 ))}
               </div>
-              <Button type="button" size="sm" variant={explode ? "default" : "outline"} aria-pressed={explode} className="h-8 bg-background/90 backdrop-blur" onClick={() => { setExplode((e) => !e); setView("3d"); setMoveMode(false); }} title="Lift the key off to see the switch inside">
+              <Button type="button" size="sm" variant={explode ? "default" : "outline"} aria-pressed={explode} className={cn("h-8", !explode && "bg-background/90 backdrop-blur")} onClick={() => { setExplode((e) => !e); setView("3d"); setMoveMode(false); }} title="Lift the key off to see the switch inside">
                 <Layers className="mr-1.5 size-4" /> Inside
               </Button>
               {spec.kind === "clicker" && (
-                <Button type="button" size="sm" variant={moveMode ? "default" : "outline"} aria-pressed={moveMode} className="h-8 bg-background/90 backdrop-blur" onClick={() => { setMoveMode((m) => !m); setExplode(false); }} title="Drag the artwork or the keyring tab">
+                <Button type="button" size="sm" variant={moveMode ? "default" : "outline"} aria-pressed={moveMode} className={cn("h-8", !moveMode && "bg-background/90 backdrop-blur")} onClick={() => { setMoveMode((m) => !m); setExplode(false); }} title="Drag the artwork or the keyring tab">
                   {moveMode ? <Hand className="size-4 sm:mr-1.5" /> : <View className="size-4 sm:mr-1.5" />} <span className="hidden sm:inline">{moveMode ? "Move" : "Orbit"}</span><span className="sr-only sm:hidden">{moveMode ? "Move" : "Orbit"}</span>
                 </Button>
               )}
