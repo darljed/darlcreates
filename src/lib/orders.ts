@@ -13,7 +13,7 @@ import {
 } from "@/db/schema";
 import { randomInt } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { getProductById } from "./catalog";
+import { getProductsByIds } from "./catalog";
 import { summarizeConfig } from "./cart";
 import { personalizedName } from "./name-mesh";
 import { readUrl } from "./storage";
@@ -92,46 +92,36 @@ export type OrderDetail = {
 async function assembleOrderDetail(
   order: typeof orders.$inferSelect,
 ): Promise<OrderDetail> {
+  // everything the page needs in two rounds: the lines, then (together) their products and the order's other rows
   const items = await db
     .select()
     .from(orderItems)
     .where(eq(orderItems.orderId, order.id));
 
-  const detailItems: OrderDetail["items"] = [];
-  for (const it of items) {
-    const product = await getProductById(it.productId);
-    const config = (it.config ?? {}) as ConfigSelection;
-    detailItems.push({
-      id: it.id,
-      name: it.nameSnapshot,
-      slug: product?.slug ?? null,
-      qty: it.qty,
-      unitPriceCents: it.unitPriceCents,
-      summary: product ? summarizeConfig(product.options, config) : [],
-      stlKey: it.stlKeySnapshot,
-      nameText: product ? (personalizedName(product.options, config, it.stlKeySnapshot)?.text ?? null) : null,
-      imageUrl: await readUrl(it.imageKey),
-    });
-  }
+  const [productsById, [pay], [ship], history] = await Promise.all([
+    getProductsByIds(items.map((it) => it.productId)),
+    db.select().from(payments).where(eq(payments.orderId, order.id)).orderBy(desc(payments.submittedAt)).limit(1),
+    db.select().from(shipments).where(eq(shipments.orderId, order.id)).limit(1),
+    db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(desc(orderStatusHistory.createdAt)),
+  ]);
 
-  const [pay] = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.orderId, order.id))
-    .orderBy(desc(payments.submittedAt))
-    .limit(1);
-
-  const [ship] = await db
-    .select()
-    .from(shipments)
-    .where(eq(shipments.orderId, order.id))
-    .limit(1);
-
-  const history = await db
-    .select()
-    .from(orderStatusHistory)
-    .where(eq(orderStatusHistory.orderId, order.id))
-    .orderBy(desc(orderStatusHistory.createdAt));
+  const detailItems: OrderDetail["items"] = await Promise.all(
+    items.map(async (it) => {
+      const product = productsById.get(it.productId);
+      const config = (it.config ?? {}) as ConfigSelection;
+      return {
+        id: it.id,
+        name: it.nameSnapshot,
+        slug: product?.slug ?? null,
+        qty: it.qty,
+        unitPriceCents: it.unitPriceCents,
+        summary: product ? summarizeConfig(product.options, config) : [],
+        stlKey: it.stlKeySnapshot,
+        nameText: product ? (personalizedName(product.options, config, it.stlKeySnapshot)?.text ?? null) : null,
+        imageUrl: await readUrl(it.imageKey),
+      };
+    }),
+  );
 
   return {
     id: order.id,

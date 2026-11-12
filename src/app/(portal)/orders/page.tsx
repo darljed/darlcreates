@@ -1,5 +1,6 @@
 import { NOINDEX } from "@/lib/seo";
 import { Suspense } from "react";
+import { TableSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { listUserOrders } from "@/lib/orders";
@@ -16,7 +17,7 @@ export default function OrdersPage() {
   return (
     <div>
       <PageHeader title="My orders" description="Track an order, pay for it, or order the same thing again." />
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<TableSkeleton rows={6} cols={5} toolbar={false} />}>
         <OrdersList />
       </Suspense>
     </div>

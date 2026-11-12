@@ -10,7 +10,7 @@ import {
   payments,
   shipments,
 } from "@/db/schema";
-import { getProductById } from "./catalog";
+import { getProductsByIds } from "./catalog";
 import { getCartLines, getOrCreateCart } from "./cart";
 import { addToCart } from "./cart-service";
 import { canTransition, generateOrderNo, type OrderStatus } from "./orders";
@@ -78,8 +78,9 @@ export async function placeOrder(
     stlKey: string | null;
   }[] = [];
 
+  const productsById = await getProductsByIds(lines.map((l) => l.productId)); // one round for all lines
   for (const line of lines) {
-    const product = await getProductById(line.productId);
+    const product = productsById.get(line.productId);
     if (!product || product.status !== "published") {
       return { ok: false, error: `"${line.productName}" is no longer available.` };
     }

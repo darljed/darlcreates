@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { auth } from "./auth";
 import { getConsent, hasCurrentConsent } from "./privacy";
 import { getPrivacyVersion } from "./site-content";
@@ -12,11 +13,14 @@ import { safeRedirect } from "./safe-redirect";
  * (Cache Components) refuses to do during prerender — so mark this as
  * request-time first. Callers must be inside <Suspense> or a dynamic route.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   await connection();
   const session = await auth.api.getSession({ headers: await headers() });
   return session?.user ?? null;
-}
+});
+
+/** Consent/blocked state, read once per request however many guards ask (header, page and guard all do). */
+const consentOf = cache((userId: string) => getConsent(userId));
 
 /**
  * Require any authenticated user; redirect to sign-in otherwise. Users who haven't accepted
@@ -26,10 +30,10 @@ export async function getCurrentUser() {
 export async function requireUser(where = "/") {
   const user = await getCurrentUser();
   if (!user) redirect(`/sign-in?redirect=${encodeURIComponent(safeRedirect(where))}`);
-  const c = await getConsent(user.id);
+  const [c, version] = await Promise.all([consentOf(user.id), getPrivacyVersion()]);
   if (c?.deletedAt) redirect("/sign-in");
   if (c?.blockedAt) redirect("/sign-in?error=blocked");
-  if (!hasCurrentConsent(c, await getPrivacyVersion())) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
+  if (!hasCurrentConsent(c, version)) redirect(`/consent?redirect=${encodeURIComponent(safeRedirect(where))}`);
   return user;
 }
 
@@ -46,10 +50,10 @@ export type Access =
 export async function getAccess(): Promise<Access> {
   const user = await getCurrentUser();
   if (!user) return { state: "signed_out" };
-  const c = await getConsent(user.id);
+  const [c, version] = await Promise.all([consentOf(user.id), getPrivacyVersion()]);
   if (c?.deletedAt) return { state: "deleted" };
   if (c?.blockedAt) return { state: "blocked" };
-  if (!hasCurrentConsent(c, await getPrivacyVersion())) return { state: "consent" };
+  if (!hasCurrentConsent(c, version)) return { state: "consent" };
   return { state: "ok", user };
 }
 

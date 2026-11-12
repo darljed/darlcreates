@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { carts, cartItems } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { getProductById } from "./catalog";
+import { getProductsByIds } from "./catalog";
 import { fileUrl, readUrl } from "./storage";
 import type { ConfigSelection } from "./pricing";
 
@@ -39,32 +39,42 @@ export { summarizeConfig } from "./config-summary";
 import { summarizeConfig } from "./config-summary";
 
 export async function getCartLines(userId: string): Promise<CartLine[]> {
-  const cartId = await getOrCreateCart(userId);
-  const items = await db
-    .select()
+  // ONE round: the lines and every product they use (as a subquery), so the page waits for a single database trip
+  const mine = db
+    .select({ id: cartItems.productId })
     .from(cartItems)
-    .where(eq(cartItems.cartId, cartId));
+    .innerJoin(carts, eq(cartItems.cartId, carts.id))
+    .where(eq(carts.userId, userId));
+  const [items, productsById] = await Promise.all([
+    db.select({ item: cartItems }).from(cartItems).innerJoin(carts, eq(cartItems.cartId, carts.id)).where(eq(carts.userId, userId)),
+    getProductsByIds(mine),
+  ]);
+  const rows = items.map((r) => r.item);
 
-  const lines: CartLine[] = [];
-  for (const it of items) {
-    const product = await getProductById(it.productId);
-    if (!product) continue; // product removed — skip stale line
-    const config = (it.config ?? {}) as ConfigSelection;
-    lines.push({
-      id: it.id,
-      productId: it.productId,
-      productName: product.name,
-      slug: product.slug,
-      qty: it.qty,
-      unitPriceCents: it.unitPriceCents,
-      lineTotalCents: it.unitPriceCents * it.qty,
-      config,
-      summary: summarizeConfig(product.options, config),
-      imageUrl: fileUrl(product.photos[0]?.key ?? null),
-      uploadUrl: await readUrl(it.imageKey),
-    });
-  }
-  return lines;
+  return Promise.all(
+    rows.flatMap((it) => {
+      const product = productsById.get(it.productId);
+      if (!product) return []; // product removed — skip stale line
+      const config = (it.config ?? {}) as ConfigSelection;
+      return [
+        readUrl(it.imageKey).then(
+          (uploadUrl): CartLine => ({
+            id: it.id,
+            productId: it.productId,
+            productName: product.name,
+            slug: product.slug,
+            qty: it.qty,
+            unitPriceCents: it.unitPriceCents,
+            lineTotalCents: it.unitPriceCents * it.qty,
+            config,
+            summary: summarizeConfig(product.options, config),
+            imageUrl: fileUrl(product.photos[0]?.key ?? null),
+            uploadUrl,
+          }),
+        ),
+      ];
+    }),
+  );
 }
 
 export function cartSubtotalCents(lines: CartLine[]): number {

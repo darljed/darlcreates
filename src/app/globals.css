@@ -324,3 +324,27 @@
   .viewer-cube { animation: none; transform: rotateX(-24deg) rotateY(35deg); }
   .viewer-shadow { animation: none; }
 }
+
+
+/* Skeletons: a soft highlight sweeping across the placeholder. No motion when the visitor asked for less. */
+.skeleton {
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--background) 65%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  from { background-position: 200% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* The name fonts, so the font picker can show a name in each. Same files the 3D preview and the print file use. */
+@font-face { font-family: "dc-name-bold"; src: url("/fonts/Poppins-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-chunky"; src: url("/fonts/LilitaOne-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-marker"; src: url("/fonts/PermanentMarker-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-modern"; src: url("/fonts/Righteous-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-condensed"; src: url("/fonts/Anton-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-script"; src: url("/fonts/Pacifico-Regular.ttf") format("truetype"); font-display: swap; }

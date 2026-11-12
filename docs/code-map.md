@@ -148,6 +148,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `account-panels.tsx` | Address book and delete-account panels on `/account` |
 | `acknowledgment.tsx` | The printable Order Acknowledgment |
 | `brand-logo.tsx` | Logo: owner upload or built-in fallback |
+| `quantity-stepper.tsx` | Quantity with − and + buttons around a read-only number (no typing); arrow keys work when focused |
+| `font-picker.tsx` | Name font as buttons, each showing the customer's name in that font (`@font-face` in globals.css) |
+| `skeletons.tsx` | Loading placeholders shaped like each kind of page (cart, checkout, shop list, product, text page, dashboard, list, detail, form); used by every `loading.tsx` and Suspense fallback |
 | `cart-item-row.tsx` | One cart line with quantity and remove |
 | `checkout-form.tsx` | Checkout form (`useActionState`) |
 | `cms.tsx` | CMS rendering helpers: safe links, icon map |
@@ -247,6 +250,8 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
+| `test-cart-speed.ts` | Cart read speed against the DB: twenty lines of one product cost about one line (batched product read) |
+| `test-loading.ts` | Every page has a `loading.tsx` skeleton (own folder or above); no bare "Loading…" text |
 | `test-model-autoconfig.ts` | Upload auto-configuration against the DB and S3 |
 | `test-money.ts` | Money maths |
 | `test-order-lifecycle.ts` | Full order lifecycle |

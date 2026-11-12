@@ -7,6 +7,7 @@ import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { CheckoutSteps } from "@/components/order-progress";
 import { CheckoutForm } from "@/components/checkout-form";
+import { CheckoutSkeleton } from "@/components/skeletons";
 import { listAddresses } from "@/lib/addresses";
 import { shippingCentsFor } from "@/lib/shipping";
 
@@ -18,7 +19,7 @@ export default function CheckoutPage() {
       <div className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="mb-4 text-3xl font-extrabold">Checkout</h1>
         <CheckoutSteps current={2} />
-        <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
+        <Suspense fallback={<CheckoutSkeleton />}>
           <CheckoutContents />
         </Suspense>
       </div>
@@ -29,7 +30,7 @@ export default function CheckoutPage() {
 async function CheckoutContents() {
   const user = await requireUser("/checkout");
 
-  const lines = await getCartLines(user.id);
+  const [lines, saved] = await Promise.all([getCartLines(user.id), listAddresses(user.id)]);
   if (lines.length === 0) {
     return (
       <div className="rounded-xl border-2 border-dashed p-10 text-center">
@@ -44,7 +45,6 @@ async function CheckoutContents() {
   const subtotal = cartSubtotalCents(lines);
   const shipping = shippingCentsFor(subtotal);
   const total = subtotal + shipping;
-  const saved = await listAddresses(user.id);
 
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_320px]">

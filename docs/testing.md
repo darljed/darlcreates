@@ -24,6 +24,8 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `cart-speed` | twenty cart lines of one product cost about one line (needs the DB); product read returns photos, options and values in order |
+| `loading` | every page has a `loading.tsx` skeleton; no bare "Loading…" text |
 | `multi-name-cart` | bulk names: separate lines, per-line price, one bad name adds nothing, limits, forged colour/font dropped |
 | `name-mesh` | name slot validation, letters on a top face and a side wall (position, thickness, reads left to right), printability refusals, both fonts, the 3MF print file built from the cube STL, a Bambu-style 3MF (components, external geometry file, plate transform) with the name added and re-read, refusal of unsupported layouts, the surface fit check and `widestThatFits`, the room table and its limits (cube top, near an edge, off the model; the fast probe agrees with `checkFit`), name colours and the font/colour choice in the cart, `slotOf` / `personalizedName` / `nameProblem` | nothing (run from the project root: it reads `public/fonts`) |
 | `model-autoconfig` | upload auto-configuration: a Bambu-style 3MF with an example text and three filaments becomes a name slot, a cleaned model and Colors; re-upload does not duplicate; STL and broken files change nothing; colours-only 3MF | DB + S3 |

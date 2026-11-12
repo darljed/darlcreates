@@ -20,6 +20,7 @@ import { Panel } from "@/components/shell/ui";
 import { Check, Field } from "@/components/admin/editor-bits";
 import { StlViewer } from "@/components/three/stl-viewer-lazy";
 import type { PickHit } from "@/components/three/stl-viewer";
+import { FontPicker } from "@/components/font-picker";
 import { useNameBuild } from "@/components/use-name-build";
 import {
   clampToSpace, DEFAULT_SLOT_SIZES, fontChoices, maxHeightFor, maxWidthFor, NAME_FONTS, NAME_FONT_IDS, slotMaxHeight, slotOf, spaceLimits,
@@ -242,18 +243,13 @@ export function NameSlotEditor({ productId, modelUrl, options, colors = [], canE
               <option value="engraved">Engraved (letters cut in)</option>
             </select>
           </Field>
-          <Field label="Font">
-            <select
-              className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-              disabled={!slot}
-              value={slot?.font ?? "bold"}
-              onChange={(e) => slot && setSlot({ ...slot, font: e.target.value as NameFontId })}
-            >
-              {NAME_FONT_IDS.map((id) => (
-                <option key={id} value={id}>{NAME_FONTS[id].label}</option>
-              ))}
-            </select>
-          </Field>
+          <FontPicker
+            label="Default font"
+            fonts={NAME_FONT_IDS}
+            value={slot?.font ?? "bold"}
+            sample={sample}
+            onChange={(f) => slot && setSlot({ ...slot, font: f })}
+          />
           <fieldset disabled={!slot} className="space-y-1">
             <legend className="text-xs font-medium">Fonts customers can choose <span className="font-normal text-muted-foreground">(tick two or more to show a picker)</span></legend>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">

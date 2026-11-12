@@ -75,10 +75,15 @@ The logo link is `shrink-0` and keeps its natural width (`h-8`, `h-7` under 360 
 | State | Component |
 |---|---|
 | 3D model loading | `ViewerLoading` (`three/viewer-loading.tsx`): spinning cube; after 6 s (CSS only) a "Still working" line fades in. Honors reduced motion |
-| Suspense fallback | `ui/skeleton.tsx` |
+| Loading a page | A skeleton shaped like the page (`components/skeletons.tsx`: cart, checkout, shop list, product, text page, dashboard, list, detail, form). Every page has a `loading.tsx` (in its folder or above) and Suspense fallbacks use the same pieces; there is no bare "Loading…" text (`scripts/test-loading.ts`). The shimmer is `.skeleton` in globals.css and stands still when motion is reduced. Screen readers get one hidden "Loading" message per region |
 | Empty list | `EmptyState` |
 | Missing page | `NotFoundView` (`not-found-view.tsx`), used by `app/not-found.tsx` and the `(shop)`, `(portal)` and `(admin)/admin` not-found files so each surface keeps its own chrome |
 | Toasts | `ui/sonner.tsx` |
+
+## Quantity and font controls
+
+- **Quantity**: `QuantityStepper` (− number +). The number is read-only: it changes only with the buttons (or arrow keys on focus), so it cannot hold a letter or a blank. 40 px buttons; − is disabled at the minimum and + at the maximum. Used on the product page (one per name) and in the cart.
+- **Name font**: `FontPicker` shows a button per font with the customer's name in that font and the font's label; the chosen one has the primary border. Use it instead of a `<select>` wherever a choice is about how something looks.
 
 ## Accessibility
 
