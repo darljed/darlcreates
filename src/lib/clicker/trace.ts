@@ -203,7 +203,8 @@ function maskLoops(mask: Uint8Array, w: number, h: number): Ring[] {
 function simplifyLoop(loop: Ring, eps: number): Ring {
   if (loop.length <= 4) return loop;
   // split the loop at its two farthest-apart anchor points so the recursion has fixed ends
-  let a = 0, b = 0, best = -1;
+  const a = 0;
+  let b = 0, best = -1;
   for (let i = 1; i < loop.length; i++) {
     const d = (loop[i][0] - loop[0][0]) ** 2 + (loop[i][1] - loop[0][1]) ** 2;
     if (d > best) { best = d; b = i; }

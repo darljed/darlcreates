@@ -9,11 +9,11 @@ import { strFromU8, unzipSync } from "fflate";
 import { like } from "drizzle-orm";
 import { isWatertight, meshBounds, NAME_FONT_IDS, type Font } from "../src/lib/name-mesh";
 import { loadFont } from "../src/lib/name-3mf";
-import { difference, intersect, offset, regionArea, ringArea, totalArea, union, type Region } from "../src/lib/clicker/poly";
+import { difference, intersect, offset, ringArea, totalArea, union, type Region } from "../src/lib/clicker/poly";
 import { SHAPE_IDS, SHAPE_LABELS, shapeRing, rayExit } from "../src/lib/clicker/shapes";
 import {
   checkAgainstConfig, clickerColours, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, newId,
-  sizeTierCents, type ClickerSpec, type ImageLayer, type TextLayer,
+  sizeTierCents, type ImageLayer, type TextLayer,
 } from "../src/lib/clicker/spec";
 import { buildLayout } from "../src/lib/clicker/layout";
 import { extrudeLayout, meshOfPart } from "../src/lib/clicker/extrude";
@@ -101,7 +101,8 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   })());
 
   console.log("\nevery shape, mode, border and keyring setting builds closed solids that fit together");
-  let combos = 0, bad: string[] = [];
+  let combos = 0;
+  const bad: string[] = [];
   for (const shape of SHAPE_IDS) {
     for (const mode of ["inlay", "raised", "engraved"] as const) {
       for (const border of [true, false]) {
@@ -148,7 +149,7 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("a border too wide for the clicker is an error", buildLayout(clickerSpecSchema.parse({ ...base, width: 16, height: 16, keyring: { ...base.keyring, on: false }, border: { ...base.border, width: 8 } }), fonts).errors.some((e) => /border/i.test(e)));
 
   console.log("\nthe keyring");
-  let ringProblems: string[] = [];
+  const ringProblems: string[] = [];
   for (const shape of SHAPE_IDS) {
     for (const angle of [0, 45, 90, 135, 180, 225, 270, 315]) {
       const spec = clickerSpecSchema.parse({ ...base, shape, keyring: { on: true, angle, hole: 4.5, wall: 2.2 }, layers: [] });

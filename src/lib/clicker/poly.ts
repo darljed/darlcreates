@@ -152,7 +152,7 @@ export const pointCount = (regions: Region[]) => regions.reduce((n, r) => n + r.
  */
 export function straighten(regions: Region[], tol = 0.002): Region[] {
   const clean = (ring: Ring): Ring => {
-    let pts = ring.slice();
+    const pts = ring.slice();
     let changed = true;
     while (changed && pts.length > 3) {
       changed = false;
