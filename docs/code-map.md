@@ -98,6 +98,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `threemf.ts` | **Service (pure, server).** Generic 3MF reading/editing, nothing name-specific: unzip with a size cap, plate items and objects, multi-object `threeMfSurface` (skips negative parts; remembers which triangles came from which plate object), the slicer's part list (`readConfigObjects`), colour groups (`colorGroups`), `annotateGroups` (names meshes for the viewer, hides negative parts), `setFilaments`, `addPartTo3mf` (raised = normal part, engraved = negative part), `plateObjectNear` |
 | `part-colors.ts` | **Pure.** Multi-colour models: a colour option can colour one part. `partColorsFor` (viewer), `defaultPartSelection`, `filamentAssignments` (print file), `wholeModelColor` |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
+| `stream-bytes.ts` | **Pure.** A byte array as a streamed response body (Vercel limits buffered responses to 4.5 MB, not streamed ones) |
 | `config-summary.ts` | **Pure.** `summarizeConfig`: the readable summary of a customer's selection (re-exported by `cart.ts`) |
 | `name-font-client.ts` | Browser: fetches and parses the name fonts from `/fonts` |
 | `name-space.ts` | **Pure (server use).** `SurfaceProbe` and `measureSpace`: how much room a name has at a spot, as a table of widest-area-per-height |
@@ -131,7 +132,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 
 | Path | Purpose |
 |---|---|
-| `index.ts` | Drizzle client (pool of 10; reused across dev reloads) |
+| `index.ts` | Drizzle client (reused across dev reloads); options come from `options.ts` |
+| `options.ts` | **Pure.** Connection options for the URL and host: direct (pool of 10) vs PgBouncer pooler (no prepared statements) vs Vercel (1 connection per instance) |
 | `schema/auth.ts` | `users`, `sessions`, `accounts`, `verifications` (BetterAuth) and `admin_audit` |
 | `schema/catalog.ts` | `products`, `product_photos`, `product_options`, `product_option_values`, `reviews`, `review_photos` |
 | `schema/commerce.ts` | `addresses`, `carts`, `cart_items`, `orders`, `order_items`, `payments`, `shipments`, `order_status_history` |
@@ -250,6 +252,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
+| `test-deploy.ts` | Connection options (direct / pooler / Vercel) and the streamed download body; no database |
 | `test-cart-speed.ts` | Cart read speed against the DB: twenty lines of one product cost about one line (batched product read) |
 | `test-loading.ts` | Every page has a `loading.tsx` skeleton (own folder or above); no bare "Loading…" text |
 | `test-model-autoconfig.ts` | Upload auto-configuration against the DB and S3 |

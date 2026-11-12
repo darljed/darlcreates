@@ -24,6 +24,7 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `deploy` | connection options for direct / pooler / Vercel; the streamed download returns the same bytes in chunks (no DB) |
 | `cart-speed` | twenty cart lines of one product cost about one line (needs the DB); product read returns photos, options and values in order |
 | `loading` | every page has a `loading.tsx` skeleton; no bare "Loading…" text |
 | `multi-name-cart` | bulk names: separate lines, per-line price, one bad name adds nothing, limits, forged colour/font dropped |
