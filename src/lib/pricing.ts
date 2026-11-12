@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { sumCentavos } from "./money";
+import { checkAgainstConfig, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, MAX_SPEC_JSON } from "./clicker/spec";
 
 /**
  * Server-authoritative price computation and customization validation.
@@ -13,6 +14,8 @@ export type OptionConstraints = {
   fonts?: string[];
   /** Text options only: where the name sits on the 3D model (see name-mesh.ts). Unvalidated here; use `slotOf`. */
   slot?: unknown;
+  /** Text options only: this option is the clicker designer, with the owner's settings (see clicker/spec.ts). */
+  clicker?: unknown;
   /**
    * Colour options only: this option colours one part of a multi-colour model (see part-colors.ts). `partName` is the
    * mesh name the 3D viewer colours (`dc-slot-<n>`), `parts` the slicer parts it covers, `filaments` the filament
@@ -48,7 +51,7 @@ export type ProductOptionInput = {
 /** A customer's selection: optionId -> chosen value. */
 export type ConfigSelection = Record<
   string,
-  { valueId?: string; text?: string; imageKey?: string; font?: string; nameColor?: string }
+  { valueId?: string; text?: string; imageKey?: string; font?: string; nameColor?: string; design?: unknown }
 >;
 
 export type PriceResult = {
@@ -74,7 +77,8 @@ export function computeUnitPrice(
       sel &&
       (sel.valueId !== undefined ||
         (sel.text !== undefined && sel.text !== "") ||
-        sel.imageKey !== undefined);
+        sel.imageKey !== undefined ||
+        sel.design !== undefined);
 
     if (!hasSelection) {
       if (opt.required) errors.push(`${opt.label} is required`);
@@ -82,6 +86,19 @@ export function computeUnitPrice(
     }
 
     deltas.push(opt.priceDeltaCents);
+
+    // a clicker designer: the whole design is the selection, priced by the owner's size / colour rules
+    const clicker = opt.type === "text" ? clickerConfigOf(opt.constraints) : null;
+    if (clicker) {
+      const design = clickerSpecSchema.safeParse(sel!.design);
+      if (!design.success) errors.push(`${opt.label}: ${design.error.issues[0]?.message ?? "the design is not valid"}`);
+      else {
+        const problem = checkAgainstConfig(design.data, clicker);
+        if (problem) errors.push(`${opt.label}: ${problem}`);
+        else deltas.push(clickerPriceDeltaCents(design.data, clicker));
+      }
+      continue;
+    }
 
     switch (opt.type) {
       case "color":
@@ -140,6 +157,13 @@ export function normalizeSelection(
     if (!sel) continue;
     if (opt.type === "color" || opt.type === "size") {
       if (sel.valueId) config[opt.id] = { valueId: sel.valueId };
+    } else if (opt.type === "text" && clickerConfigOf(opt.constraints)) {
+      // keep only a design that fits the schema (and is not absurdly big); anything else on this option is dropped
+      if (sel.design !== undefined) {
+        const parsed = clickerSpecSchema.safeParse(sel.design);
+        if (parsed.success && JSON.stringify(parsed.data).length <= MAX_SPEC_JSON) config[opt.id] = { design: parsed.data };
+        else errors.push(`${opt.label}: the design is not valid or too detailed.`);
+      }
     } else if (opt.type === "text") {
       const text = (sel.text ?? "").trim();
       if (text) {
@@ -179,5 +203,7 @@ export const configSelectionSchema = z.record(
     imageKey: z.string().max(300).optional(),
     font: z.string().max(30).optional(),
     nameColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    /** A clicker design (checked against its own schema in `normalizeSelection`). */
+    design: z.unknown().optional(),
   }),
 );

@@ -95,6 +95,10 @@ async function OrderContents({ orderNo }: { orderNo: string }) {
                   </h3>
                   <span className="font-extrabold text-primary">{formatPHP(it.unitPriceCents * it.qty)}</span>
                 </div>
+                {it.designUri && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.designUri} alt="Your clicker design" className="mt-2 size-24 rounded-md border bg-muted/40 object-contain" />
+                )}
                 {it.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={it.imageUrl} alt="Your uploaded image" className="mt-2 size-14 rounded-md border object-cover" />
