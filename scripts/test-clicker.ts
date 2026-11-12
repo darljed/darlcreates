@@ -265,6 +265,11 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     return near(body, outlineArea - 2 * 196, 0.6) && near(ceiling, cap - 2 * cavity + 2 * boss, 2.5);
   })());
   assert("the chambers do not touch each other, and the walls between them are solid", (() => { const body = two.parts.find((p) => p.id === "h-body")!; const gap = totalArea(intersect(body.regions, [{ outer: [[-1, -6], [1, -6], [1, 6], [-1, 6]], holes: [] }])); return near(gap, 12 * 2, 0.2) ; })());
+  assert("a key round several switches has no notch between them (it holds the whole block of switch squares)", (() => {
+    const l = buildLayout(outlineSpec({ layers: [], switches: switchPattern(2) }), fonts);
+    const block: Region[] = [{ outer: [[-16, -7.5], [16, -7.5], [16, 7.5], [-16, 7.5]], holes: [] }];
+    return totalArea(difference(block, l.capOutline)) < 0.05 && l.capOutline.length === 1 && l.capOutline[0].holes.length === 0;
+  })());
   assert("six switches on a key that follows the design still fit the plate, with closed solids", (() => {
     const l = buildLayout(outlineSpec({ switches: switchPattern(6, "grid") }), fonts);
     return l.switches.length === 6 && l.errors.length === 0 && !!plateLayout(l) && extrudeLayout(l).every((p) => isWatertight(meshOfPart(p)));

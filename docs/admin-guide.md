@@ -67,12 +67,12 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 ### Clicker designer
 On a product's page, **Clicker designer → Make this a clicker product** (only when the product has no other options). Then set:
 - **Key size** range and the **price by size**; the price for each colour after the second, for a keyring tab and for a picture.
-- **Switches you fit:** a name, a price per switch and "In stock" for clicky, tactile and linear. Untick "In stock" when you run out.
+- **Switches:** how many Cherry MX switches a customer may put under one key (up to 6) and the price of each extra one. The first is included.
 - **Most colours per print:** your printer's limit (X2D: 4). The base, the key and the artwork share it.
 - **Name keys:** on or off, the most keys, and the price of each key after the first.
 - **Printer fit:** see below.
 
-Each ordered clicker has a **Download** button on the order. It gives one file with the base and the key already laid out on the plate (base 3 walls, key 1 wall). Open it in Bambu Studio, check the colours, print, press a real switch into the base, and push the key onto the stem. The order lists the switch type to fit.
+Each ordered clicker has a **Download** button on the order. It gives one file with the base and the key already laid out on the plate (base 3 walls, key 1 wall). Open it in Bambu Studio, check the colours, print, press a real Cherry MX switch into each pocket of the base, and push the key onto the stems. The order line says how many switches to fit.
 
 **First time on a printer (do this before taking orders):** download **the fit test** (link under Printer fit), print it, press a switch into each of the four bases and push each of the four keys onto a switch stem. Enter the number of the base and key that fit best (plus loosens, minus tightens). Reprint when you change filament brand. See [clicker-designer.md](./clicker-designer.md).
 

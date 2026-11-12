@@ -12,11 +12,13 @@ Two printed objects around a real switch:
   wall round the well the key moves in. One colour. Optionally a flat keyring tab with a real hole.
 - **Key (cap):** hollow underneath with a round boss and a cross-shaped socket that pushes onto the switch stem, a solid face,
   and a thin top skin with the coloured artwork inlaid (flat, or standing 0.6 or 1.2 mm above it).
-- **Switch:** an MX-compatible switch you buy and fit: clicky, tactile or linear. The customer picks the type.
+- **Switch:** a Cherry MX switch you buy and fit. There is one type, so the customer does not choose one; they choose how many (up to your limit) and where they go.
 
 ## What the customer can do
-- **Clicker** (one big key): shape (12), size of the key, text and/or pictures, colours, flat or raised artwork, wall height
-  (low, standard, high, flush with the key), switch, keyring tab.
+- **Clicker** (one big key): a shape, size of the key, text and/or pictures, colours, flat or raised artwork, wall height
+  (low, standard, high, flush with the key), **1 to 6 switches placed where you want them**, keyring tab.
+- **Follow my design (outline):** the key and the base take the shape of the text and pictures, with a coloured border round them (thin 0.8, normal 1.2, thick 2 or extra 3 mm). Gaps between letters are closed up and holes (the inside of an O) are filled, so it is one solid key. Pieces too far apart are wrapped in one shape. The 15 mm switch square is always inside it, so a very small design gets a small plate round the switch. The size is the design's size: "Longest side" scales the whole design and the key follows. The key colour is the border colour. Default for a new clicker.
+- **Several switches:** pick 1 to your limit, then "In a row" or "In a grid", then drag each square on the map (or use the arrow keys) to fine-tune. Switches must be at least 17 mm apart so their parts do not touch and the print has solid walls between the chambers; a closer move is refused. The key grows to cover every switch (an outline key wraps the whole block of switch squares). Each extra switch adds your price. The key has a cavity and a socket over each switch and the base has a chamber and clip windows for each.
 - **Name keys:** one key and switch per letter (up to your limit), a font, letter size, keys per row, key colour (one, or two that
   alternate), letter colour. Priced per key.
 - **Inside** view lifts the key off to show the switch pocket and a ghost switch. Click any part of the model to change its colour.
@@ -41,6 +43,8 @@ The browser shows the same solids it would print. The server **never trusts a me
 saved design. Heights are "assembled with the key up"; the print file moves the key down to the bed.
 
 The dimensions were measured from a clicker that prints and clicks well (a 50 × 33 mm key sits in a 55 × 38 mm base, 22.6 mm tall).
+The size step of an outline key uses the size written on the design, which the designer keeps equal to the real one. The server rebuilds the shape and refuses a design whose written size is smaller than the real one (otherwise a big key could be priced as a small one).
+
 A test builds that clicker and checks the base is the key plus 2.5 mm each side, the chamber is 14 mm, the levels are 1.2 / 7.2 / 8.7 /
 10 / 18 mm and every piece is a closed solid.
 
@@ -57,8 +61,8 @@ One 3MF, two objects, already placed on the 256 mm plate (6 mm margins and gap, 
 The admin order page's **Download** builds it from the saved design with your printer fit (`/admin/orders/[id]/stl/[itemId]`).
 
 ## Owner settings (`ClickerConfig`, on the product)
-Key size range, size price steps, price per extra colour, keyring, picture, palette, **most colours per print**, most layers, most
-clickers per order, text and picture on/off, **switches** (name, price per switch, in stock), **name keys** (on/off, most keys, price
+Key size range (for the fixed shapes), size price steps, price per extra colour, keyring, picture, palette, **most colours per print**, most layers, most
+clickers per order, text and picture on/off, **most switches under one key and the price of each extra one**, **name keys** (on/off, most keys, price
 per key after the first), and **printer fit** (`tune`: switch pocket, stem socket, gap round the key; mm, plus loosens).
 Set on **Admin → Products → (product) → Clicker designer**.
 
@@ -68,14 +72,15 @@ keys with the stem socket -0.1 / 0 / +0.1 / +0.2 mm, one colour. Print it, press
 Enter the best numbers under **Printer fit**. Do this once per printer and filament.
 
 ## Price
-`product price + size step (clicker) + switch price x switches + extra colours + keyring + picture` for a clicker;
-`product price + switch price x keys + keys after the first + extra colours + keyring` for name keys. Computed in `computeUnitPrice`
+`product price + size step (clicker) + extra switches x the extra-switch price + extra colours + keyring + picture` for a clicker;
+`product price + keys after the first x the key price + extra colours + keyring` for name keys (each key already has its switch). Computed in `computeUnitPrice`
 and checked again on the server when the line is added.
 
 ## Limits
 | Limit | Value | Where |
 |---|---|---|
-| Key size | 24 to 120 mm per side (you narrow it); a smaller shape is grown to fit the switch | `LIMITS`, `FIT.keepoutMm` |
+| Key size | 24 to 120 mm per side (you narrow it; your minimum does not apply to an outline key); a smaller shape is grown to fit the switches | `LIMITS`, `FIT.keepoutMm` |
+| Switches under one key | your `maxSwitches` (up to 6), at least 17 mm apart | `LIMITS.maxSwitches`, `FIT.switchPitchMm` |
 | Colours per print | your `maxColours` (X2D: 4) | `ClickerConfig` |
 | Points in all traced pictures | 16,000 | `LIMITS.maxPoints` |
 | One saved design | 300,000 characters of JSON | `MAX_SPEC_JSON` |
@@ -93,7 +98,7 @@ and checked again on the server when the line is added.
 
 ## Tests
 `npx tsx scripts/test-clicker.ts` covers the schema, shapes, geometry (every shape with and without a keyring, and rim and relief
-variations, are closed solids that do not overlap), the measurements of the sample clicker, switch keep-out growth, name keys, the
+variations, are closed solids that do not overlap), outline keys (one solid key, border sizes, scaling, the server's size check), several switches (patterns, spacing rule, chambers and sockets per switch, the key wrapping them), the measurements of the sample clicker, switch keep-out growth, name keys, the
 4-colour rule, the keyring on every shape and angle, the plate layout, price, validation, the fit-test plate, the two-object 3MF and the
 cart integration (needs the database).
 Browser: open `/clicker`, try both kinds, upload a picture, press "Inside", add to cart, place an order, download the 3MF from the admin

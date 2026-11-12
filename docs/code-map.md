@@ -106,16 +106,16 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `name-space.ts` | **Pure (server use).** `SurfaceProbe` and `measureSpace`: how much room a name has at a spot, as a table of widest-area-per-height |
 | `name-surface.ts` | **Service (server).** The product model as one mesh, cached in memory for 10 minutes |
 | `clicker/fit.ts` | **Pure.** Every mechanical number of the switch clicker (`FIT`: pocket, deck, rim, cap cavity, socket, heights), rim and relief options, ring builders |
-| `clicker/spec.ts` | **Pure.** Clicker / name-keys design schema (`ClickerSpec`), owner settings (`ClickerConfig`: switches, colour limit, name keys, printer fit), limits, defaults, colours in use, price, readable summary |
+| `clicker/spec.ts` | **Pure.** Clicker / name-keys design schema (`ClickerSpec`), owner settings (`ClickerConfig`: switch limit and price, colour limit, name keys, printer fit), switch positions and spacing rule (`switchesApart`, `switchPattern`), limits, defaults, colours in use, price, readable summary |
 | `clicker/shapes.ts` | **Pure.** The shape outlines and keyring placement |
 | `clicker/poly.ts` | **Pure.** 2D polygon work on `clipper-lib`: union, difference, intersect, offset, small-feature removal |
 | `clicker/text.ts` | **Pure.** Text layers to flat regions |
 | `clicker/trace.ts` | **Pure.** Picture colour analysis and tracing into outlines (runs in the browser) |
-| `clicker/layout.ts` | **Pure.** `buildLayout`: the base and key pieces (switch chamber, clip band, deck, rim, key cavity, socket, skin, artwork), key placement for name keys, the keyring tab, warnings and errors; `plateLayout` |
+| `clicker/layout.ts` | **Pure.** `buildLayout`: the base and key pieces (a chamber, clip windows, cavity and socket for every switch; deck, rim, skin, artwork), the outline key that follows the artwork, key placement for name keys, the keyring tab, warnings and errors; `plateLayout` |
 | `clicker/extrude.ts` | **Pure.** Pieces to watertight solids and meshes |
 | `clicker/svg.ts` | **Pure.** Top-view SVG of a layout or design (cart picture, thumbnails) |
 | `clicker/export-3mf.ts` | **Pure.** The clicker 3MF: two objects (base, top) with a part and filament per colour piece, walls per object |
-| `clicker/state.ts` | **Pure.** Undo/redo history and layer helpers for the designer |
+| `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |
 | `clicker/of-product.ts` | **Pure.** Finds the clicker option and a line's design on a product |
 | `clicker/server.ts` | **Service (server).** `checkDesign`, `buildClickerPrint` (lays the base and keys out on the plate), `buildFitTest`, `designSvgDataUri`, font loading |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
@@ -211,7 +211,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | File | Purpose |
 |---|---|
 | `clicker-designer.tsx` | The designer: viewer, kind switch (Clicker / Name keys), step list, list of clickers, price bar, undo/redo, draft, add to cart; phone layout |
-| `clicker-panels.tsx` | The step panels: artwork, letters, colours (with the colour meter), shape and size, look, switch, keyring |
+| `clicker-panels.tsx` | The step panels: artwork, letters, colours (with the colour meter), shape and size (with the outline shape, border and size scaling), look, switches (count, arrangement and a drag-to-place map), keyring |
 | `clicker-viewer.tsx` | Three.js view with orbit, top view, the "Inside" lift with ghost switches, click-to-pick a part, and drag in Move mode (client only) |
 | `image-import.ts` | Reads a PNG/JPG/WebP (canvas) or SVG (three's `SVGLoader`) in the browser |
 | `palette-picker.tsx` | Colour swatches limited to the owner's palette |
@@ -224,7 +224,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 |---|---|
 | `admin-account-menu.tsx` | Name, email and sign-out in the sidebar and top bar |
 | `branding-editor.tsx` | Six logo upload slots with previews |
-| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, switches and their prices, name keys and printer fit |
+| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
 | `content-editor.tsx` | Landing-page editor |
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |

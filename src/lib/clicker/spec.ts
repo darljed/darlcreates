@@ -246,7 +246,7 @@ let counter = 0;
 export const newId = (prefix = "l") => `${prefix}${Date.now().toString(36)}${(counter++).toString(36)}`.slice(0, 24);
 
 export function defaultText(cfg: Pick<ClickerConfig, "palette"> = DEFAULT_CLICKER_CONFIG): TextLayer {
-  return { id: newId("t"), kind: "text", name: "Text", x: 0, y: 0, rotation: 0, mirror: false, visible: true, text: "CLICK", font: "chunky", size: 7, spacing: 0, lineGap: 1, color: cfg.palette[2] ?? "#ef4444" };
+  return { id: newId("t"), kind: "text", name: "Text", x: 0, y: 0, rotation: 0, mirror: false, visible: true, text: "CLICK", font: "chunky", size: 10, spacing: 0, lineGap: 1, color: cfg.palette[2] ?? "#ef4444" };
 }
 
 export function defaultSpec(cfg: ClickerConfig = DEFAULT_CLICKER_CONFIG, kind: Kind = "clicker"): ClickerSpec {
@@ -360,7 +360,8 @@ export function designSummary(spec: ClickerSpec): string {
   const texts = spec.layers.filter((l): l is TextLayer => l.kind === "text" && l.visible && !!l.text.trim()).map((l) => `“${l.text.trim().replace(/\s+/g, " ")}”`);
   const pics = spec.layers.filter((l) => l.kind === "image" && l.visible).length;
   const parts = [
-    `${round1(spec.width)} × ${round1(spec.height)} mm ${spec.shape === "outline" ? "outline" : spec.shape} clicker`,
+    // a key that follows its artwork has no fixed width and height: say how long it is
+    spec.shape === "outline" ? `${round1(Math.max(spec.width, spec.height))} mm long outline clicker` : `${round1(spec.width)} × ${round1(spec.height)} mm ${spec.shape} clicker`,
     spec.switches.length > 1 ? `${spec.switches.length} Cherry MX switches` : "Cherry MX switch",
     `${colours} colour${colours === 1 ? "" : "s"}`,
     spec.relief === "flat" ? "flat design" : "raised design",

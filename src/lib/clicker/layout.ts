@@ -103,7 +103,10 @@ function hullOf(regions: Region[]): Ring {
  * apart to join, the shape wraps all of them.
  */
 function outlineAround(art: Region[], switches: { x: number; y: number }[], border: number): Region[] {
-  const solid = union([...art, ...switches.map((p) => keepoutBox(p.x, p.y))]);
+  // the switches' squares are joined into one block (their hull), so there is no slit between neighbours
+  const boxes = switches.map((p) => keepoutBox(p.x, p.y));
+  const keep = boxes.length > 1 ? [region(hullOf(boxes))] : boxes;
+  const solid = union([...art, ...keep]);
   let joined: Region[] = [];
   for (const bridge of [1.5, 2.5, 4, 6, 9, 13]) {
     // closing: grow then shrink, which fills gaps narrower than twice the bridge; drop the holes so it is one solid

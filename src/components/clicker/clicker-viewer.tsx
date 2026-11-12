@@ -121,29 +121,44 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
   const size = Math.max(layout.bounds.maxX - layout.bounds.minX, layout.bounds.maxY - layout.bounds.minY, layout.totalHeight * 1.3, 30);
   const top = layout.totalHeight;
 
-  // put the camera where the chosen view wants it (also when the clicker's size changes enough to need re-framing)
-  const frame = useRef({ size, view, explode });
+  // Put the camera where the view wants it: far enough back to see the whole clicker (and the lifted key in the inside view).
+  // It re-frames when the view changes or the clicker's size changes by more than a tenth, keeping the way you are looking.
+  const frame = useRef({ R: 0, view, explode });
+  const H = layout.totalHeight + (explode ? LIFT : 0);
+  const w = layout.bounds.maxX - layout.bounds.minX, h = layout.bounds.maxY - layout.bounds.minY;
+  const R = Math.hypot(w, h, H) / 2;
+  const cx = (layout.bounds.minX + layout.bounds.maxX) / 2, cy = (layout.bounds.minY + layout.bounds.maxY) / 2;
   useEffect(() => {
     const cam = camera.current, ctl = controls.current;
     if (!cam || !ctl) return;
-    const changedView = frame.current.view !== view || frame.current.explode !== explode;
-    const changedSize = Math.abs(frame.current.size - size) / size > 0.25;
-    frame.current = { size, view, explode };
-    if (!changedView && !changedSize && cam.userData.framed) return;
+    const prev = frame.current;
+    const first = !cam.userData.framed;
+    const viewChanged = prev.view !== view || prev.explode !== explode;
+    if (!first && !viewChanged && Math.abs(prev.R - R) / Math.max(R, 1) < 0.1) return;
+    frame.current = { R, view, explode };
     cam.userData.framed = true;
-    const d = size * (explode ? 3.3 : 2.4);
-    const p = view === "top" ? new Vector3(0, -d * 0.0001, d) : new Vector3(size * 0.5, -size * (explode ? 2.4 : 1.75), size * (explode ? 1.5 : 1.2));
-    cam.position.copy(p);
-    ctl.target.set((layout.bounds.minX + layout.bounds.maxX) / 2, (layout.bounds.minY + layout.bounds.maxY) / 2, view === "top" ? 0 : layout.totalHeight * 0.45 + (explode ? 12 : 0));
+    const centre = new Vector3(cx, cy, view === "top" ? 0 : H * 0.5);
+    const fov = (35 * Math.PI) / 180;
+    let dir: Vector3;
+    let dist: number;
+    if (view === "top") {
+      dir = new Vector3(0, -0.0001, 1).normalize();
+      dist = (Math.max(w, h) / 2 / Math.tan(fov / 2)) * 1.25 + layout.totalHeight;
+    } else {
+      dir = first || viewChanged ? new Vector3(0.3, -0.85, 0.5).normalize() : cam.position.clone().sub(ctl.target).normalize();
+      dist = (R / Math.sin(fov / 2)) * 1.08;
+    }
+    cam.position.copy(centre).addScaledVector(dir, dist);
+    ctl.target.copy(centre);
     ctl.update();
-  }, [view, explode, size, layout.totalHeight, layout.bounds.minX, layout.bounds.maxX, layout.bounds.minY, layout.bounds.maxY]);
+  }, [view, explode, R, H, w, h, cx, cy, layout.totalHeight]);
 
   const toPoint = (e: ThreeEvent<PointerEvent>): Point => [e.point.x, e.point.y];
   const kr = layout.keyring;
 
   return (
     <>
-      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={2000} up={[0, 0, 1]} position={[size * 0.5, -size * 1.75, size * 1.2]} />
+      <PerspectiveCamera ref={camera} makeDefault fov={35} near={0.5} far={4000} up={[0, 0, 1]} position={[R * 1.1, -R * 3.2, R * 1.8]} />
       <ambientLight intensity={0.95} />
       <directionalLight position={[size, -size * 1.2, size * 2]} intensity={1.15} />
       <directionalLight position={[-size, size, size * 0.8]} intensity={0.35} />
@@ -154,8 +169,8 @@ function Scene({ solids, layout, selectedLayerId, view, moveMode, explode, onPic
         enablePan={view === "3d"}
         screenSpacePanning
         enableDamping
-        minDistance={size * 0.6}
-        maxDistance={size * 6}
+        minDistance={R * 0.8}
+        maxDistance={R * 9}
         maxPolarAngle={Math.PI * 0.55}
       />
 

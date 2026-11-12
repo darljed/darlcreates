@@ -134,7 +134,7 @@ From your sample files (section 2b) first, then the third-party guides. Verify t
 They are **tools for makers**: free, the user prints it, buys the switch, downloads a 3MF. **Darl Creates sells finished
 clickers**: the customer designs, you print, fit the switch and ship. So:
 
-- The customer picks a **switch type** (clicky, tactile, linear). It is a priced option, and you hold the stock.
+- ~~The customer picks a switch type~~ Changed: the shop fits Cherry MX only, so the customer picks how many switches and where (D-56).
 - The customer never gets a 3MF. **You** get it on the order, with both parts and the switch to pack.
 - **Fit tolerances are a shop setting**, calibrated once per printer and filament with a fit-test strip, not a customer option.
 - Colours come from **your** palette, and a clicker may use **at most 4** (your X2D), shared by base, cap and artwork. See 2c.

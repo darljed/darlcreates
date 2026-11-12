@@ -80,7 +80,7 @@ function capColourFor(spec: ClickerSpec, config: ClickerConfig, pictureColours: 
 }
 
 /** One line under a step's title once it is done. */
-function stepSummary(id: StepId, spec: ClickerSpec, config: ClickerConfig): string {
+function stepSummary(id: StepId, spec: ClickerSpec, config: ClickerConfig, layout: Layout): string {
   switch (id) {
     case "design": {
       const t = spec.layers.filter((l) => l.kind === "text" && l.visible && (l as { text: string }).text.trim()).length;
@@ -89,7 +89,7 @@ function stepSummary(id: StepId, spec: ClickerSpec, config: ClickerConfig): stri
     }
     case "letters": return spec.name ? `“${nameKeys(spec.name).join("")}” · ${nameKeys(spec.name).length} keys` : "";
     case "colours": return `${clickerColours(spec).length} of ${config.maxColours} colours`;
-    case "shape": return spec.shape === "outline" ? `${spec.width} × ${spec.height} mm · follows your design` : `${spec.width} × ${spec.height} mm ${spec.shape}`;
+    case "shape": return spec.shape === "outline" ? `${layout.capSize[0].toFixed(0)} × ${layout.capSize[1].toFixed(0)} mm · follows your design` : `${spec.width} × ${spec.height} mm ${spec.shape}`;
     case "look": return `${RELIEF_LABELS[spec.relief]} · ${RIM_LABELS[spec.rim]} wall`;
     case "switch": return spec.kind === "name" ? `${switchCount(spec)} · one per key` : `${spec.switches.length} Cherry MX switch${spec.switches.length === 1 ? "" : "es"}`;
     case "keyring": return spec.keyring.on ? "With a tab" : "None";
@@ -585,7 +585,7 @@ export function ClickerDesigner({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-bold">{STEP_TITLES[id]}</span>
-                        <span className={cn("block truncate text-xs", id === "colours" && nColours > config.maxColours ? "text-destructive" : "text-muted-foreground")}>{stepSummary(id, spec, config)}</span>
+                        <span className={cn("block truncate text-xs", id === "colours" && nColours > config.maxColours ? "text-destructive" : "text-muted-foreground")}>{stepSummary(id, spec, config, layout)}</span>
                       </span>
                       <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
                     </button>
