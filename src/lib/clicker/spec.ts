@@ -8,7 +8,7 @@
  */
 import { z } from "zod";
 import { NAME_FONT_IDS } from "../name-mesh";
-import { RELIEF_IDS, RIM_IDS } from "./fit";
+import { FIT, RELIEF_IDS, RIM_IDS } from "./fit";
 import { SHAPE_IDS } from "./shapes";
 
 export const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -32,6 +32,7 @@ export const LIMITS = {
   /** Thinnest wall around a keyring hole (mm). */
   minKeyringWallMm: 1.6,
   maxKeys: 12,
+  maxSwitches: 6,
 } as const;
 
 const ring = z.array(z.tuple([coord, coord])).min(3).max(LIMITS.maxRingPoints);
@@ -77,15 +78,6 @@ export type ImageLayer = z.infer<typeof imageLayerSchema>;
 export type TextLayer = z.infer<typeof textLayerSchema>;
 export type Layer = z.infer<typeof layerSchema>;
 
-/** The switches the shop can fit. What each one is called and feels like is set by the owner (ClickerConfig.switches). */
-export const SWITCH_TYPES = ["clicky", "tactile", "linear"] as const;
-export type SwitchType = (typeof SWITCH_TYPES)[number];
-export const SWITCH_HELP: Record<SwitchType, string> = {
-  clicky: "Loud, sharp click. The most satisfying.",
-  tactile: "A firm bump, quieter. The best all-rounder.",
-  linear: "Smooth and quiet, no bump.",
-};
-
 export const KINDS = ["clicker", "name"] as const;
 export type Kind = (typeof KINDS)[number];
 export const KIND_LABELS: Record<Kind, string> = { clicker: "Clicker", name: "Name keys" };
@@ -109,11 +101,17 @@ export const clickerSpecSchema = z
   .object({
     v: z.literal(2),
     kind: z.enum(KINDS),
-    switchType: z.enum(SWITCH_TYPES),
     // the cap (kind "clicker"): its outline
     shape: z.enum(SHAPE_IDS),
     width: z.number().finite().min(LIMITS.minSizeMm).max(LIMITS.maxSizeMm),
     height: z.number().finite().min(LIMITS.minSizeMm).max(LIMITS.maxSizeMm),
+    /** The width of the coloured border round a key that follows the artwork ("outline"), in mm. */
+    border: z.number().finite().min(0.4).max(5).default(1.2),
+    /**
+     * Where the switches go under the key, in mm from the key's centre (a clicker; name keys have one under each letter).
+     * More than one makes a bigger key that presses on all of them. They must be at least FIT.switchPitchMm apart.
+     */
+    switches: z.array(z.object({ x: z.number().finite().min(-100).max(100), y: z.number().finite().min(-100).max(100) })).min(1).max(LIMITS.maxSwitches).default([{ x: 0, y: 0 }]),
     /** Corner radius for square and rounded (mm). */
     corner: z.number().finite().min(0).max(30),
     /** Number of points for star and flower. */
@@ -131,9 +129,30 @@ export const clickerSpecSchema = z
   })
   .refine((s) => s.kind !== "name" || !!s.name, { message: "Type the letters for the keys", path: ["name"] })
   .refine((s) => pointsInSpec(s) <= LIMITS.maxPoints, { message: "The pictures are too detailed. Use fewer colours or less detail.", path: ["layers"] })
-  .refine((s) => new Set(s.layers.map((l) => l.id)).size === s.layers.length, { message: "Layer ids must be unique", path: ["layers"] });
+  .refine((s) => new Set(s.layers.map((l) => l.id)).size === s.layers.length, { message: "Layer ids must be unique", path: ["layers"] })
+  .refine((s) => s.kind !== "clicker" || switchesApart(s.switches), { message: `Switches must be at least ${FIT.switchPitchMm} mm apart`, path: ["switches"] });
 
 export type ClickerSpec = z.infer<typeof clickerSpecSchema>;
+
+/** True when no two switches are closer than the pitch (measured along x or y, since the parts are square). */
+export function switchesApart(sw: { x: number; y: number }[], pitch: number = FIT.switchPitchMm): boolean {
+  for (let i = 0; i < sw.length; i++) for (let j = i + 1; j < sw.length; j++) if (Math.max(Math.abs(sw[i].x - sw[j].x), Math.abs(sw[i].y - sw[j].y)) < pitch - 1e-6) return false;
+  return true;
+}
+
+/** A tidy starting arrangement for n switches, centred on the key: a row, or a grid. */
+export function switchPattern(n: number, arrangement: "row" | "grid" = "row", pitch: number = FIT.switchPitchMm): { x: number; y: number }[] {
+  const count = Math.max(1, Math.min(LIMITS.maxSwitches, Math.round(n)));
+  const round = (v: number) => Math.round(v * 10) / 10;
+  if (arrangement === "row" || count < 3) return Array.from({ length: count }, (_, i) => ({ x: round((i - (count - 1) / 2) * pitch), y: 0 }));
+  const cols = count <= 4 ? 2 : 3;
+  const rows = Math.ceil(count / cols);
+  return Array.from({ length: count }, (_, i) => {
+    const r = Math.floor(i / cols), c = i % cols;
+    const inRow = Math.min(cols, count - r * cols);
+    return { x: round((c - (inRow - 1) / 2) * pitch), y: round(-(r - (rows - 1) / 2) * pitch) };
+  });
+}
 
 function pointsInSpec(s: { layers: Layer[] }): number {
   let n = 0;
@@ -153,16 +172,6 @@ export const MAX_ADD_JSON = 3_500_000;
 export const DEFAULT_PALETTE = [
   "#f8fafc", "#111827", "#ef4444", "#f97316", "#facc15", "#22c55e", "#0ea5e9", "#2563eb", "#8b5cf6", "#ec4899", "#92400e", "#9ca3af",
 ];
-
-const switchOffer = z.object({
-  type: z.enum(SWITCH_TYPES),
-  /** What the customer sees, for example "Clicky (blue)". */
-  label: z.string().min(1).max(40),
-  /** Added to the price per switch. */
-  cents: z.number().int().min(0).max(100_000),
-  available: z.boolean(),
-});
-export type SwitchOffer = z.infer<typeof switchOffer>;
 
 export const clickerConfigSchema = z.object({
   /** The cap's smallest and largest side (mm). The base is 5 mm bigger all round. */
@@ -184,7 +193,9 @@ export const clickerConfigSchema = z.object({
   imageCents: z.number().int().min(0).max(100_000),
   allowImages: z.boolean(),
   allowText: z.boolean(),
-  switches: z.array(switchOffer).min(1).max(3),
+  /** Most switches under one big key, and the price of each one after the first. */
+  maxSwitches: z.number().int().min(1).max(LIMITS.maxSwitches),
+  extraSwitchCents: z.number().int().min(0).max(100_000),
   /** Name keys: allowed, the most keys, and the price of each key after the first. */
   allowName: z.boolean(),
   maxKeys: z.number().int().min(1).max(LIMITS.maxKeys),
@@ -211,12 +222,8 @@ export const DEFAULT_CLICKER_CONFIG: ClickerConfig = {
   imageCents: 0,
   allowImages: true,
   allowText: true,
-  // placeholder prices: set the real ones in the admin
-  switches: [
-    { type: "clicky", label: "Clicky (loud click)", cents: 0, available: true },
-    { type: "tactile", label: "Tactile (soft bump)", cents: 0, available: true },
-    { type: "linear", label: "Linear (smooth, quiet)", cents: 0, available: true },
-  ],
+  maxSwitches: 4,
+  extraSwitchCents: 4000,
   allowName: true,
   maxKeys: 8,
   keyCents: 6000,
@@ -242,18 +249,17 @@ export function defaultText(cfg: Pick<ClickerConfig, "palette"> = DEFAULT_CLICKE
   return { id: newId("t"), kind: "text", name: "Text", x: 0, y: 0, rotation: 0, mirror: false, visible: true, text: "CLICK", font: "chunky", size: 7, spacing: 0, lineGap: 1, color: cfg.palette[2] ?? "#ef4444" };
 }
 
-const firstAvailableSwitch = (cfg: ClickerConfig): SwitchType => cfg.switches.find((s) => s.available)?.type ?? cfg.switches[0].type;
-
 export function defaultSpec(cfg: ClickerConfig = DEFAULT_CLICKER_CONFIG, kind: Kind = "clicker"): ClickerSpec {
   const p = cfg.palette;
   const size = Math.min(Math.max(40, cfg.minSize), cfg.maxSize);
   return {
     v: 2,
     kind,
-    switchType: firstAvailableSwitch(cfg),
-    shape: "circle",
+    shape: "outline",
     width: size,
     height: size,
+    border: 1.2,
+    switches: [{ x: 0, y: 0 }],
     corner: 5,
     points: 5,
     baseColor: p[0] ?? "#f8fafc",
@@ -305,27 +311,22 @@ export function sizeTierCents(longestSide: number, tiers: ClickerConfig["sizeTie
   return (sorted.find((t) => longestSide <= t.upToMm + 1e-9) ?? sorted[sorted.length - 1]).addCents;
 }
 
-export const switchOfferFor = (cfg: ClickerConfig, type: SwitchType) => cfg.switches.find((s) => s.type === type);
-
 /** How many switches (keys) a design uses. */
-export const switchCount = (spec: ClickerSpec) => (spec.kind === "name" && spec.name ? Math.max(1, nameKeys(spec.name).length) : 1);
+export const switchCount = (spec: ClickerSpec) => (spec.kind === "name" && spec.name ? Math.max(1, nameKeys(spec.name).length) : spec.switches.length);
 
 /** What the design adds to the product's base price. */
 export function clickerPriceDeltaCents(spec: ClickerSpec, cfg: ClickerConfig): number {
   const colours = clickerColours(spec).length;
   const keys = switchCount(spec);
-  const sw = (switchOfferFor(cfg, spec.switchType)?.cents ?? 0) * keys;
   const extraColours = Math.max(0, colours - 2) * cfg.extraColourCents;
   const keyring = spec.keyring.on ? cfg.keyringCents : 0;
-  if (spec.kind === "name") return sw + (keys - 1) * cfg.keyCents + extraColours + keyring;
+  if (spec.kind === "name") return (keys - 1) * cfg.keyCents + extraColours + keyring;
   const usesImage = spec.layers.some((l) => l.visible && l.kind === "image" && l.regions.some((r) => r.shapes.length));
-  return sizeTierCents(Math.max(spec.width, spec.height), cfg.sizeTiers) + sw + extraColours + keyring + (usesImage ? cfg.imageCents : 0);
+  return sizeTierCents(Math.max(spec.width, spec.height), cfg.sizeTiers) + (keys - 1) * cfg.extraSwitchCents + extraColours + keyring + (usesImage ? cfg.imageCents : 0);
 }
 
 /** Why a design is not allowed for this product, or null. Checked in the browser and again on the server. */
 export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): string | null {
-  const offer = switchOfferFor(cfg, spec.switchType);
-  if (!offer || !offer.available) return "That switch is not available. Pick another.";
   const palette = new Set(cfg.palette.map(lc));
   const stray = [spec.baseColor, ...clickerColours(spec)].map(lc).find((c) => !palette.has(c));
   if (stray) return `The colour ${stray} is not available. Pick one of the offered colours.`;
@@ -339,7 +340,9 @@ export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): strin
     if (keys.length > cfg.maxKeys) return `At most ${cfg.maxKeys} keys.`;
     return null;
   }
-  if (Math.min(spec.width, spec.height) < cfg.minSize - 1e-9) return `The clicker must be at least ${cfg.minSize} mm.`;
+  if (spec.switches.length > cfg.maxSwitches) return `A clicker can have at most ${cfg.maxSwitches} switches.`;
+  // a key that follows its artwork is as big as the artwork and the switches need, so the owner's minimum does not apply to it
+  if (spec.shape !== "outline" && Math.min(spec.width, spec.height) < cfg.minSize - 1e-9) return `The clicker must be at least ${cfg.minSize} mm.`;
   if (Math.max(spec.width, spec.height) > cfg.maxSize + 1e-9) return `The clicker can be at most ${cfg.maxSize} mm.`;
   if (spec.layers.length > cfg.maxLayers) return `A clicker can have at most ${cfg.maxLayers} design layers.`;
   if (!cfg.allowImages && spec.layers.some((l) => l.kind === "image")) return "Pictures are not available for this clicker.";
@@ -350,16 +353,15 @@ export function checkAgainstConfig(spec: ClickerSpec, cfg: ClickerConfig): strin
 /** One line for the cart and order: size, shape, colours, switch, extras. */
 export function designSummary(spec: ClickerSpec): string {
   const colours = clickerColours(spec).length;
-  const sw = spec.switchType;
   if (spec.kind === "name" && spec.name) {
     const keys = nameKeys(spec.name);
-    return [`Name keys “${keys.join("")}”`, `${keys.length} ${sw} switch${keys.length === 1 ? "" : "es"}`, `${colours} colour${colours === 1 ? "" : "s"}`, spec.keyring.on ? "keyring" : null].filter(Boolean).join(", ");
+    return [`Name keys “${keys.join("")}”`, `${keys.length} Cherry MX switch${keys.length === 1 ? "" : "es"}`, `${colours} colour${colours === 1 ? "" : "s"}`, spec.keyring.on ? "keyring" : null].filter(Boolean).join(", ");
   }
   const texts = spec.layers.filter((l): l is TextLayer => l.kind === "text" && l.visible && !!l.text.trim()).map((l) => `“${l.text.trim().replace(/\s+/g, " ")}”`);
   const pics = spec.layers.filter((l) => l.kind === "image" && l.visible).length;
   const parts = [
-    `${round1(spec.width)} × ${round1(spec.height)} mm ${spec.shape} clicker`,
-    `${sw} switch`,
+    `${round1(spec.width)} × ${round1(spec.height)} mm ${spec.shape === "outline" ? "outline" : spec.shape} clicker`,
+    spec.switches.length > 1 ? `${spec.switches.length} Cherry MX switches` : "Cherry MX switch",
     `${colours} colour${colours === 1 ? "" : "s"}`,
     spec.relief === "flat" ? "flat design" : "raised design",
     spec.keyring.on ? "keyring" : null,

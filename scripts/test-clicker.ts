@@ -15,13 +15,14 @@ import { difference, intersect, offset, ringArea, totalArea, union, type Region 
 import { SHAPE_IDS, SHAPE_LABELS, shapeRing, rayExit } from "../src/lib/clicker/shapes";
 import {
   checkAgainstConfig, clickerColours, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, nameKeys, newId,
-  sizeTierCents, switchCount, type ClickerSpec, type ImageLayer, type TextLayer,
+  sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerSpec, type ImageLayer, type TextLayer,
 } from "../src/lib/clicker/spec";
-import { FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../src/lib/clicker/fit";
+import { BORDER_MM, FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../src/lib/clicker/fit";
 import { buildLayout, plateLayout } from "../src/lib/clicker/layout";
 import { extrudeLayout, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
 import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
+import { scaleDesign } from "../src/lib/clicker/state";
 import { designToSvg } from "../src/lib/clicker/svg";
 import { buildClickerPrint, buildFitTest, checkDesign, designSvgDataUri } from "../src/lib/clicker/server";
 import { clickerOptionOf, designOf } from "../src/lib/clicker/of-product";
@@ -53,14 +54,14 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
 
   console.log("\nthe design schema");
   const base = defaultSpec(cfg);
-  const plain = clickerSpecSchema.parse({ ...base, layers: [textLayer({ text: "Hi", color: RED })], baseColor: WHITE, capColor: BLACK });
+  const plain = clickerSpecSchema.parse({ ...base, shape: "circle", layers: [textLayer({ text: "Hi", color: RED })], baseColor: WHITE, capColor: BLACK });
   const nameSpec = (over: Partial<NonNullable<ClickerSpec["name"]>> = {}, top: Partial<ClickerSpec> = {}) => clickerSpecSchema.parse({ ...defaultSpec(cfg, "name"), ...top, name: { ...defaultSpec(cfg, "name").name!, ...over } });
   assert("the default clicker and the default name keys are valid", clickerSpecSchema.safeParse(base).success && clickerSpecSchema.safeParse(defaultSpec(cfg, "name")).success);
   assert("an older (version 1) design is refused, not misread", !clickerSpecSchema.safeParse({ ...base, v: 1 }).success);
   assert("a size under the minimum is refused", !clickerSpecSchema.safeParse({ ...base, width: 5 }).success);
   assert("a size over the maximum is refused", !clickerSpecSchema.safeParse({ ...base, height: 500 }).success);
   assert("NaN and Infinity are refused", !clickerSpecSchema.safeParse({ ...base, width: NaN }).success && !clickerSpecSchema.safeParse({ ...base, corner: Infinity }).success);
-  assert("an unknown shape, switch, rim, relief or colour is refused", [{ shape: "dragon" }, { switchType: "magic" }, { rim: "huge" }, { relief: "deep" }, { capColor: "red" }].every((o) => !clickerSpecSchema.safeParse({ ...base, ...o }).success));
+  assert("an unknown shape, no switch, a huge border, an unknown rim, relief or colour is refused", [{ shape: "dragon" }, { switches: [] }, { border: 99 }, { rim: "huge" }, { relief: "deep" }, { capColor: "red" }].every((o) => !clickerSpecSchema.safeParse({ ...base, ...o }).success));
   assert("name keys without letters are refused", !clickerSpecSchema.safeParse({ ...defaultSpec(cfg, "name"), name: undefined }).success && !clickerSpecSchema.safeParse({ ...defaultSpec(cfg, "name"), name: { ...defaultSpec(cfg, "name").name!, text: "" } }).success);
   assert("two layers with one id are refused", !clickerSpecSchema.safeParse({ ...base, layers: [{ ...textLayer(), id: "a" }, { ...textLayer(), id: "a" }] }).success);
   assert("more layers than the limit are refused", !clickerSpecSchema.safeParse({ ...base, layers: Array.from({ length: LIMITS.maxLayers + 1 }, () => textLayer()) }).success);
@@ -109,8 +110,8 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("the base, the cap and one artwork colour: only the third colour is charged", clickerColours(plain).length === 3 && clickerPriceDeltaCents(plain, cfg) === cfg.extraColourCents);
   assert("two colours cost nothing extra", clickerPriceDeltaCents({ ...plain, layers: [] }, cfg) === 0);
   assert("a bigger cap costs more", clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg) === cfg.extraColourCents + 4000);
-  assert("the switch type adds its owner price per switch", (() => { const c = { ...cfg, switches: cfg.switches.map((s) => (s.type === "linear" ? { ...s, cents: 500 } : s)) }; return clickerPriceDeltaCents({ ...plain, switchType: "linear" }, c) === cfg.extraColourCents + 500 && clickerPriceDeltaCents(nameSpec({ text: "ABC" }, { switchType: "linear" }), c) === 3 * 500 + 2 * c.keyCents + cfg.extraColourCents; })());
-  assert("a switch that is out of stock or not offered is refused", checkAgainstConfig(plain, { ...cfg, switches: cfg.switches.map((s) => (s.type === "clicky" ? { ...s, available: false } : s)) }) !== null && checkAgainstConfig({ ...plain, switchType: "tactile" }, { ...cfg, switches: [cfg.switches[0]] }) !== null);
+  assert("each switch after the first adds the owner's price; name keys use the key price instead", (() => { const two = { ...plain, switches: switchPattern(2) }, three = { ...plain, switches: switchPattern(3) }; return clickerPriceDeltaCents(two, cfg) === cfg.extraColourCents + cfg.extraSwitchCents && clickerPriceDeltaCents(three, cfg) === cfg.extraColourCents + 2 * cfg.extraSwitchCents && clickerPriceDeltaCents(nameSpec({ text: "ABC" }), cfg) === 2 * cfg.keyCents + cfg.extraColourCents; })());
+  assert("more switches than the owner allows are refused", checkAgainstConfig({ ...plain, switches: switchPattern(5) }, { ...cfg, maxSwitches: 4 }) !== null && checkAgainstConfig({ ...plain, switches: switchPattern(4) }, { ...cfg, maxSwitches: 4 }) === null);
   assert("owner prices for the keyring and pictures apply only when used", (() => { const c = { ...cfg, keyringCents: 500, imageCents: 700 }; const sq = imageLayer({ groups: [{ color: RED, shapes: [square(0, 0, 1)] }] }); return clickerPriceDeltaCents({ ...plain, layers: [] }, c) === 0 && clickerPriceDeltaCents({ ...plain, layers: [], keyring: { ...plain.keyring, on: true } }, c) === 500 && clickerPriceDeltaCents({ ...plain, layers: [sq] }, c) === 700 + cfg.extraColourCents; })());
   assert("colours are counted once however many layers use them", clickerColours(clickerSpecSchema.parse({ ...plain, layers: [textLayer({ color: RED }), textLayer({ color: RED.toUpperCase() })] })).length === 3);
   assert("a printer holds at most the owner's number of colours (4): base + cap + three more is refused, with the number in the message", (() => {
@@ -123,7 +124,7 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("the owner's limits are enforced: size, layers, colours not on offer", checkAgainstConfig({ ...plain, width: 20, height: 20 }, cfg) !== null && checkAgainstConfig({ ...plain, width: 95 }, cfg) !== null && /not available/.test(checkAgainstConfig({ ...plain, baseColor: "#123456" }, cfg) ?? "") && checkAgainstConfig(plain, cfg) === null && checkAgainstConfig(plain, { ...cfg, maxLayers: 0 as unknown as number }) !== null);
   assert("the owner can switch off text, pictures and name keys", checkAgainstConfig(plain, { ...cfg, allowText: false }) !== null && checkAgainstConfig({ ...plain, layers: [imageLayer({ groups: [{ color: RED, shapes: [square(0, 0, 1)] }] })] }, { ...cfg, allowImages: false }) !== null && checkAgainstConfig(nameSpec(), { ...cfg, allowName: false }) !== null);
   assert("name keys: the price grows by key, the key limit holds, spaces are not keys", clickerPriceDeltaCents(nameSpec({ text: "A" }), cfg) === cfg.extraColourCents && clickerPriceDeltaCents(nameSpec({ text: "ABC" }), cfg) === 2 * cfg.keyCents + cfg.extraColourCents && checkAgainstConfig(nameSpec({ text: "ABCDEFGHI" }), { ...cfg, maxKeys: 8 }) !== null && nameKeys({ text: "A B  C" }).length === 3 && switchCount(nameSpec({ text: "AB" })) === 2);
-  assert("the cart line reads in plain words", /^40 × 40 mm circle clicker, clicky switch, 3 colours, flat design, “Hi”$/.test(designSummary(plain)) && /^Name keys “HEY”, 3 clicky switches, 3 colours$/.test(designSummary(nameSpec())), designSummary(plain) + " | " + designSummary(nameSpec()));
+  assert("the cart line reads in plain words", /^40 × 40 mm circle clicker, Cherry MX switch, 3 colours, flat design, “Hi”$/.test(designSummary(plain)) && /^Name keys “HEY”, 3 Cherry MX switches, 3 colours$/.test(designSummary(nameSpec())), designSummary(plain) + " | " + designSummary(nameSpec()));
 
   console.log("\nthe housing and the cap match the sample clicker");
   const sample = clickerSpecSchema.parse({ ...base, shape: "rounded", width: 50, height: 33, corner: 5, layers: [textLayer({ text: "Hi", color: RED, size: 8 })] });
@@ -227,6 +228,50 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   assert("every part of a name clicker is a closed solid", extrudeLayout(hey).every((s) => isWatertight(meshOfPart(s))));
   assert("a character the font lacks is an error", buildLayout(nameSpec({ text: "日" }), fonts).errors.length === 1);
 
+  console.log("\nthe key follows the artwork (outline)");
+  const outlineSpec = (over: Partial<ClickerSpec> = {}) => clickerSpecSchema.parse({ ...base, shape: "outline", capColor: BLACK, baseColor: WHITE, keyring: { ...base.keyring, on: false }, layers: [textLayer({ text: "HI", size: 9, color: RED, font: "chunky" })], ...over });
+  const ol = buildLayout(outlineSpec(), fonts);
+  const artAll = union([...ol.layerShapes.values()].flat());
+  const ab = { minX: Math.min(...artAll.flatMap((r) => r.outer.map((q) => q[0]))), maxX: Math.max(...artAll.flatMap((r) => r.outer.map((q) => q[0]))), minY: Math.min(...artAll.flatMap((r) => r.outer.map((q) => q[1]))), maxY: Math.max(...artAll.flatMap((r) => r.outer.map((q) => q[1]))) };
+  assert("the key is one solid shape that holds all the artwork and wraps it with the border", ol.capOutline.length === 1 && ol.capOutline[0].holes.length === 0 && totalArea(difference(artAll, ol.capOutline)) < 0.01 && ol.capBounds.minX <= ab.minX - 1.2 + 0.25 && ol.capBounds.maxX >= ab.maxX + 1.2 - 0.25);
+  assert("a thicker border makes a bigger key (0.8, 1.2, 2 and 3 mm)", (() => { const areas = [BORDER_MM.thin, BORDER_MM.normal, BORDER_MM.thick, BORDER_MM.extra].map((b) => totalArea(buildLayout(outlineSpec({ border: b }), fonts).capOutline)); return areas.every((a, i) => i === 0 || a > areas[i - 1]); })());
+  assert("the base follows the key: 5 mm bigger all round", near(ol.baseSize[0], ol.capSize[0] + 5, 0.4) && near(ol.baseSize[1], ol.capSize[1] + 5, 0.4));
+  assert("letters that are apart are joined into one key; pieces far apart are wrapped in one shape", buildLayout(outlineSpec({ layers: [textLayer({ text: "H", x: -11, color: RED, size: 9 }), textLayer({ text: "I", x: 11, color: RED, size: 9 })] }), fonts).capOutline.length === 1 && buildLayout(outlineSpec({ layers: [textLayer({ text: "H", x: -40, color: RED, size: 9 }), textLayer({ text: "I", x: 40, color: RED, size: 9 })] }), fonts).capOutline.length === 1);
+  assert("a letter with a hole (O) does not leave a hole in the key", buildLayout(outlineSpec({ layers: [textLayer({ text: "O", color: RED, size: 16, font: "chunky" })] }), fonts).capOutline.every((r) => r.holes.length === 0));
+  assert("with nothing on the key it is just big enough for the switch plus the border", (() => { const l = buildLayout(outlineSpec({ layers: [] }), fonts); return near(l.capSize[0], FIT.keepoutMm + 2 * 1.2, 0.8) && l.errors.length === 0; })());
+  assert("the switch square is always inside the key, however small the artwork", (() => { const l = buildLayout(outlineSpec({ layers: [textLayer({ text: ".", size: 2, color: RED, x: 30 })] }), fonts); const keep: Region[] = [{ outer: [[-7.5, -7.5], [7.5, -7.5], [7.5, 7.5], [-7.5, 7.5]], holes: [] }]; return totalArea(difference(keep, l.capOutline)) < 0.05; })());
+  assert("making the design 2x bigger makes the key about 2x bigger", (() => { const a = buildLayout(outlineSpec({ layers: [textLayer({ text: "HELLO", color: RED, size: 8 })] }), fonts); const b = buildLayout(scaleDesign(outlineSpec({ layers: [textLayer({ text: "HELLO", color: RED, size: 8 })] }), 2), fonts); const k = b.capSize[0] / a.capSize[0]; return k > 1.7 && k < 2.1; })());
+  assert("the owner's minimum size does not apply to a key that follows its design; a fixed shape still needs it", checkAgainstConfig({ ...outlineSpec(), width: 24, height: 24 }, cfg) === null && checkAgainstConfig({ ...plain, width: 24, height: 24 }, cfg) !== null);
+  assert("the server checks the size written on an outline design against the real one", await (async () => {
+    const big = outlineSpec({ layers: [textLayer({ text: "BIG", color: RED, size: 30, font: "chunky" })], width: 40, height: 40 });
+    const real = Math.max(...buildLayout(big, fonts).capSize);
+    const lie = await checkDesign(big, cfg);
+    const honest = await checkDesign({ ...big, width: Math.ceil(real), height: Math.ceil(real) }, cfg);
+    return real > 41 && !lie.ok && /does not match/.test(lie.error) && honest.ok;
+  })());
+  assert("an outline key bigger than the owner's largest size is refused", await (async () => { const r = await checkDesign(outlineSpec({ layers: [textLayer({ text: "HUGEWORD", color: RED, size: 40, font: "chunky" })], width: 120, height: 120 }), cfg); return !r.ok; })());
+
+  console.log("\nseveral switches under one key");
+  assert("tidy patterns: a row, a 2 × 2 grid, 3 + 2 and 3 × 3 columns, all at least 17 mm apart, centred, never more than 6", [1, 2, 3, 4, 5, 6, 7].every((n) => ["row", "grid"].every((a) => { const p = switchPattern(n, a as "row" | "grid"); return p.length === Math.min(n, 6) && switchesApart(p) && near(p.reduce((t, q) => t + q.x, 0), 0, 0.3); })) && switchPattern(4, "grid").every((q) => Math.abs(Math.abs(q.x) - 8.5) < 0.01 && Math.abs(Math.abs(q.y) - 8.5) < 0.01));
+  assert("switches closer than 17 mm are refused by the design schema; 17 mm apart is fine; an old design without switches gets one in the middle", !clickerSpecSchema.safeParse({ ...plain, switches: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }).success && clickerSpecSchema.safeParse({ ...plain, switches: [{ x: -8.5, y: 0 }, { x: 8.5, y: 0 }] }).success && !clickerSpecSchema.safeParse({ ...plain, switches: switchPattern(6).concat([{ x: 100, y: 100 }]) }).success && (() => { const { switches: _s, ...old } = plain; void _s; const r = clickerSpecSchema.safeParse(old); return r.success && r.data.switches.length === 1; })());
+  assert("diagonal squares may be 17 mm apart in one direction only", switchesApart([{ x: 0, y: 0 }, { x: 17, y: 3 }]) && !switchesApart([{ x: 0, y: 0 }, { x: 16.9, y: 16.9 }]));
+  const two = buildLayout(clickerSpecSchema.parse({ ...plain, width: 30, height: 30, switches: switchPattern(2) }), fonts);
+  assert("two switches: a 30 mm circle grows (to at least 35 mm) to hold both keep-out squares, and says so; a 40 mm circle already holds them", two.switches.length === 2 && two.capSize[0] >= 35 && !!two.grownFrom && two.warnings.some((w) => /switches fit/.test(w)) && !buildLayout(clickerSpecSchema.parse({ ...plain, switches: switchPattern(2) }), fonts).grownFrom);
+  assert("each switch gets its own chamber, clip windows, cavity and socket", (() => {
+    const outlineArea = totalArea(two.housingOutline), cap = totalArea(two.capOutline);
+    const body = totalArea(two.parts.find((p) => p.id === "h-body")!.regions);
+    const ceiling = totalArea(two.parts.find((p) => p.role === "cap-top")!.regions);
+    const cavity = FIT.cavityMm ** 2, boss = Math.PI * (FIT.bossDiameterMm / 2) ** 2;
+    return near(body, outlineArea - 2 * 196, 0.6) && near(ceiling, cap - 2 * cavity + 2 * boss, 2.5);
+  })());
+  assert("the chambers do not touch each other, and the walls between them are solid", (() => { const body = two.parts.find((p) => p.id === "h-body")!; const gap = totalArea(intersect(body.regions, [{ outer: [[-1, -6], [1, -6], [1, 6], [-1, 6]], holes: [] }])); return near(gap, 12 * 2, 0.2) ; })());
+  assert("six switches on a key that follows the design still fit the plate, with closed solids", (() => {
+    const l = buildLayout(outlineSpec({ switches: switchPattern(6, "grid") }), fonts);
+    return l.switches.length === 6 && l.errors.length === 0 && !!plateLayout(l) && extrudeLayout(l).every((p) => isWatertight(meshOfPart(p)));
+  })());
+  assert("switches placed too close together (bypassing the schema) are an error naming the rule", buildLayout({ ...plain, switches: [{ x: 0, y: 0 }, { x: 8, y: 0 }] }, fonts).errors.some((e) => /too close/.test(e)));
+  assert("every switch is covered by the key on every shape (4 switches in a grid)", SHAPE_IDS.every((shape) => { const l = buildLayout(clickerSpecSchema.parse({ ...plain, shape, switches: switchPattern(4, "grid"), layers: [] }), fonts); return l.switches.every((p) => totalArea(difference([{ outer: [[p.x - 7.5, p.y - 7.5], [p.x + 7.5, p.y - 7.5], [p.x + 7.5, p.y + 7.5], [p.x - 7.5, p.y + 7.5]], holes: [] }], l.capOutline)) < 0.05); }));
+
   console.log("\nthe keyring");
   const ringProblems: string[] = [];
   for (const shape of SHAPE_IDS) {
@@ -311,7 +356,7 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     assert("each distinct colour is one base material and one filament, and none more than the printer's 4", (model.match(/<base /g) ?? []).length === print.report.filaments.length && print.report.filaments.length === 3 && print.report.filaments.length <= 4);
     assert("everything lies on the plate: between 0 and 256 mm in x and y, base from z 0 to 18, cap printed from z 0", print.report.pieces.every((p) => p.bounds[0] >= 5.99 && p.bounds[3] <= 250.01 && p.bounds[1] >= 5.99 && p.bounds[4] <= 250.01) && print.report.pieces.filter((p) => p.object === "cap").every((p) => p.bounds[2] >= -0.001 && p.bounds[5] <= 6.01) && print.report.pieces.filter((p) => p.object === "housing").every((p) => p.bounds[5] <= 18.01));
     assert("the filament colours are listed for the slicer", JSON.parse(strFromU8(files["Metadata/project_settings.config"])).filament_colour.length === print.report.filaments.length);
-    assert("the report names the sizes and the switch", near(print.report.capSize[0], 40, 0.1) && near(print.report.baseSize[0], 45, 0.1) && print.report.switches === 1 && print.report.switchType === "clicky" && near(print.report.totalHeightMm, 22.6, 0.01));
+    assert("the report names the sizes and the switch", near(print.report.capSize[0], 40, 0.1) && near(print.report.baseSize[0], 45, 0.1) && print.report.switches === 1 && near(print.report.totalHeightMm, 22.6, 0.01));
   }
   console.log("\nthe fit test plate");
   const fit = await buildFitTest();

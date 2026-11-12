@@ -80,8 +80,8 @@ function GhostSwitches({ layout, show }: { layout: Layout; show: boolean }) {
   const mat = (color: string, opacity: number) => <meshStandardMaterial color={color} transparent opacity={opacity} roughness={0.6} depthWrite={false} />;
   return (
     <>
-      {layout.keys.map((k) => (
-        <group key={k.index} position={[k.cx, k.cy, 0]}>
+      {layout.switches.map((k, i) => (
+        <group key={i} position={[k.x, k.y, 0]}>
           <mesh position={[0, 0, (deck + 1.7) / 2]}><boxGeometry args={[13.6, 13.6, deck - 1.7]} />{mat("#9ca3af", 0.45)}</mesh>
           <mesh position={[0, 0, deck + 0.75]}><boxGeometry args={[15.4, 15.4, 1.5]} />{mat("#374151", 0.6)}</mesh>
           <mesh position={[0, 0, deck + 3.5]}><boxGeometry args={[11.4, 11.4, 4]} />{mat("#374151", 0.55)}</mesh>

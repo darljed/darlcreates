@@ -136,6 +136,23 @@ export function setSize(spec: ClickerSpec, patch: { width?: number; height?: num
 }
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/**
+ * Make the whole design bigger or smaller by `k`: text sizes, picture sizes and where every layer sits. Used for a key that
+ * follows its artwork, where the size of the key IS the size of the design. Switches stay where they are (they are a fixed size).
+ */
+export function scaleDesign(spec: ClickerSpec, k: number): ClickerSpec {
+  if (!Number.isFinite(k) || k <= 0 || Math.abs(k - 1) < 0.002) return spec;
+  const r = (n: number) => Math.round(n * 100) / 100;
+  return {
+    ...spec,
+    layers: spec.layers.map((l) =>
+      l.kind === "text"
+        ? { ...l, x: r(l.x * k), y: r(l.y * k), size: r(clamp(l.size * k, 2, 80)), spacing: r(clamp(l.spacing * k, -1, 10)), lineGap: r(clamp(l.lineGap * k, -2, 20)) }
+        : { ...l, x: r(l.x * k), y: r(l.y * k), size: r(clamp(l.size * k, 2, 200)) },
+    ),
+  };
+}
+
 // --- new layers ------------------------------------------------------------------------------------------------------
 
 export function newTextLayer(cfg: ClickerConfig, over: Partial<TextLayer> = {}): TextLayer {

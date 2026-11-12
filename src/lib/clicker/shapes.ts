@@ -6,10 +6,11 @@
 import type { Pt, Ring } from "./poly";
 import { ringArea } from "./poly";
 
-export const SHAPE_IDS = ["circle", "square", "rounded", "pill", "hexagon", "octagon", "diamond", "star", "heart", "shield", "flower", "squircle"] as const;
+export const SHAPE_IDS = ["outline", "circle", "square", "rounded", "pill", "hexagon", "octagon", "diamond", "star", "heart", "shield", "flower", "squircle"] as const;
 export type ShapeId = (typeof SHAPE_IDS)[number];
 
 export const SHAPE_LABELS: Record<ShapeId, string> = {
+  outline: "Follow my design",
   circle: "Circle",
   square: "Square",
   rounded: "Rounded",
@@ -76,6 +77,16 @@ export function shapeRing(id: ShapeId, w: number, h: number, opt: Partial<ShapeO
   const points = Math.max(3, Math.round(opt.points ?? (id === "star" ? 5 : 8)));
   let unitRing: Ring;
   switch (id) {
+    case "outline": {
+      // not a fixed shape: the key follows the artwork (see layout.ts). This blob is only the picture on its button.
+      const n = 96;
+      unitRing = Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * TAU;
+        const r = 1 + 0.16 * Math.cos(3 * a + 0.6) + 0.09 * Math.cos(5 * a + 1.3);
+        return [r * Math.cos(a), r * Math.sin(a)] as Pt;
+      });
+      break;
+    }
     case "circle": {
       const n = roundSides(w, h);
       unitRing = Array.from({ length: n }, (_, i) => [Math.cos((i / n) * TAU), Math.sin((i / n) * TAU)] as Pt);

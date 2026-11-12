@@ -3,8 +3,9 @@
  *
  *   housing  floor, body with a 14 mm chamber for the switch, a band with four clip windows, the deck the switch sits in,
  *            and the rim around the well. One colour. A flat keyring tab can hang off it.
- *   cap      one per key: a ring and a round boss with a cross socket for the stem (hollow underneath), a solid face, a
- *            thin skin on top with the coloured artwork inlaid in it (optionally standing above it).
+ *   cap      one per key: a ring and a round boss with a cross socket for the stem (hollow underneath) at each of its
+ *            switches, a solid face, a thin skin on top with the coloured artwork inlaid in it (optionally standing above it).
+ *            A key can follow the shape of its artwork ("outline") and can press on several switches.
  *
  * Every piece is a set of areas between two heights and no two pieces overlap, so each colour is its own filament. The
  * heights here are "assembled with the key up" (the cap sits `capRestZ` above the housing's bottom); the print file moves
@@ -16,7 +17,7 @@ import { boxRing, capTopMm, crossRing, DEFAULT_TUNE, FIT, RELIEF_MM, RIM_MM, tot
 import type { Bounds, Region, Ring } from "./poly";
 import { boundsOf, difference, intersect, offset, regionArea, removeSmallFeatures, straighten, totalArea, transformRegions, union } from "./poly";
 import { circleRing, rayExit, shapeRing } from "./shapes";
-import { nameKeys, type ClickerSpec } from "./spec";
+import { nameKeys, switchesApart, type ClickerSpec } from "./spec";
 import { LIMITS } from "./spec";
 import { textRegions } from "./text";
 
@@ -35,11 +36,13 @@ export type LayoutPart = {
   z1: number;
 };
 
-export type KeyInfo = { index: number; cx: number; cy: number; char: string | null; outline: Region[]; width: number; height: number; color: string };
+export type KeyInfo = { index: number; cx: number; cy: number; char: string | null; outline: Region[]; width: number; height: number; color: string; switches: { x: number; y: number }[] };
 
 export type Layout = {
   parts: LayoutPart[];
   keys: KeyInfo[];
+  /** Every switch, in drawing coordinates (what the sockets and chambers are built round). */
+  switches: { x: number; y: number }[];
   /** All caps together. */
   capOutline: Region[];
   /** The housing's footprint (without the keyring tab). */
@@ -66,14 +69,16 @@ export type FontLookup = (id: NameFontId) => Font | undefined;
 const lc = (s: string) => s.toLowerCase();
 const region = (outer: Ring): Region => ({ outer, holes: [] });
 
-/** The smallest k >= 1 so the shape scaled by k holds the switch's keep-out square. */
+const keepoutBox = (cx: number, cy: number) => region(boxRing(cx, cy, FIT.keepoutMm, FIT.keepoutMm));
+
+/** The smallest k >= 1 so the shape scaled by k holds the keep-out square of every switch. */
 function growToKeepout(spec: ClickerSpec): { w: number; h: number; grown: boolean } {
   const opt = { corner: spec.corner, points: spec.points };
-  const keep = [region(boxRing(0, 0, FIT.keepoutMm, FIT.keepoutMm))];
+  const keep = union(spec.switches.map((p) => keepoutBox(p.x, p.y)));
   const fits = (k: number) => totalArea(difference(keep, [region(shapeRing(spec.shape, spec.width * k, spec.height * k, opt))])) < 0.02;
   if (fits(1)) return { w: spec.width, h: spec.height, grown: false };
-  let lo = 1, hi = 4;
-  for (let i = 0; i < 22; i++) {
+  let lo = 1, hi = 6;
+  for (let i = 0; i < 24; i++) {
     const mid = (lo + hi) / 2;
     if (fits(mid)) hi = mid;
     else lo = mid;
@@ -82,8 +87,68 @@ function growToKeepout(spec: ClickerSpec): { w: number; h: number; grown: boolea
   return { w: up(spec.width * hi), h: up(spec.height * hi), grown: true };
 }
 
+/** The convex hull of some regions' points (Andrew's monotone chain), as one counter-clockwise ring. */
+function hullOf(regions: Region[]): Ring {
+  const pts = regions.flatMap((r) => r.outer).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: Ring = [], upper: Ring = [];
+  for (const p of pts) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop(); lower.push(p); }
+  for (const p of [...pts].reverse()) { while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop(); upper.push(p); }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
+/**
+ * The key that follows its artwork: everything on the key plus the keep-out square of every switch, any gaps between
+ * letters and pieces closed up (so it is one solid shape with no holes), then grown by the border. If the pieces are too far
+ * apart to join, the shape wraps all of them.
+ */
+function outlineAround(art: Region[], switches: { x: number; y: number }[], border: number): Region[] {
+  const solid = union([...art, ...switches.map((p) => keepoutBox(p.x, p.y))]);
+  let joined: Region[] = [];
+  for (const bridge of [1.5, 2.5, 4, 6, 9, 13]) {
+    // closing: grow then shrink, which fills gaps narrower than twice the bridge; drop the holes so it is one solid
+    joined = union(offset(offset(solid, bridge), -bridge).map((r) => ({ outer: r.outer, holes: [] })));
+    if (joined.length === 1) break;
+  }
+  if (joined.length !== 1) joined = [region(hullOf(joined.length ? joined : solid))];
+  return union(offset(joined, border).map((r) => ({ outer: r.outer, holes: [] })));
+}
+
+type PlacedLayer = { layerId: string; keyIndex: number; color: string; regions: Region[] };
+
+/** Place the text and pictures of a clicker on the key (centred on its middle). */
+function placeClickerLayers(spec: ClickerSpec, fonts: FontLookup, errors: string[]): { placed: PlacedLayer[]; layerShapes: Map<string, Region[]> } {
+  const placed: PlacedLayer[] = [];
+  const layerShapes = new Map<string, Region[]>();
+  for (const layer of spec.layers) {
+    if (!layer.visible) continue;
+    if (layer.kind === "text") {
+      if (!layer.text.trim()) continue;
+      const font = fonts(layer.font);
+      if (!font) continue; // still loading in the browser
+      const t = textRegions(font, layer.text, { size: layer.size, spacing: layer.spacing, lineGap: layer.lineGap });
+      if ("error" in t) {
+        errors.push(`Text “${layer.text.slice(0, 12)}”: ${t.error}`);
+        continue;
+      }
+      const regions = transformRegions(t.regions, { x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
+      placed.push({ layerId: layer.id, keyIndex: 0, color: lc(layer.color), regions });
+      layerShapes.set(layer.id, regions);
+    } else {
+      const all: Region[] = [];
+      for (const g of layer.regions) {
+        const regions = transformRegions(g.shapes, { scale: layer.size, x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
+        if (regions.length) placed.push({ layerId: layer.id, keyIndex: 0, color: lc(g.color), regions });
+        all.push(...regions);
+      }
+      if (all.length) layerShapes.set(layer.id, all);
+    }
+  }
+  return { placed, layerShapes };
+}
+
 /** Where each key goes: one at the centre for a clicker; rows of keys for name keys. */
-function placeKeys(spec: ClickerSpec): { cx: number; cy: number; char: string | null; ring: Ring; color: string }[] {
+function placeKeys(spec: ClickerSpec, clickerArt: Region[]): { cx: number; cy: number; char: string | null; ring: Ring; color: string; switches: { x: number; y: number }[] }[] {
   if (spec.kind === "name" && spec.name) {
     const chars = nameKeys(spec.name);
     const per = Math.max(1, spec.name.perRow);
@@ -94,43 +159,53 @@ function placeKeys(spec: ClickerSpec): { cx: number; cy: number; char: string | 
       const inRow = Math.min(per, chars.length - row * per);
       const cx = (col - (inRow - 1) / 2) * pitch;
       const cy = -(row - (rows - 1) / 2) * pitch;
-      return { cx, cy, char, ring: boxRing(cx, cy, FIT.keyMm, FIT.keyMm, FIT.keyCornerMm), color: lc(spec.name!.keyColors[i % spec.name!.keyColors.length]) };
+      return { cx, cy, char, ring: boxRing(cx, cy, FIT.keyMm, FIT.keyMm, FIT.keyCornerMm), color: lc(spec.name!.keyColors[i % spec.name!.keyColors.length]), switches: [{ x: cx, y: cy }] };
     });
   }
+  if (spec.shape === "outline") {
+    const around = outlineAround(clickerArt, spec.switches, spec.border);
+    const biggest = around.slice().sort((a, b) => regionArea(b) - regionArea(a))[0];
+    return [{ cx: 0, cy: 0, char: null, ring: biggest.outer, color: lc(spec.capColor), switches: spec.switches }];
+  }
   const size = growToKeepout(spec);
-  return [{ cx: 0, cy: 0, char: null, ring: shapeRing(spec.shape, size.w, size.h, { corner: spec.corner, points: spec.points }), color: lc(spec.capColor) }];
+  return [{ cx: 0, cy: 0, char: null, ring: shapeRing(spec.shape, size.w, size.h, { corner: spec.corner, points: spec.points }), color: lc(spec.capColor), switches: spec.switches }];
 }
 
 export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = DEFAULT_TUNE): Layout {
   const warnings: string[] = [];
   const errors: string[] = [];
 
+  // --- the artwork of a clicker is placed first: a key that follows it needs to know where it is -----------------
+  const early = spec.kind === "clicker" ? placeClickerLayers(spec, fonts, errors) : { placed: [] as PlacedLayer[], layerShapes: new Map<string, Region[]>() };
+  if (spec.kind === "clicker" && !switchesApart(spec.switches)) errors.push(`The switches are too close. Keep them at least ${FIT.switchPitchMm} mm apart.`);
+
   // --- the keys (caps) ------------------------------------------------------------------------------------------
-  const placedKeys = placeKeys(spec);
+  const placedKeys = placeKeys(spec, early.placed.flatMap((p) => p.regions));
   const keys: KeyInfo[] = placedKeys.map((k, index) => {
     const outline = [region(k.ring)];
     const b = boundsOf(outline);
-    return { index, cx: k.cx, cy: k.cy, char: k.char, outline, width: b.maxX - b.minX, height: b.maxY - b.minY, color: k.color };
+    return { index, cx: k.cx, cy: k.cy, char: k.char, outline, width: b.maxX - b.minX, height: b.maxY - b.minY, color: k.color, switches: k.switches };
   });
+  const switches = keys.flatMap((k) => k.switches);
   const capOutline = union(keys.flatMap((k) => k.outline));
   const capBounds = boundsOf(capOutline);
   const asked: [number, number] = [spec.width, spec.height];
   const capSize: [number, number] = [capBounds.maxX - capBounds.minX, capBounds.maxY - capBounds.minY];
   let grownFrom: [number, number] | null = null;
-  if (spec.kind === "clicker" && (capSize[0] > asked[0] + 0.05 || capSize[1] > asked[1] + 0.05)) {
+  if (spec.kind === "clicker" && spec.shape !== "outline" && (capSize[0] > asked[0] + 0.05 || capSize[1] > asked[1] + 0.05)) {
     grownFrom = asked;
-    warnings.push(`Made ${capSize[0].toFixed(1)} × ${capSize[1].toFixed(1)} mm so the switch fits inside.`);
+    warnings.push(`Made ${capSize[0].toFixed(1)} × ${capSize[1].toFixed(1)} mm so ${switches.length > 1 ? "the switches fit" : "the switch fits"} inside.`);
   }
 
   // --- the housing -----------------------------------------------------------------------------------------------
   const housingOutline = union(offset(capOutline, FIT.insetMm));
   const wells = union(offset(capOutline, FIT.clearMm + tune.gap));
   const pocket = FIT.pocketMm + tune.pocket;
-  const chambers = union(keys.map((k) => region(boxRing(k.cx, k.cy, pocket, pocket))));
+  const chambers = union(switches.map((k) => region(boxRing(k.x, k.y, pocket, pocket))));
   const windows = union(
-    keys.flatMap((k) => {
+    switches.flatMap((k) => {
       const w = FIT.notchWidthMm, d = FIT.notchDepthMm + 0.2, off = pocket / 2 - 0.2 + d / 2;
-      return [region(boxRing(k.cx + off, k.cy, d, w)), region(boxRing(k.cx - off, k.cy, d, w)), region(boxRing(k.cx, k.cy + off, w, d)), region(boxRing(k.cx, k.cy - off, w, d))];
+      return [region(boxRing(k.x + off, k.y, d, w)), region(boxRing(k.x - off, k.y, d, w)), region(boxRing(k.x, k.y + off, w, d)), region(boxRing(k.x, k.y - off, w, d))];
     }),
   );
   const chambersAndWindows = union(chambers, windows);
@@ -190,10 +265,10 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = D
   add({ id: "h-rim", object: "housing", role: "rim", name: "Base rim", color: base, regions: difference(housingOutline, wells), z0: deckTopMm, z1: rimTop });
   if (tab.length) add({ id: "h-ring", object: "housing", role: "keyring", name: "Base keyring", color: base, regions: tab, z0: 0, z1: FIT.keyringMm });
 
-  // --- the artwork: place every layer, then let upper layers cover lower ones ------------------------------------
-  type Placed = { layerId: string; keyIndex: number; color: string; regions: Region[] };
-  const placed: Placed[] = [];
-  const layerShapes = new Map<string, Region[]>();
+  // --- the artwork: name keys put a letter on each key; a clicker's layers were placed above ------------------------
+  type Placed = PlacedLayer;
+  const placed: Placed[] = [...early.placed];
+  const layerShapes = early.layerShapes;
   if (spec.kind === "name" && spec.name) {
     const font = fonts(spec.name.font);
     if (font) {
@@ -204,31 +279,6 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = D
           continue;
         }
         placed.push({ layerId: `key${k.index}`, keyIndex: k.index, color: lc(spec.name.letterColor), regions: transformRegions(t.regions, { x: k.cx, y: k.cy }) });
-      }
-    }
-  } else {
-    for (const layer of spec.layers) {
-      if (!layer.visible) continue;
-      if (layer.kind === "text") {
-        if (!layer.text.trim()) continue;
-        const font = fonts(layer.font);
-        if (!font) continue; // still loading in the browser
-        const t = textRegions(font, layer.text, { size: layer.size, spacing: layer.spacing, lineGap: layer.lineGap });
-        if ("error" in t) {
-          errors.push(`Text “${layer.text.slice(0, 12)}”: ${t.error}`);
-          continue;
-        }
-        const regions = transformRegions(t.regions, { x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
-        placed.push({ layerId: layer.id, keyIndex: 0, color: lc(layer.color), regions });
-        layerShapes.set(layer.id, regions);
-      } else {
-        const all: Region[] = [];
-        for (const g of layer.regions) {
-          const regions = transformRegions(g.shapes, { scale: layer.size, x: layer.x, y: layer.y, rotation: layer.rotation, mirror: layer.mirror });
-          if (regions.length) placed.push({ layerId: layer.id, keyIndex: 0, color: lc(g.color), regions });
-          all.push(...regions);
-        }
-        if (all.length) layerShapes.set(layer.id, all);
       }
     }
   }
@@ -281,10 +331,10 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = D
     const colour = k.color;
     const s = slabs.get(colour) ?? { c1: [], c2: [], c3: [], c4: [], skin: [] };
     slabs.set(colour, s);
-    const cavity = [region(boxRing(k.cx, k.cy, FIT.cavityMm, FIT.cavityMm, FIT.cavityCornerMm))];
-    const boss = [region(circleRing(k.cx, k.cy, FIT.bossDiameterMm / 2))];
-    const cross = [region(crossRing(k.cx, k.cy, FIT.crossSpanMm + stem, FIT.crossArmMm + stem))];
-    const mouth = [region(crossRing(k.cx, k.cy, FIT.mouthSpanMm + stem, FIT.mouthArmMm + stem))];
+    const cavity = union(k.switches.map((p) => region(boxRing(p.x, p.y, FIT.cavityMm, FIT.cavityMm, FIT.cavityCornerMm))));
+    const boss = union(k.switches.map((p) => region(circleRing(p.x, p.y, FIT.bossDiameterMm / 2))));
+    const cross = union(k.switches.map((p) => region(crossRing(p.x, p.y, FIT.crossSpanMm + stem, FIT.crossArmMm + stem))));
+    const mouth = union(k.switches.map((p) => region(crossRing(p.x, p.y, FIT.mouthSpanMm + stem, FIT.mouthArmMm + stem))));
     const ring = difference(k.outline, cavity);
     s.c1.push(...union(ring, difference(boss, mouth)));
     s.c2.push(...union(ring, difference(boss, cross)));
@@ -318,7 +368,7 @@ export function buildLayout(spec: ClickerSpec, fonts: FontLookup, tune: Tune = D
   if (!sideBySide && !stacked) errors.push("This is too big to print on one plate. Make it smaller.");
 
   return {
-    parts, keys, capOutline, housingOutline, bounds, capBounds, keyring, layerShapes, warnings, errors,
+    parts, keys, switches, capOutline, housingOutline, bounds, capBounds, keyring, layerShapes, warnings, errors,
     totalHeight: totalHeightMm(spec.relief), capSize, baseSize: [hw, hh], grownFrom,
   };
 }

@@ -29,6 +29,13 @@ export async function checkDesign(input: unknown, cfg: ClickerConfig): Promise<{
   const fonts = await loadAllFonts();
   const layout = buildLayout(parsed.data, (id) => fonts.get(id), cfg.tune);
   if (layout.errors.length) return { ok: false, error: layout.errors[0] };
+  if (parsed.data.kind === "clicker" && parsed.data.shape === "outline") {
+    // The price follows the size in the design. A key that follows its artwork has the size the artwork makes, so check the
+    // size on the design is not smaller than the real one (otherwise a big key could be priced as a small one).
+    const real = Math.max(...layout.capSize), claimed = Math.max(parsed.data.width, parsed.data.height);
+    if (real > claimed + 0.6) return { ok: false, error: "The size of this clicker does not match its design. Open the designer and try again." };
+    if (real > cfg.maxSize + 0.05) return { ok: false, error: `The clicker can be at most ${cfg.maxSize} mm. Make the design smaller.` };
+  }
   if (layout.parts.length === 0) return { ok: false, error: "There is nothing to print. Check the sizes." };
   return { ok: true, spec: parsed.data };
 }
@@ -46,7 +53,6 @@ export type ClickerPrint =
         totalHeightMm: number;
         filaments: string[];
         switches: number;
-        switchType: string;
       };
     };
 
@@ -83,8 +89,7 @@ export async function buildClickerPrint(spec: ClickerSpec, title = "Custom click
       baseSize: layout.baseSize,
       totalHeightMm: layout.totalHeight,
       filaments: colours,
-      switches: layout.keys.length,
-      switchType: spec.switchType,
+      switches: layout.switches.length,
     },
   };
 }
@@ -110,7 +115,7 @@ export async function designSvgDataUri(spec: ClickerSpec): Promise<string> {
 export async function buildFitTest(steps: number[] = [-0.1, 0, 0.1, 0.2]): Promise<{ file: Uint8Array; steps: number[] }> {
   const fonts = await loadAllFonts();
   const spec = clickerSpecSchema.parse({
-    v: 2, kind: "clicker", switchType: "clicky", shape: "square", width: 24, height: 24, corner: 3, points: 5,
+    v: 2, kind: "clicker", shape: "square", width: 24, height: 24, corner: 3, points: 5, border: 1.2, switches: [{ x: 0, y: 0 }],
     baseColor: "#f8fafc", capColor: "#f8fafc", relief: "flat", rim: "low",
     keyring: { on: false, angle: 0, hole: 5, wall: 2.4 }, layers: [],
   });

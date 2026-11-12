@@ -2,7 +2,7 @@
 
 /**
  * Admin: turn a product into a "design your own clicker" product and set what customers may do: the size range, the
- * price steps by size, the colours on offer (and how many one print can hold), the switches you fit and their prices, name
+ * price steps by size, the colours on offer (and how many one print can hold), how many switches a key may hold, name
  * keys, and the fit for your printer. Saves into the product's one text option
  * (see saveClickerConfigAction). The shop shows the designer in place of the option form.
  */
@@ -133,23 +133,13 @@ export function ClickerSetup({ productId, initial, canSwitchOn }: { productId: s
           <p className="text-xs text-muted-foreground">The first colour is the starting body colour. Pictures are matched to the nearest of these.</p>
         </div>
 
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold">Switches you fit</h3>
-          <p className="text-[11px] text-muted-foreground">Each key has a real switch under it. The price is added per switch. Untick &quot;In stock&quot; when you run out.</p>
-          {c.switches.map((o, i) => (
-            <div key={o.type} className="flex flex-wrap items-end gap-2">
-              <Field label={`${o.type[0].toUpperCase()}${o.type.slice(1)} switch name`}>
-                <Input className="w-56" value={o.label} maxLength={40} onChange={(e) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} />
-              </Field>
-              <Field label="Adds (₱) each">
-                <Input type="number" className="w-28" min={0} step="0.01" defaultValue={pesos(o.cents)} onChange={(e) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, cents: toCents(e.target.value) } : x)) })} />
-              </Field>
-              <div className="pb-2"><Check label="In stock" checked={o.available} onChange={(v) => set({ switches: c.switches.map((x, j) => (j === i ? { ...x, available: v } : x)) })} /></div>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Most switches under one key" hint="1 to 6">
+            <Input type="number" min={1} max={6} value={c.maxSwitches} onChange={(e) => set({ maxSwitches: Math.round(num(e.target.value)) })} />
+          </Field>
+          <Field label="Each extra switch (₱)" hint="Cherry MX, fitted">
+            <Input type="number" min={0} step="0.01" defaultValue={pesos(c.extraSwitchCents)} onChange={(e) => set({ extraSwitchCents: toCents(e.target.value) })} />
+          </Field>
           <Field label="Most colours per print" hint="your printer (X2D: 4)">
             <Input type="number" min={2} max={8} value={c.maxColours} onChange={(e) => set({ maxColours: Math.round(num(e.target.value)) })} />
           </Field>

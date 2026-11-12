@@ -60,6 +60,8 @@ export const FIT = {
 
   /** The switch must fit inside the cap's outline: this square (the flange plus a little) has to lie within it. */
   keepoutMm: 15,
+  /** Two switches must be at least this far apart (centre to centre, along x or y): their flanges and chambers must not touch. */
+  switchPitchMm: 17,
 
   // --- name keys ---
   keyMm: 18,
@@ -86,6 +88,12 @@ export const RELIEF_IDS = ["flat", "low", "high"] as const;
 export type ReliefId = (typeof RELIEF_IDS)[number];
 export const RELIEF_MM: Record<ReliefId, number> = { flat: 0, low: 0.6, high: 1.2 };
 export const RELIEF_LABELS: Record<ReliefId, string> = { flat: "Flat", low: "Raised 0.6 mm", high: "Raised 1.2 mm" };
+
+/** The coloured border round an outline-shaped key (the key follows the artwork, plus this much). */
+export const BORDER_IDS = ["thin", "normal", "thick", "extra"] as const;
+export type BorderId = (typeof BORDER_IDS)[number];
+export const BORDER_MM: Record<BorderId, number> = { thin: 0.8, normal: 1.2, thick: 2, extra: 3 };
+export const BORDER_LABELS: Record<BorderId, string> = { thin: "Thin", normal: "Normal", thick: "Thick", extra: "Extra" };
 
 /** Fit adjustments for the owner's printer and filament, in mm: positive loosens, negative tightens. */
 export type Tune = { pocket: number; stem: number; gap: number };

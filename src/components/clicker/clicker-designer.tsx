@@ -28,7 +28,7 @@ import { buildLayout, type Layout } from "@/lib/clicker/layout";
 import { extrudeLayout } from "@/lib/clicker/extrude";
 import { pointInRegion } from "@/lib/clicker/poly";
 import {
-  checkAgainstConfig, clickerColours, clickerPriceDeltaCents, clickerSpecSchema, defaultSpec, KIND_LABELS, LIMITS, MAX_ADD_JSON, nameKeys, switchCount, switchOfferFor,
+  checkAgainstConfig, clickerColours, clickerPriceDeltaCents, clickerSpecSchema, defaultSpec, KIND_LABELS, LIMITS, MAX_ADD_JSON, nameKeys, switchCount,
   type ClickerConfig, type ClickerSpec, type Kind,
 } from "@/lib/clicker/spec";
 import { RELIEF_LABELS, RIM_LABELS } from "@/lib/clicker/fit";
@@ -54,7 +54,7 @@ const STEPS: Record<Kind, StepId[]> = {
   name: ["letters", "colours", "look", "switch", "keyring"],
 };
 const STEP_TITLES: Record<StepId, string> = {
-  design: "What's on the key", letters: "Your letters", colours: "Colours", shape: "Shape & size", look: "Look", switch: "Switch", keyring: "Keyring",
+  design: "What's on the key", letters: "Your letters", colours: "Colours", shape: "Shape & size", look: "Look", switch: "Switches", keyring: "Keyring",
 };
 
 /** The starting design with fixed layer ids: the server and the browser must build the same page (new ids use the clock). */
@@ -89,9 +89,9 @@ function stepSummary(id: StepId, spec: ClickerSpec, config: ClickerConfig): stri
     }
     case "letters": return spec.name ? `“${nameKeys(spec.name).join("")}” · ${nameKeys(spec.name).length} keys` : "";
     case "colours": return `${clickerColours(spec).length} of ${config.maxColours} colours`;
-    case "shape": return `${spec.width} × ${spec.height} mm ${spec.shape}`;
+    case "shape": return spec.shape === "outline" ? `${spec.width} × ${spec.height} mm · follows your design` : `${spec.width} × ${spec.height} mm ${spec.shape}`;
     case "look": return `${RELIEF_LABELS[spec.relief]} · ${RIM_LABELS[spec.rim]} wall`;
-    case "switch": return switchOfferFor(config, spec.switchType)?.label ?? spec.switchType;
+    case "switch": return spec.kind === "name" ? `${switchCount(spec)} · one per key` : `${spec.switches.length} Cherry MX switch${spec.switches.length === 1 ? "" : "es"}`;
     case "keyring": return spec.keyring.on ? "With a tab" : "None";
   }
 }
@@ -170,6 +170,17 @@ export function ClickerDesigner({
   );
   const solids = useMemo(() => extrudeLayout(layout), [layout]);
   const stale = deferredSpec !== spec;
+
+  // A key that follows its artwork has the size the artwork makes. Keep the size written on the design equal to the real one
+  // (the price size step and the server's check use it). This is bookkeeping, not an edit, so it is not an undo step.
+  useEffect(() => {
+    if (spec.kind !== "clicker" || spec.shape !== "outline" || deferredSpec !== spec) return;
+    const w = Math.min(LIMITS.maxSizeMm, Math.max(LIMITS.minSizeMm, Math.ceil(layout.capSize[0] * 10) / 10));
+    const h = Math.min(LIMITS.maxSizeMm, Math.max(LIMITS.minSizeMm, Math.ceil(layout.capSize[1] * 10) / 10));
+    if (Math.abs(w - spec.width) < 0.05 && Math.abs(h - spec.height) < 0.05) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keeping the written size equal to the real one
+    setSlots((all) => all.map((s, i) => (i === Math.min(active, all.length - 1) && s.h.present === spec ? { ...s, h: { ...s.h, present: { ...spec, width: w, height: h } } } : s)));
+  }, [layout, spec, deferredSpec, active]);
 
   const flatUri = useMemo(() => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(layoutToSvg(layout, { margin: 2 })), [layout]);
   const thumbs = useMemo(() => {
@@ -378,20 +389,27 @@ export function ClickerDesigner({
       toast.error("A font could not be loaded. Check your connection and try again.");
       return;
     }
+    // every design is built here once more: a key that follows its artwork gets its real size written on the design first
+    const ready: Slot[] = [];
     for (const [i, s] of slots.entries()) {
-      const why = checkAgainstConfig(s.h.present, config) ?? buildLayout(s.h.present, fonts.lookup, config.tune).errors[0];
+      const lay = buildLayout(s.h.present, fonts.lookup, config.tune);
+      const sp = s.h.present.kind === "clicker" && s.h.present.shape === "outline"
+        ? { ...s.h.present, width: Math.min(LIMITS.maxSizeMm, Math.max(LIMITS.minSizeMm, Math.ceil(lay.capSize[0] * 10) / 10)), height: Math.min(LIMITS.maxSizeMm, Math.max(LIMITS.minSizeMm, Math.ceil(lay.capSize[1] * 10) / 10)) }
+        : s.h.present;
+      const why = checkAgainstConfig(sp, config) ?? lay.errors[0];
       if (why) {
         setActive(i);
         toast.error(slots.length > 1 ? `Clicker ${i + 1}: ${why}` : why);
         return;
       }
+      ready.push({ ...s, h: { ...s.h, present: sp } });
     }
-    if (JSON.stringify(slots.map((s) => s.h.present)).length > MAX_ADD_JSON) {
+    if (JSON.stringify(ready.map((s) => s.h.present)).length > MAX_ADD_JSON) {
       toast.error("That is a lot of detailed designs at once. Add them in smaller groups.");
       return;
     }
     startAdd(() => {
-      void addNow(slots);
+      void addNow(ready);
     });
   }
 
@@ -586,7 +604,7 @@ export function ClickerDesigner({
                       {id === "colours" && <ColoursPanel spec={spec} edit={edit} config={config} />}
                       {id === "shape" && <ShapePanel spec={spec} edit={edit} config={config} lock={lock} setLock={setLock} layout={layout} />}
                       {id === "look" && <LookPanel spec={spec} edit={edit} config={config} />}
-                      {id === "switch" && <SwitchPanel spec={spec} edit={edit} config={config} />}
+                      {id === "switch" && <SwitchPanel spec={spec} edit={edit} config={config} layout={layout} />}
                       {id === "keyring" && <KeyringPanel spec={spec} edit={edit} config={config} layout={layout} />}
                       {n < steps.length - 1 && (
                         <div className="mt-4 flex justify-end">

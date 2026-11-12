@@ -5,7 +5,7 @@
  * colour limit of the printer), shape and size, how it looks (raised artwork, rim height), the switch and the keyring.
  * Each one only changes the design through `edit`, so undo and redo cover everything.
  */
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, FlipHorizontal2, ImagePlus, Link2, Link2Off, Loader2, Trash2, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,9 @@ import { formatPHP } from "@/lib/money";
 import { NAME_FONT_IDS } from "@/lib/name-mesh";
 import type { Layout } from "@/lib/clicker/layout";
 import { SHAPES_WITH_CORNER, SHAPES_WITH_POINTS, SHAPE_IDS, SHAPE_LABELS } from "@/lib/clicker/shapes";
-import { RELIEF_IDS, RELIEF_LABELS, RIM_IDS, RIM_LABELS, RIM_MM } from "@/lib/clicker/fit";
-import { clickerColours, LIMITS, nameKeys, SWITCH_HELP, sizeTierCents, switchCount, switchOfferFor, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
-import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, setSize, updateLayer } from "@/lib/clicker/state";
+import { BORDER_IDS, BORDER_LABELS, BORDER_MM, FIT, RELIEF_IDS, RELIEF_LABELS, RIM_IDS, RIM_LABELS, RIM_MM } from "@/lib/clicker/fit";
+import { clickerColours, LIMITS, nameKeys, sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
+import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, scaleDesign, setSize, updateLayer } from "@/lib/clicker/state";
 import type { Analysis, Pixels } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +81,14 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 // ---------------------------------------------------------------------------------------------------------------------
 
 export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common & { lock: boolean; setLock: (v: boolean) => void; layout: Layout }) {
+  const outline = spec.shape === "outline";
   const tiers = [...new Set([config.minSize, ...config.sizeTiers.map((t) => t.upToMm), config.maxSize].filter((v) => v >= config.minSize && v <= config.maxSize))].sort((a, b) => a - b);
+  const actual = Math.max(layout.capSize[0], layout.capSize[1]);
+  // a key that follows its artwork is sized by scaling the whole design to the longest side asked for
+  const rescale = (target: number) => {
+    const t = Math.min(config.maxSize, Math.max(Math.min(LIMITS.minSizeMm, actual), target));
+    edit((s) => scaleDesign(s, t / actual), "scale");
+  };
   return (
     <div className="space-y-5">
       <Section title="Shape">
@@ -93,7 +100,8 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common
               aria-pressed={spec.shape === id}
               onClick={() => edit((s) => ({ ...s, shape: id }))}
               className={cn(
-                "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-center text-[11px] font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                id === "outline" && "col-span-2",
                 spec.shape === id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary",
               )}
             >
@@ -102,42 +110,101 @@ export function ShapePanel({ spec, edit, config, lock, setLock, layout }: Common
             </button>
           ))}
         </div>
+        {outline && <p className="text-[11px] text-muted-foreground">The key follows the shape of your text and pictures, with a coloured border round it. The other shapes are a plate with your design inside.</p>}
         {SHAPES_WITH_CORNER.includes(spec.shape) && <Slider id="corner" label="Corner roundness" value={spec.corner} min={0} max={Math.min(spec.width, spec.height) / 2} step={0.5} onChange={(v) => edit((s) => ({ ...s, corner: v }), "corner")} />}
         {SHAPES_WITH_POINTS.includes(spec.shape) && <Slider id="points" label={spec.shape === "star" ? "Points" : "Petals"} value={spec.points} min={3} max={12} unit="" onChange={(v) => edit((s) => ({ ...s, points: Math.round(v) }), "points")} />}
       </Section>
 
-      <Section title="Size of the key">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Size presets">
-          {tiers.map((mm) => {
-            const add = sizeTierCents(mm, config.sizeTiers);
-            const on = Math.max(spec.width, spec.height) === mm;
-            return (
+      {outline && (
+        <Section title="Border">
+          <p className="text-[11px] text-muted-foreground">The border is the key colour, round the artwork. Pick the key colour in the Colours step.</p>
+          <div className="grid grid-cols-4 gap-2" role="group" aria-label="Border width">
+            {BORDER_IDS.map((b) => (
               <button
-                key={mm}
+                key={b}
                 type="button"
-                aria-pressed={on}
-                onClick={() => edit((s) => setSize(setSize(s, { width: mm }, config, false), { height: mm }, config, false))}
-                className={cn("rounded-full border-2 px-3 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary")}
+                aria-pressed={Math.abs(spec.border - BORDER_MM[b]) < 0.05}
+                onClick={() => edit((s) => ({ ...s, border: BORDER_MM[b] }))}
+                className={cn("rounded-lg border-2 px-1 py-2 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", Math.abs(spec.border - BORDER_MM[b]) < 0.05 ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary")}
               >
-                {mm} mm{add ? ` · +${formatPHP(add)}` : ""}
+                <span className="block text-xs font-bold">{BORDER_LABELS[b]}</span>
+                <span className="block text-[11px] text-muted-foreground">{BORDER_MM[b]} mm</span>
               </button>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-          <div>
-            <Label htmlFor="width" className="text-xs font-semibold">Width (mm)</Label>
-            <Input id="width" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.width} onChange={(e) => e.target.value && edit((s) => setSize(s, { width: Number(e.target.value) }, config, lock), "size")} />
+            ))}
           </div>
-          <Button type="button" size="icon" variant={lock ? "default" : "outline"} aria-pressed={lock} aria-label={lock ? "Keep the proportions (on)" : "Keep the proportions (off)"} title="Keep the proportions" onClick={() => setLock(!lock)}>
-            {lock ? <Link2 className="size-4" /> : <Link2Off className="size-4" />}
-          </Button>
-          <div>
-            <Label htmlFor="height" className="text-xs font-semibold">Height (mm)</Label>
-            <Input id="height" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.height} onChange={(e) => e.target.value && edit((s) => setSize(s, { height: Number(e.target.value) }, config, lock), "size")} />
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground">This is the size of the key you press, from {config.minSize} to {config.maxSize} mm. The base is 5 mm bigger all round. Bigger clickers cost a little more.</p>
+        </Section>
+      )}
+
+      <Section title={outline ? "Size" : "Size of the key"}>
+        {outline ? (
+          <>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Size presets">
+              {tiers.map((mm) => {
+                const add = sizeTierCents(mm, config.sizeTiers);
+                const on = Math.abs(actual - mm) < 0.6;
+                return (
+                  <button key={mm} type="button" aria-pressed={on} onClick={() => rescale(mm)} className={cn("rounded-full border-2 px-3 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary")}>
+                    {mm} mm{add ? ` · +${formatPHP(add)}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="button" size="icon" variant="outline" aria-label="Smaller" onClick={() => rescale(actual - 5)}>−</Button>
+              <div className="flex-1">
+                <Label htmlFor="longest" className="text-xs font-semibold">Longest side (mm)</Label>
+                <Input
+                  key={Math.round(actual * 10)}
+                  id="longest"
+                  type="number"
+                  inputMode="decimal"
+                  min={LIMITS.minSizeMm}
+                  max={config.maxSize}
+                  step={1}
+                  defaultValue={Math.round(actual * 10) / 10}
+                  onBlur={(e) => e.target.value && Math.abs(Number(e.target.value) - actual) > 0.3 && rescale(Number(e.target.value))}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                />
+              </div>
+              <Button type="button" size="icon" variant="outline" aria-label="Bigger" onClick={() => rescale(actual + 5)}>+</Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Changing this makes the whole design bigger or smaller, and the key follows. Up to {config.maxSize} mm. Bigger clickers cost a little more.</p>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Size presets">
+              {tiers.map((mm) => {
+                const add = sizeTierCents(mm, config.sizeTiers);
+                const on = Math.max(spec.width, spec.height) === mm;
+                return (
+                  <button
+                    key={mm}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => edit((s) => setSize(setSize(s, { width: mm }, config, false), { height: mm }, config, false))}
+                    className={cn("rounded-full border-2 px-3 py-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary")}
+                  >
+                    {mm} mm{add ? ` · +${formatPHP(add)}` : ""}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+              <div>
+                <Label htmlFor="width" className="text-xs font-semibold">Width (mm)</Label>
+                <Input id="width" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.width} onChange={(e) => e.target.value && edit((s) => setSize(s, { width: Number(e.target.value) }, config, lock), "size")} />
+              </div>
+              <Button type="button" size="icon" variant={lock ? "default" : "outline"} aria-pressed={lock} aria-label={lock ? "Keep the proportions (on)" : "Keep the proportions (off)"} title="Keep the proportions" onClick={() => setLock(!lock)}>
+                {lock ? <Link2 className="size-4" /> : <Link2Off className="size-4" />}
+              </Button>
+              <div>
+                <Label htmlFor="height" className="text-xs font-semibold">Height (mm)</Label>
+                <Input id="height" type="number" inputMode="decimal" min={config.minSize} max={config.maxSize} step={0.5} value={spec.height} onChange={(e) => e.target.value && edit((s) => setSize(s, { height: Number(e.target.value) }, config, lock), "size")} />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">This is the size of the key you press, from {config.minSize} to {config.maxSize} mm. The base is 5 mm bigger all round. Bigger clickers cost a little more.</p>
+          </>
+        )}
         <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs" role="status">
           Key {layout.capSize[0].toFixed(1)} × {layout.capSize[1].toFixed(1)} mm · base {layout.baseSize[0].toFixed(1)} × {layout.baseSize[1].toFixed(1)} mm · {layout.totalHeight.toFixed(1)} mm tall
           {layout.grownFrom ? <span className="mt-0.5 block text-amber-700">Made bigger than you asked so the switch fits inside this shape.</span> : null}
@@ -473,30 +540,107 @@ export function LookPanel({ spec, edit }: Common) {
 // Switch
 // ---------------------------------------------------------------------------------------------------------------------
 
-export function SwitchPanel({ spec, edit, config }: Common) {
-  const keys = switchCount(spec);
+/** A top view of the key with a square for each switch. Drag a square (or use the arrow keys) to place it. */
+function SwitchMap({ spec, edit, layout }: { spec: ClickerSpec; edit: EditFn; layout: Layout }) {
+  const svg = useRef<SVGSVGElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
+  const b = layout.capBounds;
+  const reach = Math.max(Math.abs(b.minX), Math.abs(b.maxX), Math.abs(b.minY), Math.abs(b.maxY), ...spec.switches.flatMap((p) => [Math.abs(p.x) + 8, Math.abs(p.y) + 8]));
+  const half = Math.ceil((reach + 4) / 10) * 10; // steps of 10 mm so the picture does not jump while you drag
+  const half2 = Math.max(half, 20);
+  const path = layout.capOutline.map((r) => [r.outer, ...r.holes].map((ring) => "M" + ring.map(([x, y]) => `${x.toFixed(2)} ${(-y).toFixed(2)}`).join("L") + "Z").join("")).join("");
+  const K = FIT.keepoutMm;
+
+  const move = (i: number, x: number, y: number) => {
+    const nx = Math.round(Math.max(-100, Math.min(100, x)) * 2) / 2, ny = Math.round(Math.max(-100, Math.min(100, y)) * 2) / 2;
+    const next = spec.switches.map((p, j) => (j === i ? { x: nx, y: ny } : p));
+    if (!switchesApart(next)) return; // too close to another switch: the square stays where it was
+    edit((s) => ({ ...s, switches: next }), `sw-${i}`);
+  };
+  const at = (e: React.PointerEvent) => {
+    const el = svg.current;
+    const m = el?.getScreenCTM();
+    if (!el || !m) return null;
+    const pt = el.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(m.inverse());
+    return { x: p.x, y: -p.y };
+  };
+
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">Every key has a real keyboard switch under it. The switch decides how the click feels and sounds. {keys > 1 ? `You get ${keys} switches, one per key.` : ""}</p>
-      <div className="grid gap-2" role="group" aria-label="Switch">
-        {config.switches.map((o) => (
-          <button
-            key={o.type}
-            type="button"
-            disabled={!o.available}
-            aria-pressed={spec.switchType === o.type}
-            onClick={() => edit((s) => ({ ...s, switchType: o.type }))}
-            className={cn("rounded-lg border-2 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50", spec.switchType === o.type ? "border-primary bg-primary/5" : "border-border hover:border-primary")}
-          >
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="text-sm font-bold">{o.label}</span>
-              <span className="text-xs text-muted-foreground">{!o.available ? "Out of stock" : o.cents > 0 ? `+${formatPHP(o.cents * keys)}` : "Included"}</span>
-            </span>
-            <span className="block text-xs text-muted-foreground">{SWITCH_HELP[o.type]}</span>
-          </button>
-        ))}
-      </div>
-      {switchOfferFor(config, spec.switchType)?.available === false && <p role="alert" className="text-xs text-destructive">That switch is out of stock. Pick another.</p>}
+    <svg
+      ref={svg}
+      viewBox={`${-half2} ${-half2} ${half2 * 2} ${half2 * 2}`}
+      className="aspect-square w-full max-w-sm touch-none rounded-lg border-2 border-border bg-muted/30"
+      role="group"
+      aria-label="Where the switches go, seen from above"
+      onPointerMove={(e) => { if (drag === null) return; const p = at(e); if (p) move(drag, p.x, p.y); }}
+      onPointerUp={() => setDrag(null)}
+      onPointerLeave={() => setDrag(null)}
+    >
+      <path d={path} fill="currentColor" className="text-foreground/10" fillRule="evenodd" stroke="currentColor" strokeWidth={0.3} />
+      <line x1={-half2} y1={0} x2={half2} y2={0} stroke="currentColor" strokeOpacity={0.12} strokeWidth={0.2} />
+      <line x1={0} y1={-half2} x2={0} y2={half2} stroke="currentColor" strokeOpacity={0.12} strokeWidth={0.2} />
+      {spec.switches.map((p, i) => (
+        <g
+          key={i}
+          transform={`translate(${p.x} ${-p.y})`}
+          tabIndex={0}
+          role="button"
+          aria-label={`Switch ${i + 1}. Drag it, or use the arrow keys.`}
+          className="cursor-grab outline-none focus-visible:[&>rect]:stroke-[0.8]"
+          onPointerDown={(e) => { (e.currentTarget as Element).setPointerCapture?.(e.pointerId); setDrag(i); }}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 2 : 0.5;
+            const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+            if (d) { e.preventDefault(); move(i, p.x + d[0], p.y + d[1]); }
+          }}
+        >
+          <rect x={-K / 2} y={-K / 2} width={K} height={K} rx={1} fill="#0ea5e9" fillOpacity={0.15} stroke="#0ea5e9" strokeDasharray="1.2 0.8" strokeWidth={0.4} />
+          <rect x={-7} y={-7} width={14} height={14} rx={0.5} fill="#0ea5e9" fillOpacity={0.35} />
+          <text textAnchor="middle" dominantBaseline="central" fontSize={5} fontWeight={700} fill="#0c4a6e">{i + 1}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+export function SwitchPanel({ spec, edit, config, layout }: Common & { layout: Layout }) {
+  const keys = switchCount(spec);
+  if (spec.kind === "name") {
+    return <p className="text-xs text-muted-foreground">Every key has its own Cherry MX switch under it ({keys} {keys === 1 ? "switch" : "switches"}). They are placed for you.</p>;
+  }
+  const n = spec.switches.length;
+  const set = (count: number, arrangement: "row" | "grid") => edit((s) => ({ ...s, switches: switchPattern(count, arrangement) }));
+  const grid = n >= 3 && spec.switches.some((p) => p.y !== 0);
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">Each click comes from a Cherry MX switch under the key. More switches make a bigger key that presses on all of them, or give you more clicks in one place.</p>
+      <Section title="How many switches">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Number of switches">
+          {Array.from({ length: config.maxSwitches }, (_, i) => i + 1).map((c) => (
+            <Button key={c} type="button" size="sm" variant={n === c ? "default" : "outline"} aria-pressed={n === c} className="min-w-10" onClick={() => set(c, grid ? "grid" : "row")}>
+              {c}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">{n === 1 ? "One switch is included." : `${formatPHP((n - 1) * config.extraSwitchCents)} for the extra ${n - 1 === 1 ? "switch" : "switches"} (${formatPHP(config.extraSwitchCents)} each).`}</p>
+      </Section>
+      {n > 1 && (
+        <Section title="Place them">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Arrange">
+            <Button type="button" size="sm" variant={!grid ? "default" : "outline"} aria-pressed={!grid} onClick={() => set(n, "row")}>In a row</Button>
+            {n >= 3 && <Button type="button" size="sm" variant={grid ? "default" : "outline"} aria-pressed={grid} onClick={() => set(n, "grid")}>In a grid</Button>}
+          </div>
+        </Section>
+      )}
+      <Section title={n > 1 ? "Fine-tune" : "Where it goes"}>
+        <SwitchMap spec={spec} edit={edit} layout={layout} />
+        <p className="text-[11px] text-muted-foreground">
+          Drag a square to move that switch, or select it and use the arrow keys (hold Shift for bigger steps). Switches must be at least {FIT.switchPitchMm} mm apart so they fit in the print. The key grows to hold them.
+        </p>
+        {layout.errors.filter((e) => /switch/i.test(e)).map((e) => <p key={e} role="alert" className="text-xs text-destructive">{e}</p>)}
+      </Section>
     </div>
   );
 }
