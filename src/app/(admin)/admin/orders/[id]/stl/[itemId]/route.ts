@@ -9,6 +9,7 @@ import { personalizedName } from "@/lib/name-mesh";
 import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
 import { bytesToStream } from "@/lib/stream-bytes";
 import { designOf } from "@/lib/clicker/of-product";
+import { clickerConfigDamaged } from "@/lib/clicker/spec";
 import { buildClickerPrint } from "@/lib/clicker/server";
 import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
 import type { ConfigSelection } from "@/lib/pricing";
@@ -38,6 +39,10 @@ export async function GET(
   const itemProduct = await getProductById(item.productId);
   const design = itemProduct ? designOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
   if (design) {
+    // damaged settings fall back to defaults for display; never build a print file on made-up fit values
+    if (itemProduct?.options.some((o) => o.type === "text" && clickerConfigDamaged(o.constraints))) {
+      return NextResponse.json({ error: "This product's clicker settings are damaged. Save the product again in the admin, then retry." }, { status: 422 });
+    }
     const built = await buildClickerPrint(design.spec, `Clicker ${itemId.slice(0, 8)}`, design.config.tune);
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     return new Response(bytesToStream(built.file), {

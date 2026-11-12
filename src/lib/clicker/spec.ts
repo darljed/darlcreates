@@ -203,7 +203,7 @@ export const clickerConfigSchema = z.object({
   keyCents: z.number().int().min(0).max(100_000),
   /** Fit adjustments for your printer, from the fit test (mm; plus loosens, minus tightens). */
   tune: z.object({ pocket: z.number().min(-0.5).max(0.5), stem: z.number().min(-0.5).max(0.5), gap: z.number().min(-0.5).max(0.5) }),
-});
+}).refine((c) => c.minSize <= c.maxSize, { message: "The smallest size must not be bigger than the largest size.", path: ["minSize"] });
 export type ClickerConfig = z.infer<typeof clickerConfigSchema>;
 
 export const DEFAULT_CLICKER_CONFIG: ClickerConfig = {

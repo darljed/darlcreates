@@ -14,7 +14,7 @@ import { loadFont } from "../src/lib/name-3mf";
 import { difference, intersect, offset, ringArea, totalArea, union, type Region } from "../src/lib/clicker/poly";
 import { SHAPE_IDS, SHAPE_LABELS, shapeRing, rayExit } from "../src/lib/clicker/shapes";
 import {
-  checkAgainstConfig, clickerColours, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, nameKeys, newId,
+  checkAgainstConfig, clickerColours, clickerConfigDamaged, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, DEFAULT_CLICKER_CONFIG, defaultSpec, designSummary, LIMITS, nameKeys, newId,
   sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerSpec, type ImageLayer, type TextLayer,
 } from "../src/lib/clicker/spec";
 import { BORDER_MM, FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../src/lib/clicker/fit";
@@ -463,6 +463,7 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   console.log("\nthe product option, the price and the cart line");
   const option: ProductOptionInput = { id: "opt-clicker", type: "text", label: "Your clicker", required: true, priceDeltaCents: 0, constraints: { clicker: cfg }, values: [] };
   assert("a text option with clicker settings is the designer (damaged settings fall back to the defaults); a plain text option is not", clickerOptionOf([option])?.option.id === "opt-clicker" && clickerOptionOf([{ ...option, constraints: { maxLen: 10 } }]) === null && clickerConfigOf({ clicker: { palette: ["nope"] } })?.maxColours === 4 && clickerConfigOf({}) === null && clickerConfigOf(null) === null);
+  assert("settings with the smallest size above the largest are damaged (not orderable)", clickerConfigDamaged({ clicker: { minSize: 80, maxSize: 30 } }) && !clickerConfigDamaged({ clicker: { minSize: 30, maxSize: 80 } }));
   const sel = { [option.id]: { design: plain } };
   assert("computeUnitPrice adds the design's price to the product price", computeUnitPrice(10000, [option], sel).unitPriceCents === 10000 + clickerPriceDeltaCents(plain, cfg) && computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 50, height: 50 } } }).unitPriceCents === 10000 + clickerPriceDeltaCents({ ...plain, width: 50, height: 50 }, cfg));
   assert("a missing design is an error when required; an invalid or off-limits one says why", computeUnitPrice(10000, [option], {}).errors[0] === "Your clicker is required" && computeUnitPrice(10000, [option], { [option.id]: { design: { nope: 1 } } }).errors.length === 1 && /at most/.test(computeUnitPrice(10000, [option], { [option.id]: { design: { ...plain, width: 90 } } }).errors[0]));
