@@ -97,6 +97,7 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - Pictures are traced in the browser and never uploaded, so there is no new file-upload surface. `saveClickerConfigAction` is admin-only and Zod-validated.
 - The server keeps the pictures it draws of designs in a cache limited by total size (about 16 MB, none over 600 KB), not only by count, so many large designs cannot make it hold much memory. A clicker product whose stored settings are damaged stays a clicker (shown with the default settings, and a logged error) but **cannot be ordered**: the cart refuses it with "cannot be ordered right now" until the product is saved again in the admin. It is neither sold on made-up limits nor allowed to drop the design and sell at the base price. Picture cache keys are SHA-256 of the design.
 - `GET /admin/clicker-fit-test` is admin-only (`requireAdmin`) and builds a fixed file with no input from the request. The colour limit, key count and switch availability are checked on the server (`checkAgainstConfig`), not only in the browser.
+- Damaged clicker settings (including a smallest size above the largest) show the product with defaults but block ordering, and the admin print-file route (`/admin/orders/[id]/stl/[itemId]`) refuses to build a file on them. A failed font load is not cached (`retryable`), so the next request tries again.
 - The Server Action body limit is 4 MB (`next.config.ts`) so a design can be sent; `MAX_ADD_JSON` rejects anything over 3.5 MB.
 
 ## 9. Secrets
