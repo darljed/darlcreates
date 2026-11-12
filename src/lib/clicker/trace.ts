@@ -200,7 +200,7 @@ function maskLoops(mask: Uint8Array, w: number, h: number): Ring[] {
 }
 
 /** Ramer–Douglas–Peucker on a closed loop. */
-function simplifyLoop(loop: Ring, eps: number): Ring {
+export function simplifyLoop(loop: Ring, eps: number): Ring {
   if (loop.length <= 4) return loop;
   // split the loop at its two farthest-apart anchor points so the recursion has fixed ends
   const a = 0;

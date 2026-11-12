@@ -1,0 +1,156 @@
+/**
+ * Editing a clicker design: undo / redo and the small pure changes the designer makes (add a layer, move it, recolour a
+ * colour everywhere, resize). No React and no DOM, so every rule is tested.
+ */
+import type { ClickerConfig, ClickerSpec, ImageLayer, Layer, TextLayer } from "./spec";
+import { defaultText, LIMITS, newId } from "./spec";
+import type { Traced } from "./trace";
+
+// --- history ---------------------------------------------------------------------------------------------------------
+
+export type History<T> = { past: T[]; present: T; future: T[]; lastKey: string | null; lastAt: number };
+
+export const newHistory = <T,>(present: T): History<T> => ({ past: [], present, future: [], lastKey: null, lastAt: 0 });
+
+const MAX_HISTORY = 60;
+
+/**
+ * Make `next` the current design. Changes with the same `key` close together (dragging a slider or a layer) are one
+ * step, so undo does not have to be pressed fifty times.
+ */
+export function commit<T>(h: History<T>, next: T, key: string | null = null, now = Date.now(), windowMs = 900): History<T> {
+  if (Object.is(next, h.present)) return h;
+  const merge = key !== null && key === h.lastKey && now - h.lastAt < windowMs;
+  return {
+    past: merge ? h.past : [...h.past, h.present].slice(-MAX_HISTORY),
+    present: next,
+    future: [],
+    lastKey: key,
+    lastAt: now,
+  };
+}
+export const canUndo = (h: History<unknown>) => h.past.length > 0;
+export const canRedo = (h: History<unknown>) => h.future.length > 0;
+export function undo<T>(h: History<T>): History<T> {
+  if (!h.past.length) return h;
+  return { past: h.past.slice(0, -1), present: h.past[h.past.length - 1], future: [h.present, ...h.future], lastKey: null, lastAt: 0 };
+}
+export function redo<T>(h: History<T>): History<T> {
+  if (!h.future.length) return h;
+  return { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1), lastKey: null, lastAt: 0 };
+}
+
+// --- layers ----------------------------------------------------------------------------------------------------------
+
+const lc = (s: string) => s.toLowerCase();
+const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+
+export function updateLayer(spec: ClickerSpec, id: string, patch: Partial<Layer>): ClickerSpec {
+  return { ...spec, layers: spec.layers.map((l) => (l.id === id ? ({ ...l, ...patch } as Layer) : l)) };
+}
+
+export function addLayer(spec: ClickerSpec, layer: Layer, cfg: ClickerConfig): ClickerSpec {
+  if (spec.layers.length >= cfg.maxLayers) return spec;
+  return { ...spec, layers: [...spec.layers, layer] };
+}
+
+export function removeLayer(spec: ClickerSpec, id: string): ClickerSpec {
+  return { ...spec, layers: spec.layers.filter((l) => l.id !== id) };
+}
+
+/** Move a layer one step towards the front (`up`) or the back. The last layer is on top. */
+export function moveLayer(spec: ClickerSpec, id: string, dir: "up" | "down"): ClickerSpec {
+  const i = spec.layers.findIndex((l) => l.id === id);
+  const j = dir === "up" ? i + 1 : i - 1;
+  if (i < 0 || j < 0 || j >= spec.layers.length) return spec;
+  const layers = spec.layers.slice();
+  [layers[i], layers[j]] = [layers[j], layers[i]];
+  return { ...spec, layers };
+}
+
+export function duplicateLayer(spec: ClickerSpec, id: string, cfg: ClickerConfig): ClickerSpec {
+  const src = spec.layers.find((l) => l.id === id);
+  if (!src || spec.layers.length >= cfg.maxLayers) return spec;
+  const copy = { ...structuredClone(src), id: newId(src.kind === "text" ? "t" : "i"), name: `${src.name || "Layer"} copy`, x: src.x + 3, y: src.y - 3 } as Layer;
+  if (copy.kind === "image") copy.regions = copy.regions.map((r) => ({ ...r, id: newId("g") }));
+  return { ...spec, layers: [...spec.layers, copy] };
+}
+
+/** Every use of one colour in the design (the base, the border and each text or picture colour). */
+export function coloursInUse(spec: ClickerSpec): { hex: string; base: boolean; border: boolean; layers: string[] }[] {
+  const map = new Map<string, { hex: string; base: boolean; border: boolean; layers: string[] }>();
+  const slot = (hex: string) => {
+    const k = lc(hex);
+    if (!map.has(k)) map.set(k, { hex: k, base: false, border: false, layers: [] });
+    return map.get(k)!;
+  };
+  slot(spec.baseColor).base = true;
+  if (spec.border.on) slot(spec.border.color).border = true;
+  for (const l of spec.layers) {
+    if (l.kind === "text") slot(l.color).layers.push(l.id);
+    else for (const r of l.regions) if (r.shapes.length) slot(r.color).layers.push(l.id);
+  }
+  return [...map.values()];
+}
+
+/** Change one colour everywhere it is used. `part` limits it to the base or the border. */
+export function recolour(spec: ClickerSpec, from: string, to: string, part?: "base" | "border" | "design"): ClickerSpec {
+  const f = lc(from);
+  const swap = (c: string) => (lc(c) === f ? to : c);
+  const all = !part;
+  return {
+    ...spec,
+    baseColor: all || part === "base" ? swap(spec.baseColor) : spec.baseColor,
+    border: { ...spec.border, color: all || part === "border" ? swap(spec.border.color) : spec.border.color },
+    layers: all || part === "design"
+      ? spec.layers.map((l) => (l.kind === "text" ? { ...l, color: swap(l.color) } : { ...l, regions: l.regions.map((r) => ({ ...r, color: swap(r.color) })) }))
+      : spec.layers,
+  };
+}
+
+// --- size ------------------------------------------------------------------------------------------------------------
+
+/** Set the width and/or height within the owner's limits; with `lock`, the other side follows so the proportions stay. */
+export function setSize(spec: ClickerSpec, patch: { width?: number; height?: number }, cfg: ClickerConfig, lock: boolean): ClickerSpec {
+  const lo = Math.max(cfg.minSize, LIMITS.minSizeMm), hi = Math.min(cfg.maxSize, LIMITS.maxSizeMm);
+  let { width, height } = spec;
+  const ratio = spec.height / spec.width;
+  if (patch.width !== undefined) {
+    width = clamp(patch.width, lo, hi);
+    if (lock) height = clamp(width * ratio, lo, hi);
+  }
+  if (patch.height !== undefined) {
+    height = clamp(patch.height, lo, hi);
+    if (lock) width = clamp(height / ratio, lo, hi);
+  }
+  return { ...spec, width: round1(width), height: round1(height) };
+}
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+// --- new layers ------------------------------------------------------------------------------------------------------
+
+export function newTextLayer(cfg: ClickerConfig, over: Partial<TextLayer> = {}): TextLayer {
+  return { ...defaultText(cfg), ...over };
+}
+
+/**
+ * A picture layer from a trace: the shapes keep the picture's proportions (longest side = 1) and the layer is sized so
+ * the picture fills about `fill` of the clicker.
+ */
+export function imageLayerFrom(traced: Traced, spec: ClickerSpec, name: string, fill = 0.62): ImageLayer {
+  const room = Math.min(spec.width, spec.height) * fill;
+  return {
+    id: newId("i"),
+    kind: "image",
+    name: name.slice(0, 40) || "Picture",
+    x: 0,
+    y: 0,
+    rotation: 0,
+    mirror: false,
+    visible: true,
+    size: round1(clamp(room, 2, 200)),
+    regions: traced.groups.map((g) => ({ id: newId("g"), color: g.color, shapes: g.shapes.map((s) => ({ outer: s.outer.map(rnd), holes: s.holes.map((h) => h.map(rnd)) })) })),
+  };
+}
+/** Three decimals keep a stored design small and are finer than the printer. */
+const rnd = ([x, y]: [number, number]): [number, number] => [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000];
