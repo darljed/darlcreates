@@ -1,5 +1,5 @@
-import { TextPageSkeleton } from "@/components/skeletons";
+import { LandingSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <TextPageSkeleton />;
+  return <LandingSkeleton />;
 }

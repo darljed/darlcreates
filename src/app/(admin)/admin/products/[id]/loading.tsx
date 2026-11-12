@@ -1,5 +1,5 @@
-import { FormPageSkeleton } from "@/components/skeletons";
+import { FormPageSkeleton, InlineBone } from "@/components/skeletons";
 
 export default function Loading() {
-  return <FormPageSkeleton panels={3} />;
+  return <FormPageSkeleton title={<InlineBone className="h-6 w-56" />} panels={3} />;
 }

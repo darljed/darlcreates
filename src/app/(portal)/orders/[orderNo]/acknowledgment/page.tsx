@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { DetailPageSkeleton } from "@/components/skeletons";
+import { AcknowledgmentSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Acknowledgment } from "@/components/acknowledgment";
@@ -14,7 +14,7 @@ export const instant = false;
 export default async function AcknowledgmentPage({ params }: PageProps<"/orders/[orderNo]/acknowledgment">) {
   const { orderNo } = await params;
   return (
-    <Suspense fallback={<DetailPageSkeleton side={false} />}>
+    <Suspense fallback={<AcknowledgmentSkeleton />}>
       <Doc orderNo={orderNo} />
     </Suspense>
   );

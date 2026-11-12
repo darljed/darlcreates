@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { DetailPageSkeleton } from "@/components/skeletons";
+import { PortalOrderSkeleton } from "@/components/skeletons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps<"/orders/[orderNo]"
 export default async function OrderPage({ params }: PageProps<"/orders/[orderNo]">) {
   const { orderNo } = await params;
   return (
-    <Suspense fallback={<DetailPageSkeleton />}>
+    <Suspense fallback={<PortalOrderSkeleton />}>
       <OrderContents orderNo={orderNo} />
     </Suspense>
   );

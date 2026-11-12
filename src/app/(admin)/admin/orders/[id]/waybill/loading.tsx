@@ -1,5 +1,5 @@
-import { DetailPageSkeleton } from "@/components/skeletons";
+import { AcknowledgmentSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <DetailPageSkeleton side={false} />;
+  return <AcknowledgmentSkeleton />;
 }

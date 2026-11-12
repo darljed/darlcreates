@@ -1,5 +1,5 @@
 import { ListPageSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <ListPageSkeleton rows={8} cols={5} actions />;
+  return <ListPageSkeleton title="Products" description={null} headers={["Name", "Category", "Base price", "3D model", "Status"]} rows={6} thumb button />;
 }

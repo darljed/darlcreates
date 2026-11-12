@@ -75,7 +75,7 @@ The logo link is `shrink-0` and keeps its natural width (`h-8`, `h-7` under 360 
 | State | Component |
 |---|---|
 | 3D model loading | `ViewerLoading` (`three/viewer-loading.tsx`): spinning cube; after 6 s (CSS only) a "Still working" line fades in. Honors reduced motion |
-| Loading a page | A skeleton shaped like the page (`components/skeletons.tsx`: cart, checkout, shop list, product, text page, dashboard, list, detail, form). Every page has a `loading.tsx` (in its folder or above) and Suspense fallbacks use the same pieces; there is no bare "Loading…" text (`scripts/test-loading.ts`). The shimmer is `.skeleton` in globals.css and stands still when motion is reduced. Screen readers get one hidden "Loading" message per region |
+| Loading a page | A skeleton built from the page's own layout (`components/skeletons.tsx`): the real title, step bar, stat tiles and table column names are used as they are, and only the data still loading is a grey block, so nothing moves when the content arrives. One per page kind: landing, shop list, product, cart, checkout, sign-in, consent, legal, dashboard, list, order, user, form, account, acknowledgment. When you change a page's layout, change its skeleton. Every page has a `loading.tsx` (in its folder or above) and Suspense fallbacks use the same pieces; there is no bare "Loading…" text (`scripts/test-loading.ts`). The shimmer is `.skeleton` in globals.css and stands still when motion is reduced. Screen readers get one hidden "Loading" message per region |
 | Empty list | `EmptyState` |
 | Missing page | `NotFoundView` (`not-found-view.tsx`), used by `app/not-found.tsx` and the `(shop)`, `(portal)` and `(admin)/admin` not-found files so each surface keeps its own chrome |
 | Toasts | `ui/sonner.tsx` |

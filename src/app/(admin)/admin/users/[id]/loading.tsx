@@ -1,5 +1,5 @@
-import { DetailPageSkeleton } from "@/components/skeletons";
+import { AdminUserSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <DetailPageSkeleton />;
+  return <AdminUserSkeleton />;
 }

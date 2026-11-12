@@ -17,7 +17,7 @@ export default function OrdersPage() {
   return (
     <div>
       <PageHeader title="My orders" description="Track an order, pay for it, or order the same thing again." />
-      <Suspense fallback={<TableSkeleton rows={6} cols={5} toolbar={false} />}>
+      <Suspense fallback={<TableSkeleton headers={["Order", "Items", "Total", "Status", "Actions"]} right={[4]} rows={5} />}>
         <OrdersList />
       </Suspense>
     </div>
