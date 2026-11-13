@@ -22,7 +22,8 @@ import { BORDER_IDS, BORDER_LABELS, BORDER_MM, FIT, RELIEF_IDS, RELIEF_LABELS, R
 import { maxKeySide, switchBlock } from "@/lib/clicker/reach";
 import { clickerColours, LIMITS, nameKeys, sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
 import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, scaleDesign, setSize, updateLayer } from "@/lib/clicker/state";
-import type { Analysis, Pixels } from "@/lib/clicker/trace";
+import { looksLikeGraphic, type Analysis, type Pixels } from "@/lib/clicker/trace";
+import { readRaster } from "@/components/clicker/image-import";
 import { cn } from "@/lib/utils";
 
 export type EditFn = (fn: (s: ClickerSpec) => ClickerSpec, key?: string) => void;
@@ -349,6 +350,7 @@ export function DesignPanel({
   const file = useRef<HTMLInputElement>(null);
   // a picture chosen but not yet used: with AI redraw on, the customer says how first
   const [pending, setPending] = useState<File | null>(null);
+  const [graphic, setGraphic] = useState(false);
   const layer = spec.layers.find((l) => l.id === selected) ?? null;
   const full = spec.layers.length >= config.maxLayers;
   return (
@@ -376,7 +378,12 @@ export function DesignPanel({
                   if (f) {
                     // AI redraw only applies to photos and other raster pictures; an SVG is already vector shapes
                     const isSvg = f.type === "image/svg+xml" || /\.svg$/i.test(f.name);
-                    if (config.allowAi && !isSvg) setPending(f);
+                    if (config.allowAi && !isSvg) {
+                      setGraphic(false);
+                      setPending(f);
+                      // a logo or lettering is better traced than redrawn: say so (the chooser updates when this finishes)
+                      readRaster(f).then((px) => setGraphic(looksLikeGraphic(px))).catch(() => undefined);
+                    }
                     else onAddFile(f);
                   }
                   e.target.value = "";
@@ -388,6 +395,7 @@ export function DesignPanel({
         {pending && (
           <PictureModeChooser
             fileName={pending.name}
+            graphic={graphic}
             signedIn={signedIn}
             busy={busy}
             onCancel={() => setPending(null)}

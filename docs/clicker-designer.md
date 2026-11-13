@@ -127,5 +127,6 @@ Owner: tick **AI redraw of pictures** in the product's clicker settings and set 
 - **Keep my picture**: traced as it is (instant, free). Best for logos.
 - **Flat colours**: an AI redraws it with 2 to 3 flat colours (what the printer has left after the base and the key) chosen from the colour inventory, on a solid backdrop colour that the browser cuts out (so white parts of the subject are kept).
 - **2-colour portrait**: an AI redraws it in black and white; the browser makes every pixel pure black or white, so exactly two tones remain (the shapes print in the nearest dark colour in stock; the rest shows the key colour).
+Before the choice screen the picture is checked: a logo or lettering (a few colours cover 85% of it, `looksLikeGraphic`) gets a "Recommended: keep my picture" note and the AI buttons say "Try anyway", because an AI redraw often changes the shapes, letters and colours of artwork. A graphic is also read at 1000 px and traced finely (detail 0.9); a photo is read at 360 px (detail 0.6), because at 360 px a logo's edges come out chopped and wobbly.
 The answer is traced like any picture, so the usual colour limits apply, and Undo removes it. A portrait that traces into more than 4,000 points is asked again of the other model. SVG files skip the choice. See `redrawPictureAction` (api-routes.md), D-59 and security.md.
 

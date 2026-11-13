@@ -57,7 +57,7 @@ export function redrawPrompt(mode: RedrawMode, o: { palette: string[]; colours: 
   }
   return (
     `Redraw this picture as a simple flat-colour illustration, like a sticker or paper cut-out. Use at most ${o.colours} flat solid colours, chosen ONLY from this list (exact codes): ${o.palette.join(", ")}. ` +
-    "Pick the ones that suit the subject best. Every area is filled with exactly one colour. No gradients, no shading, no blending, no highlights, no texture, no thin lines. " +
+    "Stay faithful to the picture: keep its layout, shapes and any lettering exactly, and give each original colour the nearest colour from the list. Every area is filled with exactly one colour. No gradients, no shading, no blending, no highlights, no texture, no thin lines. " +
     "Large bold shapes with clean hard edges. The subject is centred and fills the frame, with no border, outline or shadow around it. " +
     `The background is one flat ${o.key.name} (${o.key.hex}); that colour is NOT one of the subject's colours and must not appear on the subject.`
   );

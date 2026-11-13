@@ -19,7 +19,7 @@ import {
   ColoursPanel, DesignPanel, KeyringPanel, LettersPanel, LookPanel, ShapePanel, SwitchPanel,
   type PictureSettings, type PictureState,
 } from "@/components/clicker/clicker-panels";
-import { fileToDataUrl, readDataUrl, readRaster, readSvg } from "@/components/clicker/image-import";
+import { fileToDataUrl, GRAPHIC_SIDE, readDataUrl, readRaster, readSvg } from "@/components/clicker/image-import";
 import { useClickerFonts } from "@/components/clicker/use-fonts";
 import { addManyToCartAction } from "@/app/(shop)/cart/actions";
 import { redrawPictureAction } from "@/app/(shop)/clicker/actions";
@@ -38,7 +38,7 @@ import { RELIEF_LABELS, RIM_LABELS } from "@/lib/clicker/fit";
 import { addLayer, canRedo, canUndo, commit, imageLayerFrom, newHistory, newTextLayer, redo, undo, updateLayer, type History } from "@/lib/clicker/state";
 import { layoutToSvg } from "@/lib/clicker/svg";
 import { centreAndFitArt } from "@/lib/clicker/fit-art";
-import { analyzeImage, defaultTrace, traceAnalysis, type Pixels } from "@/lib/clicker/trace";
+import { analyzeImage, cropToContent, defaultTrace, looksLikeGraphic, traceAnalysis, type Pixels } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
 import type { DragTarget, ViewMode } from "@/components/clicker/clicker-viewer";
 
@@ -332,7 +332,7 @@ export function ClickerDesigner({
         const d = defaultTrace(analysis, config.palette);
         settings = { ...settings, keep: d.keep, target: d.target };
       }
-      const traced = traceAnalysis(analysis, { keep: settings.keep, target: settings.target, smoothing: settings.smoothing, detail: settings.detail });
+      const traced = cropToContent(traceAnalysis(analysis, { keep: settings.keep, target: settings.target, smoothing: settings.smoothing, detail: settings.detail }));
       pictures.current.set(layerId, { ...pic, analysis, settings });
       setPictureSnap(new Map(pictures.current));
       edit((s) => {
@@ -346,12 +346,12 @@ export function ClickerDesigner({
   );
 
   /** Trace pixels into a picture layer's shapes: the colours the picture is cut into, which ones to keep, and their outlines. */
-  function traceFrom(pixels: Pixels, wanted: number) {
+  function traceFrom(pixels: Pixels, wanted: number, detail = 0.6) {
     const analysis = analyzeImage(pixels, wanted);
     if (!analysis.palette.length) throw new Error("That picture looks empty or fully transparent.");
     const d = defaultTrace(analysis, config.palette);
-    const settings: PictureSettings = { colours: wanted, keep: d.keep, target: d.target, smoothing: 1, detail: 0.6 };
-    const traced = traceAnalysis(analysis, settings);
+    const settings: PictureSettings = { colours: wanted, keep: d.keep, target: d.target, smoothing: 1, detail };
+    const traced = cropToContent(traceAnalysis(analysis, settings));
     if (!traced.groups.length) throw new Error("We couldn't find any shapes to print in that picture. Try one with clearer colours.");
     return { analysis, settings, traced, pixels };
   }
@@ -368,10 +368,10 @@ export function ClickerDesigner({
         }
         throw new Error(res.error);
       }
-      const px = await readDataUrl(res.image);
+      const px = await readDataUrl(res.image, 720); // the answer is clean flat art: read it big so edges stay sharp
       // stencil: exactly two tones whatever the AI drew; flat: cut the solid backdrop out
       const processed = mode === "stencil" ? thresholdPixels(px) : keyOutPixels(px, res.key ?? "#ff00ff");
-      return traceFrom(processed, mode === "stencil" ? 2 : flatColourCount(config.maxColours));
+      return traceFrom(processed, mode === "stencil" ? 2 : flatColourCount(config.maxColours), 0.85);
     };
     let built = await build(false);
     if (mode === "stencil" && built.traced.points > STENCIL_MAX_POINTS) {
@@ -392,7 +392,13 @@ export function ClickerDesigner({
         layer = imageLayerFrom(traced, spec, file.name.replace(/\.[^.]+$/, ""));
       } else {
         // base + key take two of the printer's colours, so start with what is left for the picture
-        const built = mode === "trace" ? traceFrom(await readRaster(file), Math.max(2, config.maxColours - 2)) : await redrawAndTrace(file, mode);
+        let built;
+        if (mode === "trace") {
+          // a logo or lettering is read big and traced finely; a photo is read small (fewer, smoother shapes)
+          const small = await readRaster(file);
+          const graphic = looksLikeGraphic(small);
+          built = traceFrom(graphic ? await readRaster(file, GRAPHIC_SIDE) : small, Math.max(2, config.maxColours - 2), graphic ? 0.9 : 0.6);
+        } else built = await redrawAndTrace(file, mode);
         layer = imageLayerFrom(built.traced, spec, file.name.replace(/\.[^.]+$/, ""));
         pictures.current.set(layer.id, { analysis: built.analysis, settings: built.settings, pixels: built.pixels });
         setPictureSnap(new Map(pictures.current));

@@ -19,11 +19,16 @@ const CARDS: { mode: PictureMode; title: string; text: string; note: string; exa
   { mode: "stencil", title: "2-colour portrait", text: "An AI redraws it in two tones. Best for faces and pets.", note: "AI, about 15 seconds", example: "/clicker-examples/stencil.jpg", alt: "A photo of a person and the same person redrawn in black and white" },
 ];
 
-export function PictureModeChooser({ fileName, signedIn, busy, onPick, onCancel }: { fileName: string; signedIn: boolean; busy: boolean; onPick: (m: PictureMode) => void; onCancel: () => void }) {
+export function PictureModeChooser({ fileName, graphic, signedIn, busy, onPick, onCancel }: { fileName: string; graphic: boolean; signedIn: boolean; busy: boolean; onPick: (m: PictureMode) => void; onCancel: () => void }) {
   const pathname = usePathname();
   return (
     <div className="space-y-3 rounded-lg border-2 border-primary/30 bg-primary/5 p-3" role="group" aria-label="How should we use your picture?">
       <p className="text-sm font-bold">How should we use “{fileName}”?</p>
+      {graphic && (
+        <p role="note" className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+          This looks like a logo or lettering. <strong>Keep my picture</strong> copies it exactly. An AI redraw often changes the shapes, letters and colours.
+        </p>
+      )}
       <ul className="grid gap-2">
         {CARDS.map((c) => {
           const ai = c.mode !== "trace";
@@ -35,12 +40,13 @@ export function PictureModeChooser({ fileName, signedIn, busy, onPick, onCancel 
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 text-sm font-semibold">
                     {ai && <Sparkles className="size-3.5 text-primary" aria-hidden />} {c.title}
+                    {graphic && !ai && <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">Recommended</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">{c.text}</p>
                   <p className="text-[11px] font-medium text-muted-foreground">{locked ? <>Sign in to use this. <Link href={`/sign-in?redirect=${encodeURIComponent(pathname)}`} className="underline">Sign in</Link></> : c.note}</p>
                 </div>
                 <Button type="button" size="sm" disabled={busy || locked} onClick={() => onPick(c.mode)}>
-                  {busy ? <Loader2 className="size-4 animate-spin" aria-label="Working" /> : "Use"}
+                  {busy ? <Loader2 className="size-4 animate-spin" aria-label="Working" /> : graphic && ai ? "Try anyway" : "Use"}
                 </Button>
               </div>
             </li>

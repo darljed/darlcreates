@@ -7,7 +7,8 @@
 import { flatColourCount, keyOutPixels, thresholdPixels } from "../src/lib/clicker/redraw-post";
 import { keyColourFor, looksLikeImageDataUrl, redrawPicture, redrawPrompt, REDRAW_DAILY_LIMIT, REDRAW_MODELS, takeRedrawSlot } from "../src/lib/clicker/redraw";
 import { clickerConfigOf, DEFAULT_CLICKER_CONFIG, DEFAULT_PALETTE } from "../src/lib/clicker/spec";
-import { analyzeImage } from "../src/lib/clicker/trace";
+import { analyzeImage, looksLikeGraphic } from "../src/lib/clicker/trace";
+import sharp from "sharp";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -32,6 +33,17 @@ async function main() {
   assert("transparent stays transparent", thresholdPixels(px(1, 1, () => [255, 255, 255, 0])).data[3] === 0);
   const traced = analyzeImage(thresholdPixels(greys), 2);
   assert("the tracer then finds exactly two colours", traced.palette.length === 2);
+
+  console.log("\nlogo or photo?");
+  // the example pictures: the left half of each is the "before" (a drawn logo, an AI-made cat photo, an AI-made portrait)
+  const left = async (name: string): Promise<{ width: number; height: number; data: Uint8ClampedArray }> => {
+    const { data, info } = await sharp(`public/clicker-examples/${name}.jpg`).extract({ left: 0, top: 0, width: 300, height: 300 }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return { width: info.width, height: info.height, data: new Uint8ClampedArray(data) };
+  };
+  assert("a logo is a graphic", looksLikeGraphic(await left("trace")));
+  assert("a photo of a cat is not", !looksLikeGraphic(await left("flat")));
+  assert("a portrait photo is not", !looksLikeGraphic(await left("stencil")));
+  assert("a fully transparent picture is not (nothing to judge)", !looksLikeGraphic(px(4, 4, () => [0, 0, 0, 0])));
 
   console.log("\nflat: the backdrop is cut out");
   // a yellow square on magenta, with a blended pink rim between them
