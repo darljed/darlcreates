@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-12
+Last updated: 2026-11-13
 
 ---
 
@@ -109,6 +109,9 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-102 | 🟡 | **Switch stock is not tracked** | The shop fits Cherry MX only; there is no count of switches in stock and no automatic limit. Order lines say how many to fit |
 | G-103 | 🟡 | **Several switches press as one** | A key on 2 to 6 switches is pressed on all of them; an off-centre press may tilt it. Print one with 2 switches and check the feel before offering 4 to 6 (the same advice AF Inventions gives: a bigger top that stays flat) |
 | G-104 | 🟡 | **The 20 mm reach and 6 mm balance limits are a judgement** | They come from the sample clickers (55 mm on one switch works) and from how a slider binds, not from a test of ours. Print a key at the limit (a 55 mm single-switch clicker and an off-centre one) and press the far end; change `FIT.maxReachMm` / `FIT.balanceMm` if it binds or if the limit is too tight |
+| G-105 | 🟡 | **The AI redraw daily limit is per server instance** | `takeRedrawSlot` keeps counts in memory, so the real ceiling is 12 x the number of instances and it resets on restart. Upgrade: a counter table in the database (needs a migration). The owner switch and the OpenRouter spend limit are the brakes until then |
+| G-106 | 🟠 | **Privacy policy does not mention the AI service yet** | Customers' pictures go to OpenRouter and its image model when they use AI redraw. Add a line to the privacy policy (Admin → Legal pages) before switching AI on for real customers (see T-09) |
+| G-107 | 🟡 | **AI redraw results were judged on 5 pictures** | Flat colours and the 2-colour portrait looked good on a cat, dog, flower, logo and portrait, but the models are not tuned for every subject. Watch the first real orders; logos are better left on "Keep my picture" |
 | G-97 | 🟡 | **Cart lines have no stable order** | `cart_items` has no created-at column, so lines come back in the database's order and a line may move after its quantity is changed. Fix: add the column (a migration) and sort by it |
 | ✅ | 2026-11-12 | **Cart and checkout slow; no loading skeletons; quantity typed by hand; font as a plain select** | D-46. Batched product reads, per-request session/consent cache, skeletons for every page, `QuantityStepper`, `FontPicker`. Tests: `test-cart-speed.ts`, `test-loading.ts` |
 | ✅ | 2026-11-12 | **Painted areas (outline) get their own colour option, detected on upload** | D-45. Decoded `paint_color`, preview helpers, `recolorPaint` for printing. Tests in `test-name-mesh.ts`, `test-model-autoconfig.ts` |

@@ -24,7 +24,7 @@ import type { ColourInventory } from "@/lib/colour-inventory-schema";
 const pesos = (cents: number) => String(cents / 100);
 const toCents = (s: string) => Math.max(0, Math.round((Number(s) || 0) * 100));
 
-export function ClickerSetup({ productId, initial, canSwitchOn, inventory }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean; inventory: ColourInventory | null }) {
+export function ClickerSetup({ productId, initial, canSwitchOn, inventory, aiReady }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean; inventory: ColourInventory | null; aiReady: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [on, setOn] = useState(Boolean(initial));
@@ -194,6 +194,13 @@ export function ClickerSetup({ productId, initial, canSwitchOn, inventory }: { p
         <div className="flex flex-wrap gap-5">
           <Check label="Customers can add text" checked={c.allowText} onChange={(v) => set({ allowText: v })} />
           <Check label="Customers can add pictures" checked={c.allowImages} onChange={(v) => set({ allowImages: v })} />
+          <div>
+            <Check label="AI redraw of pictures (flat colours or a 2-colour portrait)" checked={c.allowAi} onChange={(v) => set({ allowAi: v })} />
+            <p className="ml-6 text-xs text-muted-foreground">
+              Signed-in customers can have a picture redrawn by an AI before it is traced. It costs about ₱2 per picture, limited per customer per day. Needs pictures on.
+              {!aiReady && <span className="font-medium text-destructive"> OPENROUTER_API_KEY is not set on the server, so customers will not see it yet.</span>}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">

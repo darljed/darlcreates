@@ -45,6 +45,12 @@ production server; the dev server reloads some changes on its own, but restart i
 
 Sending is best-effort: a failed send is logged and never blocks an order, payment or shipment change.
 
+### AI picture redraw (optional)
+
+| Variable | What it is | Read in | If missing |
+|---|---|---|---|
+| `OPENROUTER_API_KEY` | OpenRouter key; the clicker designer sends a customer's picture to OpenRouter image models to redraw it (flat colours or a 2-colour portrait). Server only, never sent to the browser | `src/lib/clicker/redraw.ts`, `scripts/poc-ai-vectorize.ts`, `scripts/make-redraw-examples.ts` | The feature is hidden from customers, whatever the product's switch says. Each redraw costs about $0.01 to $0.07 |
+
 ### Shown to customers (build-time, public)
 
 `NEXT_PUBLIC_*` values are visible in the browser by design. Never put a secret in one.
@@ -62,7 +68,6 @@ Sending is best-effort: a failed send is logged and never blocks an order, payme
 | Variable | What it is | Read in | Notes |
 |---|---|---|---|
 | `REVALIDATE_SECRET` | Lets scripts tell the running site to drop cached data (`POST /api/revalidate`) | `src/app/api/revalidate/route.ts`, `scripts/lib/revalidate.ts` | Empty or unset = the endpoint answers 404 and scripts print a warning. Any long random string. Restart the app after setting it. |
-| `OPENROUTER_API_KEY` | OpenRouter key for the AI redraw experiment (not used by the app yet) | `scripts/poc-ai-vectorize.ts` | Unset = the script stops. Costs real money per picture (about $0.02 to $0.07). |
 | `ONLY` | Run the AI redraw experiment on input files starting with this text | `scripts/poc-ai-vectorize.ts` | Optional. |
 | `PALETTE` | `1` = tell the AI to use only the default palette colours | `scripts/poc-ai-vectorize.ts` | Optional. |
 | `STRICT` | `1` = use the stricter "at most 4 flat colours, no gradients" prompt in the AI redraw experiment | `scripts/poc-ai-vectorize.ts` | Optional. |
@@ -104,6 +109,7 @@ Not environment variables: change them in code, then test and redeploy.
 | Payment reference format | `src/lib/order-service.ts` | 6 to 32 characters, `A-Z 0-9 -`, after trimming spaces and upper-casing |
 | Order number | `src/lib/orders.ts` | `DC-YYYYMMDD-XXXXXX`, PH date, 6 random characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` |
 | Upload limits | `src/lib/uploads.ts` `UPLOAD_RULES` | 3D model 50 MB (`.stl`, `.3mf`); product photo, customer image and site image 5 MB (JPG, PNG, WebP). Logos have tighter per-slot limits in `src/lib/branding-schema.ts` |
+| AI redraw models and limit | `src/lib/clicker/redraw.ts` `REDRAW_MODELS`, `REDRAW_DAILY_LIMIT` | Stencil: `black-forest-labs/flux-3-image-klein` (about $0.009), flat and fallback: `google/gemini-3.1-flash-lite-image` (about $0.034). 12 redraws per customer per day, held in server memory (G-105) |
 | Customer upload rate limit | `src/app/api/uploads/presign/route.ts` | 30 per hour per user, held in server memory (G-41) |
 | Signed link lifetimes | `src/lib/storage.ts`, `/api/files` | upload (PUT) 300 s; read (GET) 300 s via `/api/files`; default `readUrl` 3600 s |
 | Cache lifetime | `cacheLife("hours")` in `catalog.ts`, `reviews.ts`, `site-content.ts` | Hours, but admin changes expire it immediately (`updateTag`) |

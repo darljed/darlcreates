@@ -100,6 +100,12 @@ Consent is recorded with a timestamp and the policy version; changing the policy
 - Damaged clicker settings (including a smallest size above the largest) show the product with defaults but block ordering, and the admin print-file route (`/admin/orders/[id]/stl/[itemId]`) refuses to build a file on them. A failed font load is not cached (`retryable`), so the next request tries again.
 - The Server Action body limit is 4 MB (`next.config.ts`) so a design can be sent; `MAX_ADD_JSON` rejects anything over 3.5 MB.
 
+### Notes added with the AI picture redraw
+- `redrawPictureAction` spends money per call, so every check runs first: signed in with consent, the product has AI switched on, the picture is a real image under 1.1 MB (first bytes, not the claimed type), and a per-customer daily limit (12). The limit is in server memory (G-105).
+- `OPENROUTER_API_KEY` is read only in `src/lib/clicker/redraw.ts` on the server. Provider error messages are logged, never shown to the customer.
+- The customer's picture is sent to OpenRouter and the image model behind it. Nothing is stored by the shop. The designer says so on the choice screen, and the privacy policy text (Admin → Legal pages) should mention the AI service (G-106).
+- The colours the AI is asked to use come from the colour inventory on the server. Whatever the AI returns is still traced and checked like any picture (`checkAgainstConfig`), so it cannot add a colour that is not in stock.
+
 ## 9. Secrets
 
 `.env.local` is gitignored; `.env.example` lists the keys with empty values. `NEXT_PUBLIC_*` values are visible to everyone, so only non-secrets go there (GCash name and number, business name and email). The database password and the S3 key were shown in terminal output during setup and should be rotated (G-13, G-28); rotation steps are in [operations.md](./operations.md).

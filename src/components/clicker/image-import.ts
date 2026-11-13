@@ -37,6 +37,50 @@ export async function readRaster(file: File): Promise<Pixels> {
   return { width: w, height: h, data };
 }
 
+/** The picture as a small JPEG data URL (longest side `side`), flattened on white: what is sent to the AI redraw. */
+export async function fileToDataUrl(file: File, side = 768): Promise<string> {
+  if (!RASTER_TYPES.includes(file.type)) throw new Error("Use a PNG, JPG, WebP or GIF picture.");
+  if (file.size > MAX_PICTURE_BYTES) throw new Error("That picture is over 8 MB. Choose a smaller one.");
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error("We couldn't read that picture. Try a PNG or JPG.");
+  }
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Your browser can't read pictures here.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+/** The pixels of a data URL picture (the AI's answer), drawn small like `readRaster` does. */
+export async function readDataUrl(dataUrl: string): Promise<Pixels> {
+  const blob = await (await fetch(dataUrl)).blob();
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    throw new Error("We couldn't read the redrawn picture. Try again, or use your picture as it is.");
+  }
+  const scale = Math.min(1, RASTER_SIDE / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale)), h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Your browser can't read pictures here.");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  return { width: w, height: h, data: ctx.getImageData(0, 0, w, h).data };
+}
+
 const hexOf = (c: { r: number; g: number; b: number }) =>
   "#" + [c.r, c.g, c.b].map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0")).join("");
 

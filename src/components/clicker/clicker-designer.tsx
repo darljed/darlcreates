@@ -19,9 +19,11 @@ import {
   ColoursPanel, DesignPanel, KeyringPanel, LettersPanel, LookPanel, ShapePanel, SwitchPanel,
   type PictureSettings, type PictureState,
 } from "@/components/clicker/clicker-panels";
-import { readRaster, readSvg } from "@/components/clicker/image-import";
+import { fileToDataUrl, readDataUrl, readRaster, readSvg } from "@/components/clicker/image-import";
 import { useClickerFonts } from "@/components/clicker/use-fonts";
 import { addManyToCartAction } from "@/app/(shop)/cart/actions";
+import { redrawPictureAction } from "@/app/(shop)/clicker/actions";
+import { keyOutPixels, thresholdPixels } from "@/lib/clicker/redraw-post";
 import { useSession } from "@/lib/auth-client";
 import { formatPHP } from "@/lib/money";
 import { buildLayout, type Layout } from "@/lib/clicker/layout";
@@ -36,7 +38,7 @@ import { RELIEF_LABELS, RIM_LABELS } from "@/lib/clicker/fit";
 import { addLayer, canRedo, canUndo, commit, imageLayerFrom, newHistory, newTextLayer, redo, undo, updateLayer, type History } from "@/lib/clicker/state";
 import { layoutToSvg } from "@/lib/clicker/svg";
 import { centreAndFitArt } from "@/lib/clicker/fit-art";
-import { analyzeImage, defaultTrace, traceAnalysis } from "@/lib/clicker/trace";
+import { analyzeImage, defaultTrace, traceAnalysis, type Pixels } from "@/lib/clicker/trace";
 import { cn } from "@/lib/utils";
 import type { DragTarget, ViewMode } from "@/components/clicker/clicker-viewer";
 
@@ -50,6 +52,9 @@ const ClickerViewer = dynamic(() => import("@/components/clicker/clicker-viewer"
 });
 
 type Slot = { key: string; qty: number; h: History<ClickerSpec> };
+/** A stencil redraw that traces into more points than this is asked again of the other model. */
+const STENCIL_MAX_POINTS = 4000;
+
 type StepId = "design" | "letters" | "colours" | "shape" | "look" | "switch" | "keyring";
 const STEPS: Record<Kind, StepId[]> = {
   clicker: ["design", "colours", "shape", "look", "switch", "keyring"],
@@ -340,7 +345,42 @@ export function ClickerDesigner({
     [config.palette, edit],
   );
 
-  async function onAddFile(file: File) {
+  /** Trace pixels into a picture layer's shapes: the colours the picture is cut into, which ones to keep, and their outlines. */
+  function traceFrom(pixels: Pixels, wanted: number) {
+    const analysis = analyzeImage(pixels, wanted);
+    if (!analysis.palette.length) throw new Error("That picture looks empty or fully transparent.");
+    const d = defaultTrace(analysis, config.palette);
+    const settings: PictureSettings = { colours: wanted, keep: d.keep, target: d.target, smoothing: 1, detail: 0.6 };
+    const traced = traceAnalysis(analysis, settings);
+    if (!traced.groups.length) throw new Error("We couldn't find any shapes to print in that picture. Try one with clearer colours.");
+    return { analysis, settings, traced, pixels };
+  }
+
+  /** Ask the AI to redraw the picture, then trace the answer. Stencil answers that trace into too much detail are asked again of the other model. */
+  async function redrawAndTrace(file: File, mode: "flat" | "stencil") {
+    const image = await fileToDataUrl(file);
+    const build = async (retry: boolean) => {
+      const res = await redrawPictureAction({ productId, mode, image, retry });
+      if (!res.ok) {
+        if (res.needs) {
+          try { localStorage.setItem(draftKey(productId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
+          router.push(`${res.needs === "consent" ? "/consent" : "/sign-in"}?redirect=${encodeURIComponent(pathname)}`);
+        }
+        throw new Error(res.error);
+      }
+      const px = await readDataUrl(res.image);
+      // stencil: exactly two tones whatever the AI drew; flat: cut the solid backdrop out
+      const processed = mode === "stencil" ? thresholdPixels(px) : keyOutPixels(px, res.key ?? "#ff00ff");
+      return traceFrom(processed, mode === "stencil" ? 2 : Math.min(3, Math.max(2, config.maxColours - 1)));
+    };
+    let built = await build(false);
+    if (mode === "stencil" && built.traced.points > STENCIL_MAX_POINTS) {
+      try { built = await build(true); } catch { /* keep the first answer */ }
+    }
+    return built;
+  }
+
+  async function onAddFile(file: File, mode: "trace" | "flat" | "stencil" = "trace") {
     setBusy(true);
     setPictureError(null);
     try {
@@ -351,18 +391,12 @@ export function ClickerDesigner({
         if (traced.points > LIMITS.maxPoints) throw new Error("That SVG is too detailed. Simplify it and try again.");
         layer = imageLayerFrom(traced, spec, file.name.replace(/\.[^.]+$/, ""));
       } else {
-        const pixels = await readRaster(file);
         // base + key take two of the printer's colours, so start with what is left for the picture
-        const wanted = Math.max(2, config.maxColours - 2);
-        const analysis = analyzeImage(pixels, wanted);
-        if (!analysis.palette.length) throw new Error("That picture looks empty or fully transparent.");
-        const d = defaultTrace(analysis, config.palette);
-        const settings: PictureSettings = { colours: wanted, keep: d.keep, target: d.target, smoothing: 1, detail: 0.6 };
-        const traced = traceAnalysis(analysis, settings);
-        if (!traced.groups.length) throw new Error("We couldn't find any shapes to print in that picture. Try one with clearer colours.");
-        layer = imageLayerFrom(traced, spec, file.name.replace(/\.[^.]+$/, ""));
-        pictures.current.set(layer.id, { analysis, settings, pixels });
+        const built = mode === "trace" ? traceFrom(await readRaster(file), Math.max(2, config.maxColours - 2)) : await redrawAndTrace(file, mode);
+        layer = imageLayerFrom(built.traced, spec, file.name.replace(/\.[^.]+$/, ""));
+        pictures.current.set(layer.id, { analysis: built.analysis, settings: built.settings, pixels: built.pixels });
         setPictureSnap(new Map(pictures.current));
+        if (mode !== "trace") toast.info("Redrawn by AI. Not what you wanted? Press Undo, or add the picture again with “Keep my picture”.", { id: "ai-note" });
       }
       const pictureColours = layer.regions.filter((r) => r.shapes.length).map((r) => r.color);
       edit((s) => ({ ...addLayer(s, layer, config), capColor: capColourFor(s, config, pictureColours) }));
@@ -712,7 +746,7 @@ export function ClickerDesigner({
                         <DesignPanel
                           spec={spec} edit={edit} config={config}
                           selected={selected} setSelected={setSelected}
-                          onAddText={onAddText} onAddFile={onAddFile} placeLayer={placeLayer}
+                          onAddText={onAddText} onAddFile={onAddFile} signedIn={signedIn} placeLayer={placeLayer}
                           pictures={pictureSnap} retrace={retraceLayer} busy={busy} error={pictureError}
                         />
                       )}

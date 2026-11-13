@@ -70,6 +70,7 @@ On a product's page, **Clicker designer → Make this a clicker product** (only 
 - **Switches:** how many Cherry MX switches a customer may put under one key (up to 6) and the price of each extra one. The first is included.
 - **Most colours per print:** your printer's limit (X2D: 4). The base, the key and the artwork share it.
 - **Name keys:** on or off, the most keys, and the price of each key after the first.
+- **AI redraw of pictures:** lets signed-in customers have a photo redrawn as flat colours or a 2-colour portrait before it is traced. Costs about ₱2 per picture and needs the OpenRouter key on the server; each customer gets 12 a day. Tell customers in the privacy policy first (see G-106).
 - **Printer fit:** see below.
 
 Each ordered clicker has a **Download** button on the order. It gives one file with the base and the key already laid out on the plate (base 3 walls, key 1 wall). Open it in Bambu Studio, check the colours, print, press a real Cherry MX switch into each pocket of the base, and push the key onto the stems. The order line says how many switches to fit.

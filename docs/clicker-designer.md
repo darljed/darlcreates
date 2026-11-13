@@ -121,3 +121,11 @@ variations, are closed solids that do not overlap), outline keys (one solid key,
 cart integration (needs the database).
 Browser: open `/clicker`, try both kinds, upload a picture, press "Inside", add to cart, place an order, download the 3MF from the admin
 order, and check it on a phone-size screen.
+
+## AI picture redraw (optional)
+Owner: tick **AI redraw of pictures** in the product's clicker settings and set `OPENROUTER_API_KEY`. Customers (signed in) who add a photo choose between three cards, each with a before / after example:
+- **Keep my picture**: traced as it is (instant, free). Best for logos.
+- **Flat colours**: an AI redraws it with at most 2 to 3 flat colours chosen from the colour inventory, on a solid backdrop colour that the browser cuts out (so white parts of the subject are kept).
+- **2-colour portrait**: an AI redraws it in black and white; the browser makes every pixel pure black or white, so exactly two tones remain (the shapes print in the nearest dark colour in stock; the rest shows the key colour).
+The answer is traced like any picture, so the usual colour limits apply, and Undo removes it. A portrait that traces into more than 4,000 points is asked again of the other model. SVG files skip the choice. See `redrawPictureAction` (api-routes.md), D-59 and security.md.
+

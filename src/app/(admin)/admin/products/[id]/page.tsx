@@ -9,6 +9,7 @@ import { ClickerSetup } from "@/components/admin/clicker-setup";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
 import { inStock } from "@/lib/colour-inventory-schema";
+import { aiConfigured } from "@/lib/clicker/redraw";
 import { loadColourInventory } from "@/lib/site-content-store";
 
 export const metadata = { title: "Edit product · Admin" };
@@ -54,7 +55,7 @@ export default async function EditProductPage({
         />
       </div>
 
-      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} inventory={inventory} />
+      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} inventory={inventory} aiReady={aiConfigured()} />
 
       {!clicker && (
         <div>
