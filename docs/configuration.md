@@ -62,6 +62,12 @@ Sending is best-effort: a failed send is logged and never blocks an order, payme
 | Variable | What it is | Read in | Notes |
 |---|---|---|---|
 | `REVALIDATE_SECRET` | Lets scripts tell the running site to drop cached data (`POST /api/revalidate`) | `src/app/api/revalidate/route.ts`, `scripts/lib/revalidate.ts` | Empty or unset = the endpoint answers 404 and scripts print a warning. Any long random string. Restart the app after setting it. |
+| `OPENROUTER_API_KEY` | OpenRouter key for the AI redraw experiment (not used by the app yet) | `scripts/poc-ai-vectorize.ts` | Unset = the script stops. Costs real money per picture (about $0.02 to $0.07). |
+| `ONLY` | Run the AI redraw experiment on input files starting with this text | `scripts/poc-ai-vectorize.ts` | Optional. |
+| `PALETTE` | `1` = tell the AI to use only the default palette colours | `scripts/poc-ai-vectorize.ts` | Optional. |
+| `STRICT` | `1` = use the stricter "at most 4 flat colours, no gradients" prompt in the AI redraw experiment | `scripts/poc-ai-vectorize.ts` | Optional. |
+| `MODE` | `flat` = simple art in a small stock palette, `stencil` = black and white only (thresholded in code); experiment only | `scripts/poc-ai-vectorize.ts` | Optional. |
+| `TAG` | Suffix for the experiment's result sheet file names | `scripts/poc-ai-vectorize.ts` | Optional. |
 | `REVALIDATE_URL` | Where scripts reach the running app, default `http://localhost:3001` | `scripts/lib/revalidate.ts` | Scripts also try `BETTER_AUTH_URL`. They never try other local ports (port 3000 is a different project on this machine). |
 | `NEXT_DIST_DIR` | Build output folder, default `.next` | Next.js | Build with `NEXT_DIST_DIR=.next-build npx next build` so a running dev server is not disturbed, then delete the folder. |
 | `NODE_ENV` | Set by Next (`development`, `production`) | `src/lib/auth.ts`, `src/db/index.ts`, `scripts/e2e-session.ts`, `scripts/seed-demo.ts` | In development BetterAuth also trusts `http://localhost:3000/3001` and `127.0.0.1` origins. The test and seed scripts refuse to run when it is `production`. |

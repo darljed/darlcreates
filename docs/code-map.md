@@ -283,6 +283,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
+| `poc-ai-vectorize.ts` | Experiment, not part of the app: asks OpenRouter image models to redraw sample pictures as flat-colour art, traces them with the app's tracer and writes comparison sheets to `/tmp/ai-poc/out` |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
 | `test-deploy.ts` | Connection options (direct / pooler / Vercel) and the streamed download body; no database |
