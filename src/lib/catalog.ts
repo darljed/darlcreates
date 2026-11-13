@@ -12,6 +12,9 @@ import {
 import { and, asc, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import type { ProductOptionInput } from "./pricing";
+import { applyInventory, type ColourInventory } from "./colour-inventory-schema";
+import { loadColourInventory } from "./site-content-store";
+import { COLOURS_TAG } from "./site-content";
 
 export type ProductListItem = {
   id: string;
@@ -96,7 +99,7 @@ export async function getProductBySlug(
 ): Promise<FullProduct | null> {
   "use cache";
   cacheLife("hours");
-  cacheTag("products", `product:${slug}`);
+  cacheTag("products", `product:${slug}`, COLOURS_TAG);
   const where = opts.publishedOnly
     ? and(eq(products.slug, slug), eq(products.status, "published"))
     : eq(products.slug, slug);
@@ -105,19 +108,22 @@ export async function getProductBySlug(
   return (await getProductsByIds([p.id])).get(p.id) ?? null;
 }
 
-export async function getProductById(id: string): Promise<FullProduct | null> {
-  return (await getProductsByIds([id])).get(id) ?? null;
+export async function getProductById(id: string, opts: ReadOptions = {}): Promise<FullProduct | null> {
+  return (await getProductsByIds([id], opts)).get(id) ?? null;
 }
+
+/** `raw`: every colour the product has, ignoring the shop's colour inventory (admin screens, old orders). */
+type ReadOptions = { raw?: boolean };
 
 /**
  * Several products with their photos, options and values, in ONE round of four queries run together (the database may be
  * far away, so the number of sequential round trips is what costs). Missing ids are absent from the map.
  */
-export async function getProductsByIds(ids: string[] | SQLWrapper): Promise<Map<string, FullProduct>> {
+export async function getProductsByIds(ids: string[] | SQLWrapper, opts: ReadOptions = {}): Promise<Map<string, FullProduct>> {
   // `ids` may also be a subquery of product ids, so a caller that does not know them yet (the cart) needs no earlier round
   const unique = Array.isArray(ids) ? [...new Set(ids)] : ids;
   if (Array.isArray(unique) && unique.length === 0) return new Map();
-  const [rows, photos, opts, vals] = await Promise.all([
+  const [rows, photos, optRows, vals, inventory] = await Promise.all([
     db.select().from(products).where(inArray(products.id, unique)),
     db.select().from(productPhotos).where(inArray(productPhotos.productId, unique)).orderBy(asc(productPhotos.sort)),
     db.select().from(productOptions).where(inArray(productOptions.productId, unique)).orderBy(asc(productOptions.sort)),
@@ -127,8 +133,9 @@ export async function getProductsByIds(ids: string[] | SQLWrapper): Promise<Map<
       .innerJoin(productOptions, eq(productOptionValues.optionId, productOptions.id))
       .where(inArray(productOptions.productId, unique))
       .orderBy(asc(productOptionValues.sort)),
+    opts.raw ? Promise.resolve(null) : loadColourInventory(), // only the colours in stock are offered
   ]);
-  return assemble(rows, photos, opts, vals.map((r) => r.v));
+  return assemble(rows, photos, optRows, vals.map((r) => r.v), inventory);
 }
 
 function assemble(
@@ -136,10 +143,11 @@ function assemble(
   photos: (typeof productPhotos.$inferSelect)[],
   opts: (typeof productOptions.$inferSelect)[],
   vals: (typeof productOptionValues.$inferSelect)[],
+  inventory: ColourInventory | null,
 ): Map<string, FullProduct> {
   const out = new Map<string, FullProduct>();
   for (const p of rows) {
-    const options: ProductOptionInput[] = opts
+    const built: ProductOptionInput[] = opts
       .filter((o) => o.productId === p.id)
       .map((o) => ({
         id: o.id,
@@ -152,6 +160,7 @@ function assemble(
           .filter((v) => v.optionId === o.id)
           .map((v) => ({ id: v.id, label: v.label, value: v.value, priceDeltaCents: v.priceDeltaCents })),
       }));
+    const options = applyInventory(built, inventory);
     out.set(p.id, {
       id: p.id,
       slug: p.slug,

@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { siteContent, users } from "@/db/schema";
+import { colourInventorySchema, parseInventory, type ColourInventory } from "./colour-inventory-schema";
 import { brandingSchema, DEFAULT_BRANDING, parseBranding, type Branding } from "./branding-schema";
 import {
   DEFAULT_HOME,
@@ -26,6 +27,7 @@ import { z } from "zod";
 export const HOME_KEY = "home";
 export const SITE_KEY = "site";
 export const BRAND_KEY = "brand";
+export const COLOURS_KEY = "colours";
 export const legalKey = (slug: LegalSlug) => `legal:${slug}`;
 
 async function loadRaw(key: string): Promise<unknown> {
@@ -133,6 +135,21 @@ export async function loadBranding(key = BRAND_KEY): Promise<Branding> {
 
 export async function saveBranding(input: unknown, userId: string | null, key = BRAND_KEY): Promise<Branding> {
   const data = brandingSchema.parse(input);
+  await upsert(key, data, userId);
+  return data;
+}
+
+// ---- colour inventory ----
+/** The saved colour inventory, or null when the owner has not saved one (or it is damaged): then nothing is filtered. */
+export async function loadColourInventory(key = COLOURS_KEY): Promise<ColourInventory | null> {
+  const raw = await loadRaw(key);
+  const inv = parseInventory(raw);
+  if (raw !== undefined && !inv) console.error("The colour inventory is damaged, so every colour is allowed until it is saved again (Admin > Colours).");
+  return inv;
+}
+
+export async function saveColourInventory(input: unknown, userId: string | null, key = COLOURS_KEY): Promise<ColourInventory> {
+  const data = colourInventorySchema.parse(input);
   await upsert(key, data, userId);
   return data;
 }

@@ -22,6 +22,8 @@ import { measureSpace } from "@/lib/name-space";
 import type { SpaceTable } from "@/lib/name-mesh";
 import { clickerConfigSchema, type ClickerConfig } from "@/lib/clicker/spec";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
+import { inStock, inventoryHexes } from "@/lib/colour-inventory-schema";
+import { loadColourInventory } from "@/lib/site-content-store";
 
 type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
 
@@ -170,6 +172,11 @@ export async function addOptionValueAction(input: unknown): Promise<Result> {
   if (!parsed.success) return { ok: false, error: "Invalid value" };
 
   const priceDeltaCents = parsePesoInput(parsed.data.priceDelta || "0") ?? 0;
+  // a colour choice must be a colour in stock (when the shop has set its colours up)
+  const [parent] = await db.select({ type: productOptions.type }).from(productOptions).where(eq(productOptions.id, parsed.data.optionId)).limit(1);
+  if (parent?.type === "color" && !inStock(await loadColourInventory(), parsed.data.value)) {
+    return { ok: false, error: "That colour is not in your Colours list. Add it under Colours first, or pick one from the list." };
+  }
   await db.insert(productOptionValues).values({
     optionId: parsed.data.optionId,
     label: parsed.data.label,
@@ -228,6 +235,9 @@ export async function saveNameSlotAction(input: unknown): Promise<Result> {
   if (slot?.mode === "engraved" && kind !== "3mf") {
     return { ok: false, error: "Engraved names need a 3MF slicer project (Bambu Studio / Orca). An STL cannot hold a part that is cut out." };
   }
+  const inventory = await loadColourInventory();
+  const outOfStock = slot?.nameColors?.find((c) => !inStock(inventory, c.hex));
+  if (outOfStock) return { ok: false, error: `${outOfStock.label || outOfStock.hex} is not in your Colours list. Add it under Colours first, or remove it here.` };
   let toSave = slot;
   if (slot && kind && product.stlKey) {
     // A name area of the size allowed must sit fully on the surface here, or some names would print floating or buried.
@@ -441,6 +451,9 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
   if (!slug) return { ok: false, error: "Product not found" };
 
   if (config) {
+    // when the shop has a colour list, it IS the palette (the browser's copy is ignored)
+    const inventory = await loadColourInventory();
+    if (inventory) config.palette = inventoryHexes(inventory);
     if (config.minSize > config.maxSize) return { ok: false, error: "The smallest size is larger than the largest size" };
     if (new Set(config.palette.map((c) => c.toLowerCase())).size !== config.palette.length) return { ok: false, error: "The colour list has the same colour twice" };
     const tiers = config.sizeTiers.map((t) => t.upToMm);

@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/shell/ui";
 import { ClickerSetup } from "@/components/admin/clicker-setup";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
+import { inStock } from "@/lib/colour-inventory-schema";
+import { loadColourInventory } from "@/lib/site-content-store";
 
 export const metadata = { title: "Edit product · Admin" };
 
@@ -19,7 +21,7 @@ export default async function EditProductPage({
   params,
 }: PageProps<"/admin/products/[id]">) {
   const { id } = await params;
-  const product = await getProductById(id);
+  const [product, inventory] = await Promise.all([getProductById(id, { raw: true }), loadColourInventory()]);
   if (!product) notFound();
   const clicker = clickerOptionOf(product.options);
 
@@ -52,12 +54,12 @@ export default async function EditProductPage({
         />
       </div>
 
-      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} />
+      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} inventory={inventory} />
 
       {!clicker && (
         <div>
           <h2 className="mb-2 text-sm font-bold">Customization options</h2>
-          <SchemaBuilder productId={product.id} options={product.options} />
+          <SchemaBuilder productId={product.id} options={product.options} inventory={inventory} />
         </div>
       )}
 
@@ -67,7 +69,7 @@ export default async function EditProductPage({
           modelUrl={fileUrl(product.stlKey) ?? ""}
           canEngrave={/\.3mf$/i.test(product.stlKey)}
           options={product.options.filter((o) => o.type === "text").map((o) => ({ id: o.id, label: o.label, constraints: o.constraints }))}
-          colors={(product.options.find((o) => o.type === "color")?.values ?? []).map((v) => ({ label: v.label, hex: v.value }))}
+          colors={(product.options.find((o) => o.type === "color")?.values ?? []).filter((v) => inStock(inventory, v.value)).map((v) => ({ label: v.label, hex: v.value }))}
         />
       )}
     </div>

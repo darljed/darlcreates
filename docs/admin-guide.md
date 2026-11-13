@@ -1,8 +1,8 @@
 # Admin guide (for the owner)
 
-> Last updated: 2026-11-11. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
+> Last updated: 2026-11-13. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
 
-Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
+Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Colours, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
 
 ## Daily routine
 
@@ -110,6 +110,15 @@ Under **Store & footer** the panel "Search engines and AI answers" holds the tit
 ## Installing the shop as an app
 
 Customers can install the site on their phone or computer from the "Install the app" link in the footer (iPhone: Share, then Add to Home Screen). It opens full-screen and shows an offline page when there is no connection. The installed icon is your browser-tab icon if you upload one that is 512 px or larger, otherwise the built-in logo icon.
+
+## Colours
+
+**Catalog → Colours** is the list of filament colours you have in stock (a swatch and a name each, 2 to 24). Once you save it, these are the **only** colours customers can pick: in the clicker designer, on colour options and for names. Until you save it for the first time nothing is limited, so existing products keep working.
+- A colour choice on a product that is not in the list is **hidden** from customers (not deleted). Add the colour back and it returns. The product page marks such choices "hidden".
+- When you add a colour choice to a product you pick it from this list.
+- The clicker designer uses the list as its palette on every clicker product.
+- A customer who already has a removed colour in their cart is told it is no longer available when they check out. Orders already placed are not changed.
+- **Stop limiting colours** removes the list.
 
 ## Logos & branding
 

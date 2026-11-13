@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { formatPHP } from "@/lib/money";
 import type { ProductOptionInput } from "@/lib/pricing";
+import { inStock, type ColourInventory } from "@/lib/colour-inventory-schema";
 import {
   addOptionAction,
   addOptionValueAction,
@@ -29,9 +30,11 @@ import {
 export function SchemaBuilder({
   productId,
   options,
+  inventory,
 }: {
   productId: string;
   options: ProductOptionInput[];
+  inventory: ColourInventory | null;
 }) {
   const router = useRouter();
   const uid = useId();
@@ -123,6 +126,7 @@ export function SchemaBuilder({
                 optionId={opt.id}
                 type={opt.type}
                 values={opt.values}
+                inventory={inventory}
               />
             )}
           </div>
@@ -206,17 +210,19 @@ function ValueEditor({
   optionId,
   type,
   values,
+  inventory,
 }: {
   productId: string;
   optionId: string;
   type: "color" | "size";
   values: ProductOptionInput["values"];
+  inventory: ColourInventory | null;
 }) {
   const router = useRouter();
   const vid = useId();
   const [pending, startTransition] = useTransition();
   const [label, setLabel] = useState("");
-  const [value, setValue] = useState(type === "color" ? "#0077a5" : "");
+  const [value, setValue] = useState(type === "color" ? (inventory?.colours[0]?.hex ?? "#0077a5") : "");
   const [priceDelta, setPriceDelta] = useState("0");
 
   function add() {
@@ -255,6 +261,7 @@ function ValueEditor({
             )}
             {v.label}
             {v.priceDeltaCents > 0 && ` (+${formatPHP(v.priceDeltaCents)})`}
+            {type === "color" && !inStock(inventory, v.value) && <span className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-900" title="This colour is not in your Colours list, so customers do not see it.">hidden</span>}
           </span>
         ))}
       </div>
@@ -271,15 +278,33 @@ function ValueEditor({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${vid}-value`} className="text-xs">
-            {type === "color" ? "Hex" : "Code"}
+            {type === "color" ? (inventory ? "Colour" : "Hex") : "Code"}
           </Label>
-          <Input
-            id={`${vid}-value`}
-            className="h-8 w-28"
-            type={type === "color" ? "color" : "text"}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
+          {type === "color" && inventory ? (
+            <select
+              id={`${vid}-value`}
+              className="h-8 w-36 rounded-md border bg-background px-2 text-sm"
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (!label.trim()) setLabel(inventory.colours.find((c) => c.hex === e.target.value)?.name ?? "");
+              }}
+            >
+              {inventory.colours.map((c) => (
+                <option key={c.hex} value={c.hex}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <Input
+              id={`${vid}-value`}
+              className="h-8 w-28"
+              type={type === "color" ? "color" : "text"}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+          )}
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${vid}-delta`} className="text-xs">+₱</Label>

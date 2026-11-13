@@ -7,6 +7,7 @@
  * (see saveClickerConfigAction). The shop shows the designer in place of the option form.
  */
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -17,12 +18,13 @@ import { Check, Field } from "@/components/admin/editor-bits";
 import { formatPHP } from "@/lib/money";
 import { DEFAULT_CLICKER_CONFIG, LIMITS, type ClickerConfig } from "@/lib/clicker/spec";
 import { saveClickerConfigAction } from "@/app/(admin)/admin/products/actions";
+import type { ColourInventory } from "@/lib/colour-inventory-schema";
 
 /** Pesos typed as text, kept as text while editing so "1." and "" are allowed. */
 const pesos = (cents: number) => String(cents / 100);
 const toCents = (s: string) => Math.max(0, Math.round((Number(s) || 0) * 100));
 
-export function ClickerSetup({ productId, initial, canSwitchOn }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean }) {
+export function ClickerSetup({ productId, initial, canSwitchOn, inventory }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean; inventory: ColourInventory | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [on, setOn] = useState(Boolean(initial));
@@ -107,31 +109,49 @@ export function ClickerSetup({ productId, initial, canSwitchOn }: { productId: s
           </Field>
         </div>
 
-        <div className="space-y-2">
-          <h3 className="text-xs font-bold">Colours on offer (filaments you have)</h3>
-          <div className="flex flex-wrap gap-2">
-            {c.palette.map((hex, i) => (
-              <div key={i} className="flex items-center gap-1 rounded-lg border-2 border-border p-1">
-                <input
-                  type="color"
-                  aria-label={`Colour ${i + 1}`}
-                  value={hex}
-                  onChange={(e) => set({ palette: c.palette.map((x, j) => (j === i ? e.target.value : x)) })}
-                  className="size-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                />
-                <Button type="button" size="icon" variant="ghost" className="size-7" disabled={c.palette.length <= 2} aria-label={`Remove colour ${hex}`} onClick={() => set({ palette: c.palette.filter((_, j) => j !== i) })}>
-                  <Trash2 className="size-3.5 text-destructive" />
-                </Button>
-              </div>
-            ))}
-            {c.palette.length < 24 && (
-              <Button type="button" size="sm" variant="outline" className="h-10" onClick={() => set({ palette: [...c.palette, "#6366f1"] })}>
-                <Plus className="mr-1 size-4" /> Colour
-              </Button>
-            )}
+        {inventory ? (
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold">Colours on offer</h3>
+            <div className="flex flex-wrap gap-2">
+              {inventory.colours.map((col) => (
+                <span key={col.hex} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs">
+                  <span className="size-3.5 rounded-full border" style={{ backgroundColor: col.hex }} /> {col.name}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              These are the colours you have in stock, the same for every product. Change them under <Link href="/admin/colours" className="underline">Colours</Link>.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">The first colour is the starting body colour. Pictures are matched to the nearest of these.</p>
-        </div>
+        ) : (
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold">Colours on offer (filaments you have)</h3>
+            <div className="flex flex-wrap gap-2">
+              {c.palette.map((hex, i) => (
+                <div key={i} className="flex items-center gap-1 rounded-lg border-2 border-border p-1">
+                  <input
+                    type="color"
+                    aria-label={`Colour ${i + 1}`}
+                    value={hex}
+                    onChange={(e) => set({ palette: c.palette.map((x, j) => (j === i ? e.target.value : x)) })}
+                    className="size-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                  />
+                  <Button type="button" size="icon" variant="ghost" className="size-7" disabled={c.palette.length <= 2} aria-label={`Remove colour ${hex}`} onClick={() => set({ palette: c.palette.filter((_, j) => j !== i) })}>
+                    <Trash2 className="size-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              {c.palette.length < 24 && (
+                <Button type="button" size="sm" variant="outline" className="h-10" onClick={() => set({ palette: [...c.palette, "#6366f1"] })}>
+                  <Plus className="mr-1 size-4" /> Colour
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The first colour is the starting body colour. Pictures are matched to the nearest of these. Tip: list your colours once under <Link href="/admin/colours" className="underline">Colours</Link> and they are used on every product.
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Most switches under one key" hint="1 to 6">

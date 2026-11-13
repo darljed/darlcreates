@@ -64,7 +64,7 @@ One 3MF, two objects, already placed on the 256 mm plate (6 mm margins and gap, 
 The admin order page's **Download** builds it from the saved design with your printer fit (`/admin/orders/[id]/stl/[itemId]`).
 
 ## Owner settings (`ClickerConfig`, on the product)
-Key size range (for the fixed shapes), size price steps, price per extra colour, keyring, picture, palette, **most colours per print**, most layers, most
+Key size range (for the fixed shapes), size price steps, price per extra colour, keyring, picture, palette (**when the shop has a colour inventory under Admin → Colours, that list IS the palette on every clicker product**, and "most colours per print" cannot exceed it; applied in `applyInventory` when the product is read), **most colours per print**, most layers, most
 clickers per order, text and picture on/off, **most switches under one key and the price of each extra one**, **name keys** (on/off, most keys, price
 per key after the first), and **printer fit** (`tune`: switch pocket, stem socket, gap round the key; mm, plus loosens).
 Set on **Admin → Products → (product) → Clicker designer**.
