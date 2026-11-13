@@ -7,6 +7,12 @@
  */
 import type { Pixels } from "./trace";
 
+/**
+ * How many colours a flat redraw may use: the base and the key take two of the printer's colours (the same rule as a
+ * traced picture), so the picture gets what is left, at least 2 and at most 3.
+ */
+export const flatColourCount = (maxColours: number): number => Math.min(3, Math.max(2, maxColours - 2));
+
 /** Black or white by brightness. Transparent pixels stay transparent. Returns a new array. */
 export function thresholdPixels(px: Pixels, level = 128): Pixels {
   const out = new Uint8ClampedArray(px.width * px.height * 4);

@@ -23,7 +23,7 @@ import { fileToDataUrl, readDataUrl, readRaster, readSvg } from "@/components/cl
 import { useClickerFonts } from "@/components/clicker/use-fonts";
 import { addManyToCartAction } from "@/app/(shop)/cart/actions";
 import { redrawPictureAction } from "@/app/(shop)/clicker/actions";
-import { keyOutPixels, thresholdPixels } from "@/lib/clicker/redraw-post";
+import { flatColourCount, keyOutPixels, thresholdPixels } from "@/lib/clicker/redraw-post";
 import { useSession } from "@/lib/auth-client";
 import { formatPHP } from "@/lib/money";
 import { buildLayout, type Layout } from "@/lib/clicker/layout";
@@ -371,7 +371,7 @@ export function ClickerDesigner({
       const px = await readDataUrl(res.image);
       // stencil: exactly two tones whatever the AI drew; flat: cut the solid backdrop out
       const processed = mode === "stencil" ? thresholdPixels(px) : keyOutPixels(px, res.key ?? "#ff00ff");
-      return traceFrom(processed, mode === "stencil" ? 2 : Math.min(3, Math.max(2, config.maxColours - 1)));
+      return traceFrom(processed, mode === "stencil" ? 2 : flatColourCount(config.maxColours));
     };
     let built = await build(false);
     if (mode === "stencil" && built.traced.points > STENCIL_MAX_POINTS) {

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { getProductById } from "@/lib/catalog";
 import { getAccess } from "@/lib/session";
+import { flatColourCount } from "@/lib/clicker/redraw-post";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { REDRAW_DAILY_LIMIT, REDRAW_MODES, looksLikeImageDataUrl, redrawPicture, takeRedrawSlot } from "@/lib/clicker/redraw";
 
@@ -41,8 +42,7 @@ export async function redrawPictureAction(input: unknown): Promise<RedrawActionR
 
   if (!takeRedrawSlot(access.user.id)) return { ok: false, error: `You've redrawn ${REDRAW_DAILY_LIMIT} pictures today, which is the most for one day. Try again tomorrow, or use your picture as it is.` };
 
-  // the base and the key take two of the printer's colours; the picture gets what is left (at least 2, at most 3)
-  const colours = Math.min(3, Math.max(2, clicker.config.maxColours - 1));
+  const colours = flatColourCount(clicker.config.maxColours);
   const res = await redrawPicture({ mode: mode as "flat" | "stencil", imageDataUrl: image, palette: clicker.config.palette, colours, retry });
   if (!res.ok) return { ok: false, error: res.error };
   console.info("ai-redraw", { user: access.user.id, mode, model: res.model, costUsd: res.costUsd });

@@ -87,7 +87,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `auth-client.ts` | BetterAuth browser client (sign in / out) |
 | `auth.ts` | BetterAuth server config: Google only, `role` field, trusted origins in dev, block-on-sign-in hook |
 | `clicker/redraw.ts` | **Server only** (holds the API key). AI picture redraw through OpenRouter: the two modes (flat, stencil), the prompts, the backdrop colour, model choice with fallback, plain-sentence errors, the image check and the per-customer daily limit |
-| `clicker/redraw-post.ts` | **Pure.** What the browser does with the AI answer before tracing: `thresholdPixels` (exactly two tones) and `keyOutPixels` (cut out the solid backdrop and its blended rim) |
+| `clicker/redraw-post.ts` | **Pure.** What the browser does with the AI answer before tracing: `thresholdPixels` (exactly two tones), `keyOutPixels` (cut out the solid backdrop and its blended rim) and `flatColourCount` (how many colours a flat redraw may use) |
 | `colour-inventory-schema.ts` | **Pure.** The colour inventory (name + hex, 2 to 24, no duplicates), `parseInventory`, `inStock`, and `applyInventory`, which filters a product's colour options, clicker palette and name colours to what is in stock |
 | `branding-schema.ts` | **Pure.** The six logo slots, where each is used, size and type rules |
 | `branding-verify.ts` | Server proof that an uploaded logo is acceptable (exists, size, magic bytes, pixel shape) |

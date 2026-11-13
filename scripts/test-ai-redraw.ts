@@ -4,7 +4,7 @@
  * The real AI call is covered by scripts/make-redraw-examples.ts and the browser run.
  * Run: npx tsx scripts/test-ai-redraw.ts
  */
-import { keyOutPixels, thresholdPixels } from "../src/lib/clicker/redraw-post";
+import { flatColourCount, keyOutPixels, thresholdPixels } from "../src/lib/clicker/redraw-post";
 import { keyColourFor, looksLikeImageDataUrl, redrawPicture, redrawPrompt, REDRAW_DAILY_LIMIT, REDRAW_MODELS, takeRedrawSlot } from "../src/lib/clicker/redraw";
 import { clickerConfigOf, DEFAULT_CLICKER_CONFIG, DEFAULT_PALETTE } from "../src/lib/clicker/spec";
 import { analyzeImage } from "../src/lib/clicker/trace";
@@ -49,6 +49,8 @@ async function main() {
   assert("the input is not changed", sheet.data[3] === 255 && sheet.data[(10 * 20 + 10) * 4 + 3] === 255);
   const found = analyzeImage(k, 3);
   assert("the tracer sees one colour (the yellow), no pink fringe", found.palette.filter((p) => !p.background).length === 1, JSON.stringify(found.palette.map((p) => p.hex)));
+
+  assert("flat colours: what the printer has left after the base and the key (2 to 3)", flatColourCount(4) === 2 && flatColourCount(5) === 3 && flatColourCount(8) === 3 && flatColourCount(2) === 2);
 
   console.log("\nthe backdrop colour");
   assert("the usual stock gets one of the backdrop colours, far from every colour in it", ["#ff00ff", "#00ffff", "#00ff00", "#ffff00"].includes(keyColourFor(DEFAULT_PALETTE).hex));
