@@ -1,0 +1,102 @@
+import { NextResponse } from "next/server";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/db";
+import { orderItems } from "@/db/schema";
+import { requireAdmin } from "@/lib/session";
+import { readUrl, isStorageConfigured, getObject } from "@/lib/storage";
+import { getProductById } from "@/lib/catalog";
+import { personalizedName } from "@/lib/name-mesh";
+import { buildColoredFile, buildPrintFile } from "@/lib/name-3mf";
+import { bytesToStream } from "@/lib/stream-bytes";
+import { designOf } from "@/lib/clicker/of-product";
+import { clickerConfigDamaged } from "@/lib/clicker/spec";
+import { buildClickerPrint } from "@/lib/clicker/server";
+import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
+import type { ConfigSelection } from "@/lib/pricing";
+
+/**
+ * Admin-only: the print-ready file for an order item. Normally a redirect to a signed download of the product's model.
+ * When the product has a name slot and the customer typed a name, the file is built here instead: the original model
+ * (STL or 3MF) plus the name as one more part of the same object, in a 3MF (see lib/name-3mf.ts). Rebuilt from the saved text every time, never from
+ * anything the browser supplied. RBAC-gated; never exposes the raw bucket.
+ */
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string; itemId: string }> },
+) {
+  await requireAdmin();
+  const { id, itemId } = await params;
+
+  const [item] = await db
+    .select({ stlKey: orderItems.stlKeySnapshot, productId: orderItems.productId, config: orderItems.config })
+    .from(orderItems)
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, id)))
+    .limit(1);
+
+  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+
+  // a clicker designer line: the print file is built from the saved design (no model file is stored for it)
+  const itemProduct = await getProductById(item.productId, { raw: true });
+  const design = itemProduct ? designOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
+  if (design) {
+    // damaged settings fall back to defaults for display; never build a print file on made-up fit values
+    if (itemProduct?.options.some((o) => o.type === "text" && clickerConfigDamaged(o.constraints))) {
+      return NextResponse.json({ error: "This product's clicker settings are damaged. Save the product again in the admin, then retry." }, { status: 422 });
+    }
+    const built = await buildClickerPrint(design.spec, `Clicker ${itemId.slice(0, 8)}`, design.config.tune);
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
+    return new Response(bytesToStream(built.file), {
+      headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="clicker-${itemId.slice(0, 8)}.3mf"`, "Cache-Control": "private, no-store" },
+    });
+  }
+
+  if (!item.stlKey) {
+    return NextResponse.json({ error: "No STL for this item" }, { status: 404 });
+  }
+  if (!isStorageConfigured()) {
+    return NextResponse.json(
+      { error: "Storage not configured" },
+      { status: 503 },
+    );
+  }
+
+  const product = itemProduct;
+  const config = (item.config ?? {}) as ConfigSelection;
+  const personal = product ? personalizedName(product.options, config, item.stlKey) : null;
+  // the customer's colour for each part of a multi-colour model (3MF slicer projects only)
+  const colors = product && /\.3mf$/i.test(item.stlKey) ? filamentAssignments(product.options, config) : [];
+  const paint = product && /\.3mf$/i.test(item.stlKey) ? paintAssignments(product.options, config) : [];
+  if (!personal && (colors.length || paint.length)) {
+    const obj = await getObject(item.stlKey);
+    if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
+    try {
+      const file = buildColoredFile(await new Response(obj.stream).arrayBuffer(), colors, paint);
+      return new Response(bytesToStream(file), {
+        headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-colours.3mf"`, "Cache-Control": "private, no-store" },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read the model file" }, { status: 422 });
+    }
+  }
+  if (personal) {
+    const obj = await getObject(item.stlKey);
+    if (!obj) return NextResponse.json({ error: "Model file not found" }, { status: 404 });
+    const base = await new Response(obj.stream).arrayBuffer();
+    const built = await buildPrintFile({ base, kind: personal.kind, text: personal.text, slot: personal.slot, colors, paint });
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
+    const safe = personal.text.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "name";
+    return new Response(bytesToStream(built.file), {
+      headers: {
+        "Content-Type": "model/3mf",
+        "Content-Disposition": `attachment; filename="${itemId.slice(0, 8)}-${safe}.3mf"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+
+  const url = await readUrl(item.stlKey, 120);
+  if (!url) {
+    return NextResponse.json({ error: "Could not sign URL" }, { status: 500 });
+  }
+  return NextResponse.redirect(url);
+}

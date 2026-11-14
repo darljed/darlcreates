@@ -1,0 +1,69 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import { InsetShell, type NavGroup } from "@/components/shell/inset-shell";
+import { AdminAccountMenu } from "@/components/admin/admin-account-menu";
+import { BrandLogo } from "@/components/brand-logo";
+import { Toaster } from "@/components/ui/sonner";
+import { adminBadgeCounts } from "@/lib/admin-counts";
+import { requireAdmin } from "@/lib/session";
+
+// The whole /admin tree is per-request, RBAC-gated, and uncacheable.
+export const instant = false;
+/** Private area: keep every page out of search results and AI indexes. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
+export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
+  // Server-side RBAC gate for the entire /admin tree.
+  const admin = await requireAdmin();
+  const counts = await adminBadgeCounts();
+
+  const groups: NavGroup[] = [
+    { items: [{ href: "/admin", label: "Dashboard", icon: "dashboard", exact: true }] },
+    { label: "Sales", items: [
+      { href: "/admin/orders", label: "Orders", icon: "orders" },
+      { href: "/admin/payments", label: "Payments", icon: "payments", badge: counts.pendingPayments },
+      { href: "/admin/reviews", label: "Reviews", icon: "reviews", badge: counts.pendingReviews },
+    ] },
+    { label: "Catalog", items: [
+      { href: "/admin/products", label: "Products", icon: "products" },
+      { href: "/admin/colours", label: "Colours", icon: "palette" },
+    ] },
+    { label: "People", items: [{ href: "/admin/users", label: "Users", icon: "users" }] },
+    { label: "Site", items: [
+      { href: "/admin/content", label: "Landing page", icon: "content" },
+      { href: "/admin/branding", label: "Logos & branding", icon: "image" },
+      { href: "/admin/store", label: "Store & footer", icon: "store" },
+      { href: "/admin/legal", label: "Legal pages", icon: "legal" },
+    ] },
+  ];
+
+  return (
+    <>
+      <InsetShell
+        density="compact"
+        rootLabel="Admin"
+        labels={{ users: "Users", new: "New", payments: "Payments", colours: "Colours", content: "Landing page", branding: "Logos & branding", store: "Store & footer", legal: "Legal pages", acknowledgment: "Acknowledgment" }}
+        brand={
+          <Link href="/admin" className="flex items-center gap-2" aria-label="Admin home">
+            <BrandLogo variant="icon" className="h-7" />
+            <span className="text-sm font-extrabold tracking-tight">Admin</span>
+          </Link>
+        }
+        groups={groups}
+        topbarRight={<AdminAccountMenu variant="avatar" name={admin.name} email={admin.email} image={admin.image ?? null} />}
+        sidebarFooter={
+          <div className="space-y-1 text-xs">
+            <Link href="/" target="_blank" className="flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-sidebar-foreground/80 hover:bg-background/60">
+              <ExternalLink className="size-3.5" aria-hidden /> View storefront
+            </Link>
+            <AdminAccountMenu variant="sidebar" name={admin.name} email={admin.email} image={admin.image ?? null} />
+          </div>
+        }
+      >
+        {children}
+      </InsetShell>
+      <Toaster richColors position="top-center" />
+    </>
+  );
+}

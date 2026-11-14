@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Darl Creates
 
-## Getting Started
+E-commerce for a Philippine 3D-printing shop. Customers browse ready-to-print
+products, spin them in 3D, customize them (color / size / text / image), pay via
+**GCash with manual reference verification**, and track their order. The owner
+runs the catalog, customization options, payment verification, fulfilment,
+shipping and sales from an admin panel.
 
-First, run the development server:
+> **Status:** Phase 1 is built and tested on `develop`: storefront, customer area and owner admin
+> (orders, payments, products, users, landing page, logos, store details, legal pages). Authenticated flows were
+> checked in a real browser. Open items and launch blockers: [docs/roadmap-and-gaps.md](docs/roadmap-and-gaps.md).
+> **Phase 2** (in-browser STL generators) is planned, not started.
+
+## Stack
+
+Next.js 16 (App Router, Cache Components) · React 19 · TypeScript · Tailwind v4 ·
+shadcn/ui · Drizzle ORM · PostgreSQL · BetterAuth (Google) · react-three-fiber ·
+AWS S3 · Zod. Design direction: **Vibrant Pop**.
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # then fill in values (see docs/setup.md)
+npx next dev -p 3001         # http://localhost:3001 (port 3000 is used by another project here)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Needs Tailscale up (database is on the agent-server). Full setup, Google OAuth
+and AWS profile rules: **[docs/setup.md](docs/setup.md)**; every setting: **[docs/configuration.md](docs/configuration.md)**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verify
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run typecheck && npx eslint src scripts
+NEXT_DIST_DIR=.next-build npx next build && rm -rf .next-build
+npx tsx scripts/test-docs.ts      # plus the other scripts/test-*.ts (see docs/testing.md)
+```
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+| Doc | What's in it |
+|---|---|
+| [docs/README.md](docs/README.md) | Index |
+| [docs/roadmap-and-gaps.md](docs/roadmap-and-gaps.md) | **Gap tracker, next steps, future ideas** |
+| [docs/setup.md](docs/setup.md) | Run, DB, Google OAuth, AWS profile, S3 |
+| [docs/configuration.md](docs/configuration.md) | Every env var, framework option and tunable constant |
+| [docs/operations.md](docs/operations.md) | Run, deploy, migrate, rotate secrets, launch checklist, troubleshooting |
+| [docs/security.md](docs/security.md) | Threat model, controls, known gaps |
+| [docs/architecture.md](docs/architecture.md) | System design |
+| [docs/order-lifecycle.md](docs/order-lifecycle.md) | Order statuses, payments, what is recorded |
+| [docs/database.md](docs/database.md) | Schema, migrations, ledger rules |
+| [docs/api-routes.md](docs/api-routes.md) | Routes, Server Actions, cache tags |
+| [docs/code-map.md](docs/code-map.md) | Every file and what it is for |
+| [docs/design-system.md](docs/design-system.md) | Tokens, shell, components, responsive rules |
+| [docs/admin-guide.md](docs/admin-guide.md) | Owner's guide to `/admin` |
+| [docs/features.md](docs/features.md) | What's built |
+| [docs/testing.md](docs/testing.md) | Tests, E2E, demo data |
+| [docs/decisions.md](docs/decisions.md) | Why things are the way they are |
+| [docs/phase-2-generators.md](docs/phase-2-generators.md) | STL generator plan |
+| [.kiro/specs/darl-creates-ecommerce/](.kiro/specs/darl-creates-ecommerce/) | Requirements, design, tasks |
+| [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md) | Rules for AI agents |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Hard rules (short version)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Money is integer centavos · payments and status history are append-only · order
+items snapshot config + price · prices are recomputed server-side · admin is
+gated server-side on every route and action · never mention tax or registration status in any copy ·
+use AWS profile **`darljed`**
+only (never the PMPC profiles).

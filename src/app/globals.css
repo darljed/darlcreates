@@ -1,26 +1,350 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Darl Creates — "Vibrant Pop" design system.
+  Brand tokens: primary is cyan-blue (logo is monochrome, so the primary was
+  chosen by the owner). Contrast verified: light primary vs white 5.03:1;
+  dark primary vs dark bg 9.4:1. Lime accent on primary is 3.8:1 — OK for
+  large/bold text only, not body copy.
+  Principles: bold saturated accents, high-contrast ink neutrals, strong
+  type hierarchy, energetic rounded shapes, playful interactions.
+  All color pairs are chosen for WCAG AA contrast on their foreground.
+*/
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light; /* there is no dark theme yet (G-30): stop dark-mode browsers recolouring controls and default pages */
+  --radius: 0.9rem;
+
+  /* Neutrals — warm near-black ink on bright paper */
+  --background: oklch(0.99 0.006 95);
+  --foreground: oklch(0.17 0.02 275);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.02 275);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.02 275);
+
+  /* Primary — brand cyan-blue (white text on it = 5.0:1, AA) */
+  --primary: oklch(0.52 0.14 225);
+  --primary-foreground: oklch(0.99 0.01 0);
+
+  /* Secondary — energetic cyan */
+  --secondary: oklch(0.86 0.13 200);
+  --secondary-foreground: oklch(0.2 0.05 240);
+
+  /* Accent — zesty lime/yellow for highlights & micro-interactions */
+  --accent: oklch(0.9 0.19 110);
+  --accent-foreground: oklch(0.2 0.05 110);
+
+  --muted: oklch(0.96 0.01 95);
+  --muted-foreground: oklch(0.47 0.02 275);
+
+  --destructive: oklch(0.58 0.24 27);
+  --destructive-foreground: oklch(0.99 0.01 0);
+
+  --border: oklch(0.9 0.01 275);
+  --input: oklch(0.9 0.01 275);
+  --ring: oklch(0.52 0.14 225);
+
+  --chart-1: oklch(0.52 0.14 225);
+  --chart-2: oklch(0.7 0.16 200);
+  --chart-3: oklch(0.8 0.18 110);
+  --chart-4: oklch(0.6 0.2 300);
+  --chart-5: oklch(0.65 0.2 160);
+
+  --sidebar: oklch(0.945 0.018 232);
+  --sidebar-foreground: oklch(0.17 0.02 275);
+  --sidebar-primary: oklch(0.52 0.14 225);
+  --sidebar-primary-foreground: oklch(0.99 0.01 0);
+  --sidebar-accent: oklch(0.96 0.01 95);
+  --sidebar-accent-foreground: oklch(0.17 0.02 275);
+  --sidebar-border: oklch(0.9 0.01 275);
+  --sidebar-ring: oklch(0.52 0.14 225);
+}
+
+.dark {
+  --background: oklch(0.16 0.02 275);
+  --foreground: oklch(0.97 0.006 95);
+
+  --card: oklch(0.2 0.025 275);
+  --card-foreground: oklch(0.97 0.006 95);
+  --popover: oklch(0.2 0.025 275);
+  --popover-foreground: oklch(0.97 0.006 95);
+
+  --primary: oklch(0.76 0.13 215);
+  --primary-foreground: oklch(0.16 0.02 275);
+
+  --secondary: oklch(0.5 0.12 200);
+  --secondary-foreground: oklch(0.97 0.006 95);
+
+  --accent: oklch(0.85 0.19 110);
+  --accent-foreground: oklch(0.2 0.05 110);
+
+  --muted: oklch(0.26 0.02 275);
+  --muted-foreground: oklch(0.7 0.02 275);
+
+  --destructive: oklch(0.65 0.22 27);
+  --destructive-foreground: oklch(0.16 0.02 275);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.76 0.13 215);
+
+  --chart-1: oklch(0.76 0.13 215);
+  --chart-2: oklch(0.7 0.16 200);
+  --chart-3: oklch(0.8 0.18 110);
+  --chart-4: oklch(0.65 0.2 300);
+  --chart-5: oklch(0.68 0.2 160);
+
+  --sidebar: oklch(0.2 0.025 275);
+  --sidebar-foreground: oklch(0.97 0.006 95);
+  --sidebar-primary: oklch(0.76 0.13 215);
+  --sidebar-primary-foreground: oklch(0.16 0.02 275);
+  --sidebar-accent: oklch(0.26 0.02 275);
+  --sidebar-accent-foreground: oklch(0.97 0.006 95);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.76 0.13 215);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+  /* Vibrant Pop: strong display hierarchy */
+  h1, h2, h3 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Respect reduced-motion for the playful interactions + 3D auto-rotate */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
+
+/*
+  Density. The admin runs "compact", the customer area "comfortable" (set via data-density on
+  the shell). Compact tightens radius, controls and type from this one block, so individual
+  components don't need per-page overrides. Unlayered on purpose: it beats Tailwind utilities.
+*/
+[data-density="compact"] {
+  --radius: 0.375rem;
+}
+[data-density="compact"] [data-slot="input"],
+[data-density="compact"] [data-slot="select-trigger"] {
+  height: 2rem;
+  padding-block: 0.25rem;
+  font-size: 0.8125rem;
+}
+[data-density="compact"] [data-slot="textarea"] {
+  min-height: 4rem;
+  padding-block: 0.375rem;
+  font-size: 0.8125rem;
+}
+[data-density="compact"] [data-slot="button"].h-9 {
+  height: 2rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+[data-density="compact"] [data-slot="button"].h-10 {
+  height: 2.25rem;
+  font-size: 0.875rem;
+}
+[data-density="compact"] [data-slot="badge"] {
+  font-size: 0.6875rem;
+}
+
+@media print {
+  .no-print { display: none !important; }
+}
+
+/*
+ * Phones: DataTable rows become stacked cards ("label  value" lines) instead of scrolling sideways, so
+ * actions like Verify / Reject are never off-screen. The header row stays for screen readers only.
+ * Cells get their label from <Td label="...">.
+ */
+@media (max-width: 639px) {
+  .stack-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .stack-table,
+  .stack-table tbody,
+  .stack-table tr,
+  .stack-table td {
+    display: block;
+    width: 100%;
+  }
+  .stack-table tr {
+    padding: 0.375rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stack-table tr:last-child {
+    border-bottom: 0;
+  }
+  .stack-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0.75rem;
+    text-align: right;
+    max-width: none;
+  }
+  .stack-table td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+}
+
+/* ---- 3D viewer loading animation (src/components/three/viewer-loading.tsx) ---- */
+.viewer-scene {
+  --s: 56px;
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  perspective: 420px;
+}
+.viewer-cube {
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  animation: viewer-spin 3.2s linear infinite;
+}
+.viewer-face {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--primary);
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  border-radius: 6px;
+}
+.viewer-front { transform: translateZ(calc(var(--s) / 2)); }
+.viewer-back { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.viewer-right { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-left { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-top { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-bottom { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+.viewer-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -26px;
+  width: 52px;
+  height: 10px;
+  margin-left: -26px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+  filter: blur(3px);
+  animation: viewer-shadow 1.6s ease-in-out infinite;
+}
+.viewer-slow {
+  opacity: 0;
+  animation: viewer-fade-in 0.4s ease 6s forwards;
+}
+@keyframes viewer-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to { transform: rotateX(-24deg) rotateY(360deg); }
+}
+@keyframes viewer-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.9; }
+  50% { transform: scaleX(0.8); opacity: 0.6; }
+}
+@keyframes viewer-fade-in {
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .viewer-cube { animation: none; transform: rotateX(-24deg) rotateY(35deg); }
+  .viewer-shadow { animation: none; }
+}
+
+
+/* Skeletons: a soft highlight sweeping across the placeholder. No motion when the visitor asked for less. */
+.skeleton {
+  background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--background) 65%, transparent) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  from { background-position: 200% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* The name fonts, so the font picker can show a name in each. Same files the 3D preview and the print file use. */
+@font-face { font-family: "dc-name-bold"; src: url("/fonts/Poppins-ExtraBold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-chunky"; src: url("/fonts/LilitaOne-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-marker"; src: url("/fonts/PermanentMarker-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-modern"; src: url("/fonts/Righteous-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-condensed"; src: url("/fonts/Anton-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-script"; src: url("/fonts/Pacifico-Regular.ttf") format("truetype"); font-display: swap; }
