@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, listPublishedProducts } from "@/lib/catalog";
 import { getProductReviews } from "@/lib/reviews";
+import { aiConfigured } from "@/lib/clicker/redraw";
 import { fileUrl } from "@/lib/storage";
 import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
@@ -13,6 +14,9 @@ import { ProductReviews } from "@/components/product-reviews";
 import { JsonLd } from "@/components/json-ld";
 import { getSiteInfo } from "@/lib/site-content";
 import { absoluteUrl, breadcrumbLd, clip, pageMetadata, productLd } from "@/lib/seo";
+
+/** The AI picture redraw (a Server Action called from this page) can take 30+ seconds. */
+export const maxDuration = 60;
 
 export async function generateStaticParams() {
   const products = await listPublishedProducts();
@@ -106,7 +110,7 @@ async function ProductContent({
             productId={product.id}
             basePriceCents={product.basePriceCents}
             optionId={clicker.option.id}
-            config={clicker.config}
+            config={{ ...clicker.config, allowAi: clicker.config.allowAi && aiConfigured() }} // AI redraw needs the owner's switch AND the API key
           />
         ) : (
           <ProductCustomizer

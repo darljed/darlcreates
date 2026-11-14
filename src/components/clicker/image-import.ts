@@ -10,12 +10,14 @@ import { nearestHex, simplifyLoop, type Pixels, type Traced } from "@/lib/clicke
 
 export const MAX_PICTURE_BYTES = 8 * 1024 * 1024;
 export const MAX_SVG_BYTES = 2 * 1024 * 1024;
-/** The longest side the picture is read at: enough for a clean outline, quick to trace. */
+/** The longest side a photo is read at: enough for a clean outline, quick to trace. */
 const RASTER_SIDE = 360;
+/** Logos and lettering are read much bigger: at 360 px their edges turn into chopped, wobbly steps. */
+export const GRAPHIC_SIDE = 1000;
 
 export const RASTER_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
-export async function readRaster(file: File): Promise<Pixels> {
+export async function readRaster(file: File, side = RASTER_SIDE): Promise<Pixels> {
   if (!RASTER_TYPES.includes(file.type)) throw new Error("Use a PNG, JPG, WebP or GIF picture, or an SVG.");
   if (file.size > MAX_PICTURE_BYTES) throw new Error("That picture is over 8 MB. Choose a smaller one.");
   let bitmap: ImageBitmap;
@@ -24,7 +26,7 @@ export async function readRaster(file: File): Promise<Pixels> {
   } catch {
     throw new Error("We couldn't read that picture. Try a PNG or JPG.");
   }
-  const scale = Math.min(1, RASTER_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
   const w = Math.max(1, Math.round(bitmap.width * scale)), h = Math.max(1, Math.round(bitmap.height * scale));
   const canvas = document.createElement("canvas");
   canvas.width = w;
@@ -35,6 +37,50 @@ export async function readRaster(file: File): Promise<Pixels> {
   bitmap.close();
   const { data } = ctx.getImageData(0, 0, w, h);
   return { width: w, height: h, data };
+}
+
+/** The picture as a small JPEG data URL (longest side `side`), flattened on white: what is sent to the AI redraw. */
+export async function fileToDataUrl(file: File, side = 768): Promise<string> {
+  if (!RASTER_TYPES.includes(file.type)) throw new Error("Use a PNG, JPG, WebP or GIF picture.");
+  if (file.size > MAX_PICTURE_BYTES) throw new Error("That picture is over 8 MB. Choose a smaller one.");
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    throw new Error("We couldn't read that picture. Try a PNG or JPG.");
+  }
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Your browser can't read pictures here.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+/** The pixels of a data URL picture (the AI's answer), drawn small like `readRaster` does. */
+export async function readDataUrl(dataUrl: string, side = RASTER_SIDE): Promise<Pixels> {
+  const blob = await (await fetch(dataUrl)).blob();
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(blob);
+  } catch {
+    throw new Error("We couldn't read the redrawn picture. Try again, or use your picture as it is.");
+  }
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale)), h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Your browser can't read pictures here.");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  return { width: w, height: h, data: ctx.getImageData(0, 0, w, h).data };
 }
 
 const hexOf = (c: { r: number; g: number; b: number }) =>

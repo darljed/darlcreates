@@ -1,14 +1,15 @@
 /**
  * Cached reads of owner-edited site content for the storefront, with the cache tags the admin saves expire
- * (site:home, site:info, site:brand, site:legal:<slug>).
+ * (site:home, site:info, site:brand, site:colours, site:legal:<slug>).
  */
 import { cacheLife, cacheTag } from "next/cache";
-import { loadBranding, loadHomeContent, loadLegal, loadSiteInfo } from "./site-content-store";
+import { loadBranding, loadColourInventory, loadHomeContent, loadLegal, loadSiteInfo } from "./site-content-store";
 import type { LegalSlug } from "./site-content-schema";
 
 export const HOME_TAG = "site:home";
 export const SITE_TAG = "site:info";
 export const BRAND_TAG = "site:brand";
+export const COLOURS_TAG = "site:colours";
 export const legalTag = (slug: LegalSlug) => `site:legal:${slug}`;
 
 /** Landing-page content. Cached; the admin save revalidates `site:home`. */
@@ -25,6 +26,14 @@ export async function getSiteInfo() {
   cacheLife("hours");
   cacheTag(SITE_TAG);
   return loadSiteInfo();
+}
+
+/** The colour inventory (null = not set up yet, nothing filtered). Cached; the admin save expires `site:colours` and `products`. */
+export async function getColourInventory() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(COLOURS_TAG);
+  return loadColourInventory();
 }
 
 export async function getLegal(slug: LegalSlug) {

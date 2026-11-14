@@ -110,7 +110,7 @@ export function computeUnitPrice(
       case "size": {
         const val = opt.values.find((v) => v.id === sel!.valueId);
         if (!val) {
-          errors.push(`${opt.label}: invalid choice`);
+          errors.push(`${opt.label}: invalid choice (it may no longer be in stock)`);
         } else {
           deltas.push(val.priceDeltaCents);
         }

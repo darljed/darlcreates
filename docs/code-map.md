@@ -49,6 +49,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/products`, `/admin/products/new`, `/admin/products/[id]` | Product list, create, edit (files, photos, customization builder) |
 | `/admin/users`, `/admin/users/[id]` | Customer list and account page (profile, addresses, sessions, controls, activity log) |
 | `/admin/content` | Landing-page editor |
+| `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
+| `/admin/colours` | The filament colours in stock (the shop-wide colour inventory) |
 | `/admin/branding` | Logo and brand-image uploads |
 | `/admin/store` | Store details and footer |
 | `/admin/legal` | Privacy Policy / Terms editor |
@@ -71,7 +73,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -84,6 +86,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `admin.ts` | Admin read queries: dashboard totals and chart, order list and detail, status counts, top products |
 | `auth-client.ts` | BetterAuth browser client (sign in / out) |
 | `auth.ts` | BetterAuth server config: Google only, `role` field, trusted origins in dev, block-on-sign-in hook |
+| `clicker/redraw.ts` | **Server only** (holds the API key). AI picture redraw through OpenRouter: the two modes (flat, stencil), the prompts, the backdrop colour, model choice with fallback, plain-sentence errors, the image check and the per-customer daily limit |
+| `clicker/redraw-post.ts` | **Pure.** What the browser does with the AI answer before tracing: `thresholdPixels` (exactly two tones), `keyOutPixels` (cut out the solid backdrop and its blended rim) and `flatColourCount` (how many colours a flat redraw may use) |
+| `colour-inventory-schema.ts` | **Pure.** The colour inventory (name + hex, 2 to 24, no duplicates), `parseInventory`, `inStock`, and `applyInventory`, which filters a product's colour options, clicker palette and name colours to what is in stock |
 | `branding-schema.ts` | **Pure.** The six logo slots, where each is used, size and type rules |
 | `branding-verify.ts` | Server proof that an uploaded logo is acceptable (exists, size, magic bytes, pixel shape) |
 | `business.ts` | Business identity for customer documents; env-overridable |
@@ -227,6 +232,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | File | Purpose |
 |---|---|
 | `admin-account-menu.tsx` | Name, email and sign-out in the sidebar and top bar |
+| `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
+| `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
 | `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -273,6 +280,9 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-a11y-labels.ts` | Every form label is linked to its control |
 | `test-acknowledgment.ts` | Acknowledgment content and no-registration-wording |
 | `test-admin-orders.ts` | Admin order list: search, paging, counts |
+| `test-ai-redraw.ts` | AI redraw without calling the AI: threshold, key-out, backdrop colour, prompts, image check, daily limit, owner switch, no key |
+| `make-redraw-examples.ts` | Makes `public/clicker-examples/*.jpg` (the chooser's before / after pictures) through the real pipeline; costs a few cents |
+| `test-colour-inventory.ts` | Colour inventory: schema, the filter, product reads (customers vs admin raw), pricing refuses a colour not in stock, owner's inventory restored |
 | `test-branding.ts` | Logo rules and server verification |
 | `test-checkout.ts` | Checkout, payment, fulfilment through the real services |
 | `test-content.ts` | CMS schema, store, no-registration-wording, cache and 404 guards |
@@ -283,6 +293,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
+| `poc-ai-vectorize.ts` | Experiment, not part of the app: asks OpenRouter image models to redraw sample pictures as flat-colour art, traces them with the app's tracer and writes comparison sheets to `/tmp/ai-poc/out` |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |
 | `test-multi-name-cart.ts` | `addManyToCart` against the DB: several names with their own colours, atomic rejection, limits |
 | `test-deploy.ts` | Connection options (direct / pooler / Vercel) and the streamed download body; no database |

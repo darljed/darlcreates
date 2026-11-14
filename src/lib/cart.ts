@@ -51,7 +51,7 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
     .where(eq(carts.userId, userId));
   const [items, productsById] = await Promise.all([
     db.select({ item: cartItems }).from(cartItems).innerJoin(carts, eq(cartItems.cartId, carts.id)).where(eq(carts.userId, userId)),
-    getProductsByIds(mine),
+    getProductsByIds(mine, { raw: true }), // show the cart as it was added; checkout checks what is in stock
   ]);
   const rows = items.map((r) => r.item);
 

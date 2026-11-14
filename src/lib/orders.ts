@@ -104,7 +104,7 @@ async function assembleOrderDetail(
     .where(eq(orderItems.orderId, order.id));
 
   const [productsById, [pay], [ship], history] = await Promise.all([
-    getProductsByIds(items.map((it) => it.productId)),
+    getProductsByIds(items.map((it) => it.productId), { raw: true }), // history: show what was ordered, whatever is in stock now
     db.select().from(payments).where(eq(payments.orderId, order.id)).orderBy(desc(payments.submittedAt)).limit(1),
     db.select().from(shipments).where(eq(shipments.orderId, order.id)).limit(1),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, order.id)).orderBy(desc(orderStatusHistory.createdAt)),

@@ -52,6 +52,8 @@ Verify/reject/transition are transactional with row locks. Callers do auth, Zod,
 | Action | Notes |
 |---|---|
 | `cancelOrderAction`, `reorderAction` (`(portal)/orders/actions.ts`) | `requireUser` + Zod, then `cancelOwnOrder` / `reorderToCart` (ownership enforced in the service) |
+| `redrawPictureAction` (`(shop)/clicker/actions.ts`) | `getAccess` (signed in, consent; returns `needs` so the designer keeps the design); Zod; the picture must really be a PNG/JPEG/WebP under 1.1 MB; the product must be published with AI on and pictures on; daily limit per customer; the colours asked for come from the product's palette (the colour inventory), never the browser; then OpenRouter. Returns the redrawn picture as a data URL (and the backdrop colour to cut out). Nothing is stored |
+| `saveColourInventoryAction`, `resetColourInventoryAction` (`colours/actions.ts`) | `requireAdmin`; Zod (`colourInventorySchema`: 2 to 24 colours, no duplicates); saves the `colours` document; expires `site:colours` and `products`; returns how many colour choices on products are now hidden. Reset removes the document (nothing is filtered again) |
 | `saveBrandingAction`, `resetBrandingAction` (same file) | `requireAdmin`; every NEW logo is re-verified server-side (`branding-verify.ts`: exists, size, real PNG/JPEG/WebP bytes, pixel size and shape for its slot); stored size comes from the file; replaced/removed files are deleted; revalidates `site:brand` |
 | `saveSiteInfoAction`, `resetSiteInfoAction` (same file) | `requireAdmin`; Zod `siteInfoSchema`; revalidates tag `site:info` and the storefront layout |
 | `saveLegalAction`, `resetLegalAction` (same file) | `requireAdmin`; Zod; the browser can never set the version: only `askAgain` (privacy only) creates a new one; revalidates `site:legal:<slug>` |
@@ -95,7 +97,7 @@ Logic is in `lib/user-admin.ts` (framework-free). Sign-in is refused for blocked
 
 Storefront: `/`, `/privacy`, `/terms`, `/products`, `/products/[slug]`, `/clicker`, `/cart`, `/checkout`, `/orders`,
 `/orders/[orderNo]`, `/orders/[orderNo]/acknowledgment`, `/account`, `/consent`, `/sign-in`, `/privacy`.
-Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/branding`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
+Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/branding`, `/admin/colours`, `/admin/store`, `/admin/legal`, `/admin/products`, `/admin/products/new`, `/admin/products/[id]`,
 `/admin/clicker-fit-test`, `/admin/orders`, `/admin/orders/[id]`, `/admin/orders/[id]/acknowledgment`, `/admin/orders/[id]/waybill`, `/admin/payments`, `/admin/reviews`.
 
 ## Caching
@@ -105,10 +107,11 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 | `products`, `product:<slug>` | `listPublishedProducts`, `getProductBySlug` | product / option actions |
 | `reviews:<productId>` | `getProductReviews` | review submit + moderate |
 | `site:home` | `getHomeContent` (landing page) | `saveHomeContentAction`, `resetHomeContentAction` |
+| `site:colours` | `getColourInventory`, and `getProductBySlug` (the storefront product page) | `saveColourInventoryAction`, `resetColourInventoryAction` (which also expire `products`) |
 | `site:brand` | `getBranding` (logos, favicon, share image) | `saveBrandingAction`, `resetBrandingAction` |
 | `site:info` | `getSiteInfo` (footer) | `saveSiteInfoAction`, `resetSiteInfoAction` |
 | `site:legal:privacy`, `site:legal:terms` | `getLegal`, `getPrivacyVersion` | `saveLegalAction`, `resetLegalAction` |
 
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
-Last updated: 2026-11-12
+Last updated: 2026-11-13

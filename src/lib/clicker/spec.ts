@@ -194,6 +194,8 @@ export const clickerConfigSchema = z.object({
   imageCents: z.number().int().min(0).max(100_000),
   allowImages: z.boolean(),
   allowText: z.boolean(),
+  /** Offer "redraw my picture with AI" (flat colours or a 2-colour portrait). Costs real money per picture; off until you switch it on. */
+  allowAi: z.boolean(),
   /** Most switches under one big key, and the price of each one after the first. */
   maxSwitches: z.number().int().min(1).max(LIMITS.maxSwitches),
   extraSwitchCents: z.number().int().min(0).max(100_000),
@@ -223,6 +225,7 @@ export const DEFAULT_CLICKER_CONFIG: ClickerConfig = {
   imageCents: 0,
   allowImages: true,
   allowText: true,
+  allowAi: false,
   maxSwitches: 4,
   extraSwitchCents: 4000,
   allowName: true,

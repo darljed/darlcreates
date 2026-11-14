@@ -36,7 +36,7 @@ export async function GET(
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
   // a clicker designer line: the print file is built from the saved design (no model file is stored for it)
-  const itemProduct = await getProductById(item.productId);
+  const itemProduct = await getProductById(item.productId, { raw: true });
   const design = itemProduct ? designOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
   if (design) {
     // damaged settings fall back to defaults for display; never build a print file on made-up fit values

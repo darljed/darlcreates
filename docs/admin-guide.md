@@ -1,8 +1,8 @@
 # Admin guide (for the owner)
 
-> Last updated: 2026-11-11. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
+> Last updated: 2026-11-13. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
 
-Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
+Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Colours, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
 
 ## Daily routine
 
@@ -70,6 +70,7 @@ On a product's page, **Clicker designer → Make this a clicker product** (only 
 - **Switches:** how many Cherry MX switches a customer may put under one key (up to 6) and the price of each extra one. The first is included.
 - **Most colours per print:** your printer's limit (X2D: 4). The base, the key and the artwork share it.
 - **Name keys:** on or off, the most keys, and the price of each key after the first.
+- **AI redraw of pictures:** lets signed-in customers have a photo redrawn as flat colours or a 2-colour portrait before it is traced. Costs about ₱2 per picture and needs the OpenRouter key on the server; each customer gets 12 a day. Tell customers in the privacy policy first (see G-106).
 - **Printer fit:** see below.
 
 Each ordered clicker has a **Download** button on the order. It gives one file with the base and the key already laid out on the plate (base 3 walls, key 1 wall). Open it in Bambu Studio, check the colours, print, press a real Cherry MX switch into each pocket of the base, and push the key onto the stems. The order line says how many switches to fit.
@@ -110,6 +111,15 @@ Under **Store & footer** the panel "Search engines and AI answers" holds the tit
 ## Installing the shop as an app
 
 Customers can install the site on their phone or computer from the "Install the app" link in the footer (iPhone: Share, then Add to Home Screen). It opens full-screen and shows an offline page when there is no connection. The installed icon is your browser-tab icon if you upload one that is 512 px or larger, otherwise the built-in logo icon.
+
+## Colours
+
+**Catalog → Colours** is the list of filament colours you have in stock (a swatch and a name each, 2 to 24). Once you save it, these are the **only** colours customers can pick: in the clicker designer, on colour options and for names. Until you save it for the first time nothing is limited, so existing products keep working.
+- A colour choice on a product that is not in the list is **hidden** from customers (not deleted). Add the colour back and it returns. The product page marks such choices "hidden".
+- When you add a colour choice to a product you pick it from this list.
+- The clicker designer uses the list as its palette on every clicker product.
+- A customer who already has a removed colour in their cart is told it is no longer available when they check out. Orders already placed are not changed.
+- **Stop limiting colours** removes the list.
 
 ## Logos & branding
 

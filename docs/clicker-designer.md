@@ -64,7 +64,7 @@ One 3MF, two objects, already placed on the 256 mm plate (6 mm margins and gap, 
 The admin order page's **Download** builds it from the saved design with your printer fit (`/admin/orders/[id]/stl/[itemId]`).
 
 ## Owner settings (`ClickerConfig`, on the product)
-Key size range (for the fixed shapes), size price steps, price per extra colour, keyring, picture, palette, **most colours per print**, most layers, most
+Key size range (for the fixed shapes), size price steps, price per extra colour, keyring, picture, palette (**when the shop has a colour inventory under Admin → Colours, that list IS the palette on every clicker product**, and "most colours per print" cannot exceed it; applied in `applyInventory` when the product is read), **most colours per print**, most layers, most
 clickers per order, text and picture on/off, **most switches under one key and the price of each extra one**, **name keys** (on/off, most keys, price
 per key after the first), and **printer fit** (`tune`: switch pocket, stem socket, gap round the key; mm, plus loosens).
 Set on **Admin → Products → (product) → Clicker designer**.
@@ -121,3 +121,12 @@ variations, are closed solids that do not overlap), outline keys (one solid key,
 cart integration (needs the database).
 Browser: open `/clicker`, try both kinds, upload a picture, press "Inside", add to cart, place an order, download the 3MF from the admin
 order, and check it on a phone-size screen.
+
+## AI picture redraw (optional)
+Owner: tick **AI redraw of pictures** in the product's clicker settings and set `OPENROUTER_API_KEY`. Customers (signed in) who add a photo choose between three cards, each with a before / after example:
+- **Keep my picture**: traced as it is (instant, free). Best for logos.
+- **Flat colours**: an AI redraws it with 2 to 3 flat colours (what the printer has left after the base and the key) chosen from the colour inventory, on a solid backdrop colour that the browser cuts out (so white parts of the subject are kept).
+- **2-colour portrait**: an AI redraws it in black and white; the browser makes every pixel pure black or white, so exactly two tones remain (the shapes print in the nearest dark colour in stock; the rest shows the key colour).
+Before the choice screen the picture is checked: a logo or lettering (a few colours cover 85% of it, `looksLikeGraphic`) gets a "Recommended: keep my picture" note and the AI buttons say "Try anyway", because an AI redraw often changes the shapes, letters and colours of artwork. A graphic is also read at 1000 px and traced finely (detail 0.9); a photo is read at 360 px (detail 0.6), because at 360 px a logo's edges come out chopped and wobbly.
+The answer is traced like any picture, so the usual colour limits apply, and Undo removes it. A portrait that traces into more than 4,000 points is asked again of the other model. SVG files skip the choice. See `redrawPictureAction` (api-routes.md), D-59 and security.md.
+

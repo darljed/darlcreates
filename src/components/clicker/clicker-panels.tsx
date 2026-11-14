@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FontPicker } from "@/components/font-picker";
 import { PalettePicker } from "@/components/clicker/palette-picker";
+import { PictureModeChooser, type PictureMode } from "@/components/clicker/picture-mode-chooser";
 import { ShapeThumb } from "@/components/clicker/shape-thumb";
 import { formatPHP } from "@/lib/money";
 import { NAME_FONT_IDS } from "@/lib/name-mesh";
@@ -21,7 +22,8 @@ import { BORDER_IDS, BORDER_LABELS, BORDER_MM, FIT, RELIEF_IDS, RELIEF_LABELS, R
 import { maxKeySide, switchBlock } from "@/lib/clicker/reach";
 import { clickerColours, LIMITS, nameKeys, sizeTierCents, switchCount, switchesApart, switchPattern, type ClickerConfig, type ClickerSpec, type ImageLayer, type Layer, type TextLayer } from "@/lib/clicker/spec";
 import { coloursInUse, duplicateLayer, moveLayer, recolour, removeLayer, scaleDesign, setSize, updateLayer } from "@/lib/clicker/state";
-import type { Analysis, Pixels } from "@/lib/clicker/trace";
+import { looksLikeGraphic, type Analysis, type Pixels } from "@/lib/clicker/trace";
+import { readRaster } from "@/components/clicker/image-import";
 import { cn } from "@/lib/utils";
 
 export type EditFn = (fn: (s: ClickerSpec) => ClickerSpec, key?: string) => void;
@@ -331,20 +333,24 @@ function PictureEditor({ layer, spec, edit, config, picture, retrace, busy }: Co
 }
 
 export function DesignPanel({
-  spec, edit, config, selected, setSelected, onAddText, onAddFile, placeLayer, pictures, retrace, busy, error,
+  spec, edit, config, selected, setSelected, onAddText, onAddFile, signedIn, placeLayer, pictures, retrace, busy, error,
 }: Common & {
   /** Move a layer to a position, held to the limits (the key may not stick out too far past its switches). */
   placeLayer: (id: string, x: number, y: number) => void;
   selected: string | null;
   setSelected: (id: string | null) => void;
   onAddText: () => void;
-  onAddFile: (f: File) => void;
+  onAddFile: (f: File, mode?: PictureMode) => void | Promise<void>;
+  signedIn: boolean;
   pictures: Map<string, PictureState>;
   retrace: (id: string, p: Partial<PictureSettings>) => void;
   busy: boolean;
   error: string | null;
 }) {
   const file = useRef<HTMLInputElement>(null);
+  // a picture chosen but not yet used: with AI redraw on, the customer says how first
+  const [pending, setPending] = useState<File | null>(null);
+  const [graphic, setGraphic] = useState(false);
   const layer = spec.layers.find((l) => l.id === selected) ?? null;
   const full = spec.layers.length >= config.maxLayers;
   return (
@@ -369,13 +375,36 @@ export function DesignPanel({
                 aria-label="Choose a picture or SVG"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) onAddFile(f);
+                  if (f) {
+                    // AI redraw only applies to photos and other raster pictures; an SVG is already vector shapes
+                    const isSvg = f.type === "image/svg+xml" || /\.svg$/i.test(f.name);
+                    if (config.allowAi && !isSvg) {
+                      setGraphic(false);
+                      setPending(f);
+                      // a logo or lettering is better traced than redrawn: say so (the chooser updates when this finishes)
+                      readRaster(f).then((px) => setGraphic(looksLikeGraphic(px))).catch(() => undefined);
+                    }
+                    else onAddFile(f);
+                  }
                   e.target.value = "";
                 }}
               />
             </>
           )}
         </div>
+        {pending && (
+          <PictureModeChooser
+            fileName={pending.name}
+            graphic={graphic}
+            signedIn={signedIn}
+            busy={busy}
+            onCancel={() => setPending(null)}
+            onPick={async (mode) => {
+              await onAddFile(pending, mode);
+              setPending(null);
+            }}
+          />
+        )}
         {full && <p className="text-xs text-muted-foreground">That is the most layers ({config.maxLayers}). Delete one to add another.</p>}
         {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{error}</p>}
         {spec.layers.length === 0 ? (

@@ -10,7 +10,7 @@ export async function refreshStorefrontCache(productSlugs: string[] = []): Promi
     console.warn("note: REVALIDATE_SECRET is not set, so the running site may show stale products for up to an hour.");
     return;
   }
-  const tags = ["products", "site:home", "site:info", ...productSlugs.map((s) => `product:${s}`)];
+  const tags = ["products", "site:home", "site:info", "site:colours", ...productSlugs.map((s) => `product:${s}`)];
   const bases = [process.env.REVALIDATE_URL ?? "http://localhost:3001", process.env.BETTER_AUTH_URL].filter((b): b is string => Boolean(b));
   for (const base of bases) {
     try {

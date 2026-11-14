@@ -21,7 +21,7 @@ import { BORDER_MM, FIT, RELIEF_IDS, RIM_IDS, RIM_MM, totalHeightMm } from "../s
 import { buildLayout, plateLayout } from "../src/lib/clicker/layout";
 import { extrudeLayout, GeometryCache, meshOfPart } from "../src/lib/clicker/extrude";
 import { textRegions } from "../src/lib/clicker/text";
-import { analyzeImage, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
+import { analyzeImage, cropToContent, defaultTrace, traceAnalysis } from "../src/lib/clicker/trace";
 import { scaleDesign, setSize } from "../src/lib/clicker/state";
 const setSizeFor = (sp: ClickerSpec, w: number) => setSize(sp, { width: w }, DEFAULT_CLICKER_CONFIG, false);
 import { centreAndFitArt } from "../src/lib/clicker/fit-art";
@@ -540,6 +540,21 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
     await db.delete(s.carts).where(like(s.carts.userId, "TEST-CLK-%"));
     await db.delete(s.products).where(like(s.products.slug, "TEST-CLK-%"));
     await db.delete(s.users).where(like(s.users.id, "TEST-CLK-%"));
+  }
+
+  console.log("\ncropping a traced picture to its content");
+  {
+    // a wide logo in the middle of a big picture: shapes only span x -0.3..0.28, y -0.1..0.12
+    const ring = (x0: number, y0: number, x1: number, y1: number): [number, number][] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    const t = { groups: [{ color: "#ffffff", shapes: [{ outer: ring(-0.3, -0.1, 0.28, 0.12), holes: [ring(-0.2, -0.05, -0.1, 0.05)] }] }], fitWidth: 1, fitHeight: 0.76, points: 8 };
+    const c = cropToContent(t);
+    const xs = c.groups[0].shapes[0].outer.map((p) => p[0]), ys = c.groups[0].shapes[0].outer.map((p) => p[1]);
+    assert("the artwork's longest side becomes 1", near(Math.max(...xs) - Math.min(...xs), 1) && Math.max(...ys) - Math.min(...ys) < 1);
+    assert("and it is centred", near(Math.max(...xs) + Math.min(...xs), 0) && near(Math.max(...ys) + Math.min(...ys), 0));
+    assert("fit width and height follow the artwork", near(c.fitWidth, 1) && near(c.fitHeight, 0.22 / 0.58));
+    assert("holes move with their shape", near(c.groups[0].shapes[0].holes[0][0][0], (-0.2 - -0.01) / 0.58));
+    assert("nothing to crop = unchanged", cropToContent({ groups: [], fitWidth: 1, fitHeight: 1, points: 0 }).groups.length === 0);
+    assert("the input is not changed", t.groups[0].shapes[0].outer[0][0] === -0.3);
   }
 
   if (failures) { console.error(`\n${failures} assertion(s) failed`); process.exit(1); }

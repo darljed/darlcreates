@@ -54,6 +54,24 @@ export function nearestHex(hex: string, palette: string[]): string {
   return best;
 }
 
+/**
+ * True when the picture is a logo, lettering or other flat artwork rather than a photo: a handful of colours cover almost
+ * every pixel (the top five of 4096 coarse colours cover 85% or more). Photos spread over hundreds of colours.
+ */
+export function looksLikeGraphic(px: Pixels): boolean {
+  const bins = new Map<number, number>();
+  let n = 0;
+  for (let i = 0; i < px.width * px.height; i++) {
+    if (px.data[i * 4 + 3] < 128) continue;
+    const k = ((px.data[i * 4] >> 4) << 8) | ((px.data[i * 4 + 1] >> 4) << 4) | (px.data[i * 4 + 2] >> 4);
+    bins.set(k, (bins.get(k) ?? 0) + 1);
+    n++;
+  }
+  if (!n) return false;
+  const top = [...bins.values()].sort((a, b) => b - a).slice(0, 5).reduce((s, v) => s + v, 0);
+  return top / n >= 0.85;
+}
+
 /** Find the main colours of a picture. `colours` is how many to look for (2 to 8). */
 export function analyzeImage(px: Pixels, colours = 4): Analysis {
   const { width, height } = px;
@@ -305,6 +323,31 @@ export function traceAnalysis(a: Analysis, o: TraceOptions): Traced {
     r = build(eps);
   }
   return { groups: r.groups, fitWidth: w / longest, fitHeight: h / longest, points: r.points };
+}
+
+/**
+ * Re-centre and re-scale traced shapes so the printed artwork itself (not the picture's margin or background) has a
+ * longest side of 1. Without this, a logo with a wide margin gets printed small and its thin strokes fall under the
+ * printer's minimum feature size and vanish.
+ */
+export function cropToContent(t: Traced): Traced {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const g of t.groups) for (const s of g.shapes) for (const [x, y] of s.outer) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const w = maxX - minX, h = maxY - minY, k = Math.max(w, h);
+  if (!isFinite(k) || k <= 1e-9) return t;
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  const map = (r: Ring): Ring => r.map(([x, y]) => [(x - cx) / k, (y - cy) / k] as [number, number]);
+  return {
+    groups: t.groups.map((g) => ({ color: g.color, shapes: g.shapes.map((s) => ({ outer: map(s.outer), holes: s.holes.map(map) })) })),
+    fitWidth: w / k,
+    fitHeight: h / k,
+    points: t.points,
+  };
 }
 
 /** Keep-flags and target colours for a first look at a picture: leave out the background, match the rest to `palette`. */
