@@ -20,6 +20,9 @@ export const maxDuration = 60;
 
 export async function generateStaticParams() {
   const products = await listPublishedProducts();
+  // Cache Components fails the build on an empty list (a new shop with no published product yet). A placeholder
+  // satisfies it; the page answers it with notFound() like any unknown slug.
+  if (products.length === 0) return [{ slug: "__placeholder__" }];
   return products.map((p) => ({ slug: p.slug }));
 }
 

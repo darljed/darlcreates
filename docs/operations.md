@@ -49,6 +49,7 @@ Notes:
 | Task | How |
 |---|---|
 | Make someone an admin | They sign in with Google once, then `npx tsx scripts/make-admin.ts their@email.com` |
+| Seed a new production DB | `TARGET_DATABASE_URL=... npx tsx scripts/seed-prod.ts [owner@email]` copies the landing content and the clicker product from the dev DB and makes the owner an admin (the row is made ahead of the first sign-in) |
 | Create a test customer and admin session (to drive the UI in a browser) | `npx tsx scripts/e2e-session.ts setup` prints signed cookies for `TEST-E2E-customer` and `TEST-E2E-admin` and creates the product `test-e2e-keychain`. Add the cookie to the browser (`secure: true`, domain `localhost`). **Always finish with** `npx tsx scripts/e2e-session.ts cleanup` |
 | Browse as a demo customer | Mint a session cookie the same way as `cookieFor` in `scripts/e2e-session.ts`, for a user such as `seed-user-maria-santos` |
 | Load demo data (products, customers, ~70 orders, reviews) | `npx tsx scripts/seed-demo.ts seed` |
