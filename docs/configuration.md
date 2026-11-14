@@ -68,6 +68,7 @@ Sending is best-effort: a failed send is logged and never blocks an order, payme
 | Variable | What it is | Read in | Notes |
 |---|---|---|---|
 | `REVALIDATE_SECRET` | Lets scripts tell the running site to drop cached data (`POST /api/revalidate`) | `src/app/api/revalidate/route.ts`, `scripts/lib/revalidate.ts` | Empty or unset = the endpoint answers 404 and scripts print a warning. Any long random string. Restart the app after setting it. |
+| `TARGET_DATABASE_URL` | Script only: the database `scripts/seed-prod.ts` writes to (the source is `DATABASE_URL`) | `scripts/seed-prod.ts` | Use the direct (tailnet) string, not the pooled one. Never set it in the app. |
 | `ONLY` | Run the AI redraw experiment on input files starting with this text | `scripts/poc-ai-vectorize.ts` | Optional. |
 | `PALETTE` | `1` = tell the AI to use only the default palette colours | `scripts/poc-ai-vectorize.ts` | Optional. |
 | `STRICT` | `1` = use the stricter "at most 4 flat colours, no gradients" prompt in the AI redraw experiment | `scripts/poc-ai-vectorize.ts` | Optional. |
