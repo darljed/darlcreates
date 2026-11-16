@@ -1,6 +1,6 @@
 # Admin guide (for the owner)
 
-> Last updated: 2026-11-13. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
+> Last updated: 2026-11-17. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
 
 Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Colours, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
 
@@ -47,6 +47,9 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 - **Print model**: upload an STL or 3MF (up to 50 MB). Customers see it in 3D. Only you can download the file.
 - **Photos**: up to 5 MB each. The first photo is the shop thumbnail; delete from the photo grid.
 - **Customization builder**: add options customers choose from: *color* (swatches), *size* (choices with price changes), *text* (with a length limit) and *image* (customer uploads artwork). Each choice can add to the price.
+- **Delete product**: the red button on the product page or the bin icon in the list. Photos, model, options and reviews go with it and it leaves customers' carts. A product that has been ordered cannot be deleted: set it to Archived.
+- **Clicker designer** is a *service*, listed under Services at the top of Products. It is reached from "Design a clicker" (/clicker), is not in the product grid and cannot be deleted.
+- **Auto-detect from 3D model** (3MF): finds each part that can be coloured (e.g. "Ball colour") and offers every colour of your Colours list on each. Use the pencil to rename an option or choice, change its price or required flag; the cross deletes a choice; "Add all colours" fills in any colour a option lacks. Auto-detect replaces the product's colour options, including your edits to them.
 - Changing a product never changes orders already placed. They keep what the customer bought and paid.
 - Changes appear on the storefront right away.
 

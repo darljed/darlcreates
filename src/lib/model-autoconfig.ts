@@ -16,9 +16,10 @@ import { db } from "@/db";
 import { productOptions, productOptionValues, products } from "@/db/schema";
 import { zipSync } from "fflate";
 import { colorName } from "./color-name";
+import { DEFAULT_INVENTORY, type ColourInventory } from "./colour-inventory-schema";
 import { fontChoices, slotMaxHeight, type NameSlot } from "./name-mesh";
 import { checkFit, detectNameSlot, fitScale, MIN_WALL_BEHIND_MM, open3mf, projectFilaments, shrinkSlot, stripPlaceholder, threeMfSurface, wallThickness } from "./name-3mf";
-import { addPaintPreview, annotateGroups, colorGroups, groupMeshName, type Files } from "./threemf";
+import { addPaintPreview, annotateGroups, colorGroups, groupMeshName, stripPreviewParts, type Files } from "./threemf";
 import { buildKey, getObject, putObject } from "./storage";
 
 export type AutoConfig = {
@@ -33,7 +34,38 @@ export type AutoConfig = {
 
 const NAME_PATTERN = "^[A-Za-z0-9 ]*$";
 
-export async function autoConfigureModel(productId: string, key: string): Promise<AutoConfig> {
+export type AutoConfigOptions = {
+  /** The shop's colour list. Every colour in it is offered on each colour option (the owner deletes the ones not wanted). */
+  inventory?: ColourInventory | null;
+  /** Read the attached model again: the product's colour options are replaced and the file is re-prepared. */
+  redetect?: boolean;
+};
+
+/**
+ * Swatches for a colour option: every colour in the shop's list (or the built-in list when the shop has none), then the
+ * project's own filament colours that the list lacks. The project colours matter for printing: only they map to a filament.
+ */
+export function swatchesFor(filaments: string[], inventory: ColourInventory | null): { label: string; value: string; sort: number }[] {
+  const out: { label: string; value: string; sort: number }[] = [];
+  const seen = new Set<string>();
+  for (const c of (inventory ?? DEFAULT_INVENTORY).colours) {
+    if (seen.has(c.hex.toLowerCase())) continue;
+    seen.add(c.hex.toLowerCase());
+    out.push({ label: c.name, value: c.hex, sort: out.length });
+  }
+  const used = new Set(out.map((o) => o.label));
+  for (const hex of filaments) {
+    if (seen.has(hex.toLowerCase())) continue;
+    seen.add(hex.toLowerCase());
+    let label = colorName(hex);
+    for (let n = 2; used.has(label); n++) label = `${colorName(hex)} ${n}`;
+    used.add(label);
+    out.push({ label, value: hex, sort: out.length });
+  }
+  return out;
+}
+
+export async function autoConfigureModel(productId: string, key: string, opts: AutoConfigOptions = {}): Promise<AutoConfig> {
   const out: AutoConfig = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false, parts: [] }, notes: [] };
   if (!/\.3mf$/i.test(key)) return out; // an STL has no parts, no text element and no filament list: nothing to read
 
@@ -45,6 +77,7 @@ export async function autoConfigureModel(productId: string, key: string): Promis
   let files: Files;
   try {
     files = open3mf(await new Response(obj.stream).arrayBuffer());
+    if (opts.redetect) files = stripPreviewParts(files); // the helper meshes are made again below
   } catch (e) {
     out.notes.push(`Auto-configuration skipped: ${e instanceof Error ? e.message : "unreadable 3MF"}.`);
     return out;
@@ -154,7 +187,7 @@ export async function autoConfigureModel(productId: string, key: string): Promis
   out.notes.push(...paint.notes);
   annotated.files = paint.files;
   if (annotated.skipped.length) out.notes.push(`Parts of the model share one mesh (${annotated.skipped.map((g) => groups[g].label).join(", ")}), so they cannot be coloured separately.`);
-  if (strippedExample || annotated.named.length >= 2 || annotated.hidden || paint.layers.length) {
+  if (opts.redetect || strippedExample || annotated.named.length >= 2 || annotated.hidden || paint.layers.length) {
     const cleanKey = buildKey("model", "model-ready.3mf");
     await putObject(cleanKey, zipSync(annotated.files, { level: 1 }), "model/3mf");
     await db.update(products).set({ stlKey: cleanKey, updatedAt: new Date() }).where(eq(products.id, productId));
@@ -162,6 +195,7 @@ export async function autoConfigureModel(productId: string, key: string): Promis
   }
 
   if (filaments.length) {
+    if (opts.redetect) await db.delete(productOptions).where(and(eq(productOptions.productId, productId), eq(productOptions.type, "color")));
     const [hasColour] = await db
       .select({ id: productOptions.id })
       .from(productOptions)
@@ -169,13 +203,7 @@ export async function autoConfigureModel(productId: string, key: string): Promis
       .limit(1);
     if (hasColour) out.colours.kept = true;
     else {
-      const names = new Map<string, number>();
-      const swatches = filaments.map((hex, i) => {
-        const base = colorName(hex);
-        const n = (names.get(base) ?? 0) + 1;
-        names.set(base, n);
-        return { label: n > 1 ? `${base} ${n}` : base, value: hex, sort: i };
-      });
+      const swatches = swatchesFor(filaments, opts.inventory ?? null);
       // filament number for each colour (the first filament with that colour)
       const projectList = projectFilaments(files).map((c) => c.toUpperCase());
       const filamentOf: Record<string, number> = {};

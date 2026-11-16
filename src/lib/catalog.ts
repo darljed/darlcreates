@@ -38,7 +38,7 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
   const rows = await db
     .select()
     .from(products)
-    .where(eq(products.status, "published"))
+    .where(and(eq(products.status, "published"), eq(products.isService, false))) // services (the clicker designer) have their own link
     .orderBy(asc(products.name));
 
   const photos = rows.length

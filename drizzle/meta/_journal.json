@@ -29,6 +29,13 @@
       "when": 1794326935309,
       "tag": "0003_users_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794848147480,
+      "tag": "0004_clicker_service",
+      "breakpoints": true
     }
   ]
 }

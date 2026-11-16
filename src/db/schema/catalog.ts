@@ -40,6 +40,8 @@ export const products = pgTable("products", {
   basePriceCents: integer("base_price_cents").notNull().default(0),
   status: productStatus("status").notNull().default("draft"),
   stlKey: text("stl_key"),
+  /** A standalone service (the clicker designer): kept out of the product grid and never deletable. */
+  isService: boolean("is_service").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

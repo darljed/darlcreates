@@ -32,9 +32,14 @@ prices and state transitions.
 | Action | File | Notes |
 |---|---|---|
 | `createProductAction`, `updateProductAction` | `(admin)/admin/products/actions.ts` | Slug auto-generated; invalidates `products` + `product:<slug>` tags |
-| `addOptionAction`, `deleteOptionAction`, `addOptionValueAction` | same | No edit/reorder/value-delete yet (G-19) |
+| `addOptionAction`, `deleteOptionAction`, `addOptionValueAction` | same | Add an option or a choice; delete an option. Colour choices must be in the shop's Colours list |
+| `updateOptionAction` | same | Edit an option's label, required flag, price and (text) max length; other constraints stay |
+| `updateOptionValueAction`, `deleteOptionValuesAction` | same | Rename or reprice a choice (a colour's hex is not editable, delete and add instead); delete choices |
+| `addAllColoursAction` | same | Add every colour of the shop's Colours list (or the built-in list when none is saved) that a colour option lacks |
+| `redetectCustomizationsAction` | same | Auto-detect: read the attached 3MF again and replace the product's colour options (one per colourable part, each with every shop colour). Text and size options stay. Returns `auto` with notes. STL refused |
+| `deleteProductAction` | same | Delete a product for good (options, photos, reviews cascade; files removed from storage; cart lines removed). Refused for a service (the clicker designer) and for a product on any order line (archive instead) |
 | `saveNameSlotAction` | same | Save or remove the **name slot** on a text option (Zod `nameSlotSchema`). Refused unless the product's model is an STL or 3MF, and unless a name of the widest allowed size sits fully on the surface there (the error says the widest width that does). Invalidates the product caches. `attachModelAction` additionally auto-configures from a 3MF (name slot from the designer's example text, Colors from the project's filaments) and returns what it did in `auto` |
-| `saveClickerConfigAction` | same | Admin: make a product a clicker designer (or back to normal). Zod `clickerConfigSchema`; size steps must rise and reach the largest key size; palette has no repeats; colours per print not above the palette. Creates or updates the required text option "Your clicker" (`constraints.clicker`); refused if the product has other options. Invalidates the product caches |
+| `saveClickerConfigAction` | same | Admin: make a product a clicker designer (or back to normal). Zod `clickerConfigSchema`; size steps must rise and reach the largest key size; palette has no repeats; colours per print not above the palette. Creates or updates the required text option "Your clicker" (`constraints.clicker`); refused if the product has other options. Turning it on sets `products.is_service`; turning it off is refused for a service. Invalidates the product caches |
 | `measureWallAction` | same | Admin: how thick the model is behind the name area (mm), so the editor can limit an engraving's depth (needs 0.8 mm left). `saveNameSlotAction` checks it again |
 | `measureNameSpaceAction` | same | Admin: how much room a name has at a spot (position, normal, up) on the product's model, as a table of widest-area-per-height. Powers the size limits in "Name on the model" |
 | `attachModelAction`, `addPhotoAction`, `deletePhotoAction` | same | Take an S3 key from the presign flow; verify the object exists (HEAD) and size; a `.3mf` must start with the ZIP signature. Replacing a model does **not** delete the old object (orders snapshot it) |
@@ -114,4 +119,4 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
-Last updated: 2026-11-13
+Last updated: 2026-11-17

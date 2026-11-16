@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Customization builder: add or delete options (color, size, text, image) and their values with price changes.
+ * Customization builder: add, edit or delete options (color, size, text, image) and their values with price changes.
+ * Options found automatically from the 3D model (and every colour of the shop's list) are edited the same way.
  */
 
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Pencil, Check, X, Wand2, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,25 +21,52 @@ import {
 } from "@/components/ui/select";
 import { formatPHP } from "@/lib/money";
 import type { ProductOptionInput } from "@/lib/pricing";
-import { inStock, type ColourInventory } from "@/lib/colour-inventory-schema";
+import { DEFAULT_INVENTORY, inStock, type ColourInventory } from "@/lib/colour-inventory-schema";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { centavosToPesos } from "@/lib/money";
 import {
+  addAllColoursAction,
   addOptionAction,
   addOptionValueAction,
   deleteOptionAction,
+  deleteOptionValuesAction,
+  redetectCustomizationsAction,
+  updateOptionAction,
+  updateOptionValueAction,
 } from "@/app/(admin)/admin/products/actions";
 
 export function SchemaBuilder({
   productId,
   options,
   inventory,
+  canDetect,
 }: {
   productId: string;
   options: ProductOptionInput[];
   inventory: ColourInventory | null;
+  /** the product has a 3MF model that auto-detect can read */
+  canDetect: boolean;
 }) {
   const router = useRouter();
   const uid = useId();
   const [pending, startTransition] = useTransition();
+  const [confirmDetect, setConfirmDetect] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+
+  function detect() {
+    startTransition(async () => {
+      const res = await redetectCustomizationsAction({ productId });
+      if (!res.ok) {
+        setDetectError(res.error);
+        return;
+      }
+      setConfirmDetect(false);
+      const c = res.auto?.colours;
+      toast.success(c?.added.length ? `Found ${c.parts.length || 1} colour option${(c.parts.length || 1) === 1 ? "" : "s"}, ${c.added.length} colours each. Edit or delete what you do not want.` : "Nothing to detect in this model.");
+      for (const n of res.auto?.notes ?? []) toast.message(n);
+      router.refresh();
+    });
+  }
 
   // New-option form
   const [type, setType] = useState<"color" | "text" | "size" | "image">("color");
@@ -82,6 +110,24 @@ export function SchemaBuilder({
 
   return (
     <div className="space-y-6">
+      {canDetect && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3">
+          <Button type="button" variant="outline" size="sm" disabled={pending} onClick={() => { setDetectError(null); setConfirmDetect(true); }}>
+            <Wand2 className="mr-1 size-4" /> Auto-detect from 3D model
+          </Button>
+          <p className="text-xs text-muted-foreground">Finds the parts that can be coloured and offers every colour of your Colours list on each. Everything it adds can be renamed or deleted below.</p>
+        </div>
+      )}
+      <ConfirmDialog
+        open={confirmDetect}
+        onOpenChange={setConfirmDetect}
+        title="Auto-detect customizations?"
+        description="This reads the 3D model again and replaces this product's colour options (including any edits you made to them). Text and size options stay."
+        confirmLabel="Detect"
+        busy={pending}
+        error={detectError}
+        onConfirm={detect}
+      />
       <div className="space-y-4">
         {options.length === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -90,35 +136,7 @@ export function SchemaBuilder({
         )}
         {options.map((opt) => (
           <div key={opt.id} className="rounded-lg border bg-card p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold">
-                  {opt.label}{" "}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    ({opt.type}
-                    {opt.required ? ", required" : ""}
-                    {opt.priceDeltaCents > 0
-                      ? `, +${formatPHP(opt.priceDeltaCents)}`
-                      : ""}
-                    )
-                  </span>
-                </p>
-                {opt.type === "text" && (
-                  <p className="text-xs text-muted-foreground">
-                    max {opt.constraints.maxLen ?? 50} chars
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                disabled={pending}
-                onClick={() => removeOption(opt.id)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </div>
+            <OptionHeader opt={opt} pending={pending} onRemove={() => removeOption(opt.id)} />
 
             {(opt.type === "color" || opt.type === "size") && (
               <ValueEditor
@@ -224,6 +242,17 @@ function ValueEditor({
   const [label, setLabel] = useState("");
   const [value, setValue] = useState(type === "color" ? (inventory?.colours[0]?.hex ?? "#0077a5") : "");
   const [priceDelta, setPriceDelta] = useState("0");
+  const missing = type === "color" ? (inventory ?? DEFAULT_INVENTORY).colours.filter((c) => !values.some((v) => v.value.toLowerCase() === c.hex.toLowerCase())).length : 0;
+
+  function addAll() {
+    startTransition(async () => {
+      const res = await addAllColoursAction({ optionId });
+      if (res.ok) {
+        toast.success(res.id === "0" ? "Every colour is already here" : `${res.id} colours added`);
+        router.refresh();
+      } else toast.error(res.error);
+    });
+  }
 
   function add() {
     if (!label.trim() || !value.trim()) {
@@ -249,22 +278,14 @@ function ValueEditor({
     <div className="mt-3 border-t pt-3">
       <div className="flex flex-wrap gap-2">
         {values.map((v) => (
-          <span
-            key={v.id}
-            className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs"
-          >
-            {type === "color" && (
-              <span
-                className="size-3 rounded-full border"
-                style={{ backgroundColor: v.value }}
-              />
-            )}
-            {v.label}
-            {v.priceDeltaCents > 0 && ` (+${formatPHP(v.priceDeltaCents)})`}
-            {type === "color" && !inStock(inventory, v.value) && <span className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-900" title="This colour is not in your Colours list, so customers do not see it.">hidden</span>}
-          </span>
+          <ValueChip key={v.id} v={v} type={type} inventory={inventory} />
         ))}
       </div>
+      {type === "color" && (
+        <Button type="button" size="sm" variant="outline" className="mt-2" disabled={pending} onClick={addAll}>
+          <Palette className="mr-1 size-4" /> {missing > 0 ? `Add all colours (${missing} more)` : "All colours added"}
+        </Button>
+      )}
       <div className="mt-2 flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label htmlFor={`${vid}-label`} className="text-xs">Label</Label>
@@ -321,5 +342,129 @@ function ValueEditor({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** The header of an option: its label, required flag and price, with a pencil to edit them in place. */
+function OptionHeader({ opt, pending, onRemove }: { opt: ProductOptionInput; pending: boolean; onRemove: () => void }) {
+  const router = useRouter();
+  const id = useId();
+  const [saving, start] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(opt.label);
+  const [required, setRequired] = useState(opt.required);
+  const [price, setPrice] = useState(String(centavosToPesos(opt.priceDeltaCents)));
+  const [maxLen, setMaxLen] = useState(String(opt.constraints.maxLen ?? 50));
+
+  function save() {
+    start(async () => {
+      const res = await updateOptionAction({ optionId: opt.id, label, required, priceDelta: price, maxLen: opt.type === "text" ? Number(maxLen) : undefined });
+      if (res.ok) {
+        toast.success("Option saved");
+        setEditing(false);
+        router.refresh();
+      } else toast.error(res.error);
+    });
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-l`} className="text-xs">Label</Label>
+          <Input id={`${id}-l`} className="h-8 w-44" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} autoFocus />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-p`} className="text-xs">+₱</Label>
+          <Input id={`${id}-p`} className="h-8 w-20" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+        {opt.type === "text" && (
+          <div className="space-y-1">
+            <Label htmlFor={`${id}-m`} className="text-xs">Max length</Label>
+            <Input id={`${id}-m`} className="h-8 w-20" inputMode="numeric" value={maxLen} onChange={(e) => setMaxLen(e.target.value)} />
+          </div>
+        )}
+        <label className="flex items-center gap-1.5 pb-1.5 text-xs">
+          <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Required
+        </label>
+        <Button type="button" size="icon" variant="outline" className="size-8" aria-label="Save option" disabled={saving || !label.trim()} onClick={save}>
+          {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+        </Button>
+        <Button type="button" size="icon" variant="ghost" className="size-8" aria-label="Cancel" disabled={saving} onClick={() => setEditing(false)}>
+          <X className="size-4" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="font-bold">
+          {opt.label}{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            ({opt.type}
+            {opt.required ? ", required" : ""}
+            {opt.priceDeltaCents > 0 ? `, +${formatPHP(opt.priceDeltaCents)}` : ""})
+          </span>
+        </p>
+        {opt.type === "text" && <p className="text-xs text-muted-foreground">max {opt.constraints.maxLen ?? 50} chars</p>}
+      </div>
+      <div className="flex">
+        <Button variant="ghost" size="sm" disabled={pending} aria-label={`Edit ${opt.label}`} onClick={() => setEditing(true)}>
+          <Pencil className="size-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="text-destructive" disabled={pending} aria-label={`Delete ${opt.label}`} onClick={onRemove}>
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** One choice (a colour swatch or a size): rename it, change its price, or delete it. */
+function ValueChip({ v, type, inventory }: { v: ProductOptionInput["values"][number]; type: "color" | "size"; inventory: ColourInventory | null }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(v.label);
+  const [price, setPrice] = useState(String(centavosToPesos(v.priceDeltaCents)));
+
+  function save() {
+    start(async () => {
+      const res = await updateOptionValueAction({ valueId: v.id, label, priceDelta: price });
+      if (res.ok) {
+        setEditing(false);
+        router.refresh();
+      } else toast.error(res.error);
+    });
+  }
+  function remove() {
+    start(async () => {
+      const res = await deleteOptionValuesAction({ valueIds: [v.id] });
+      if (res.ok) router.refresh();
+      else toast.error(res.error);
+    });
+  }
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
+        {type === "color" && <span className="size-3 rounded-full border" style={{ backgroundColor: v.value }} />}
+        <Input aria-label="Choice label" className="h-6 w-28 px-1 text-xs" value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} autoFocus />
+        <Input aria-label="Extra price (₱)" className="h-6 w-14 px-1 text-xs" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+        <button type="button" aria-label="Save choice" className="text-primary disabled:opacity-50" disabled={pending || !label.trim()} onClick={save}><Check className="size-3.5" /></button>
+        <button type="button" aria-label="Cancel" className="text-muted-foreground" disabled={pending} onClick={() => setEditing(false)}><X className="size-3.5" /></button>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
+      {type === "color" && <span className="size-3 rounded-full border" style={{ backgroundColor: v.value }} />}
+      {v.label}
+      {v.priceDeltaCents > 0 && ` (+${formatPHP(v.priceDeltaCents)})`}
+      {type === "color" && !inStock(inventory, v.value) && <span className="rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-900" title="This colour is not in your Colours list, so customers do not see it.">hidden</span>}
+      <button type="button" aria-label={`Edit ${v.label}`} className="text-muted-foreground hover:text-foreground" disabled={pending} onClick={() => setEditing(true)}><Pencil className="size-3" /></button>
+      <button type="button" aria-label={`Delete ${v.label}`} className="text-muted-foreground hover:text-destructive" disabled={pending} onClick={remove}><X className="size-3.5" /></button>
+    </span>
   );
 }

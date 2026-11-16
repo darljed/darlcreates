@@ -235,8 +235,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
 | `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
-| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
+| `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
+| `delete-product-button.tsx` | Delete a product behind a confirm step (list row and edit page) |
 | `content-editor.tsx` | Landing-page editor |
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |
 | `legal-editor.tsx` | Legal text editor: toolbar, outline, word count |
@@ -248,7 +249,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `product-form.tsx` | Product create / edit form |
 | `revenue-chart.tsx` | 30-day revenue chart |
 | `review-moderation.tsx` | Approve / hide buttons |
-| `schema-builder.tsx` | Customization option builder |
+| `schema-builder.tsx` | Customization option builder: add, edit (label, required, price, length) and delete options and choices, add every shop colour, auto-detect from the 3D model |
 | `store-editor.tsx` | Store details and footer editor |
 | `user-addresses.tsx` | Edit / delete a user's saved addresses |
 | `user-badges.tsx` | Status and role badges, initials avatar |
@@ -309,6 +310,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-seo.ts` | SEO helpers, JSON-LD, robots rules, private pages are noindex |
 | `test-uploads.ts` | Upload rules and S3 round trip |
 | `test-user-admin.ts` | User management |
+| `test-service-delete.ts` | Clicker designer is a service; deleting a product removes its options |
 | `test-waybill.ts` | Code 128 encoder and the waybill slip |
 | `test-viewer-framing.ts` | 3D framing math |
 
