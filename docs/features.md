@@ -61,6 +61,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - Order management: forward-only status transitions + **append-only history**
 - **3MF upload auto-configures the product**: the example text in a Bambu Studio file becomes the name position, the example is removed, and the project's filaments become Colors, each offering every colour of the Colours list (delete what you do not want)
 - **Name on the model**: click the 3D model to place the customer's name; the order download becomes a 3MF with the base and the name as separate parts (proof of concept, STL products)
+- **Print job sheet** per order (colour + filament of every part, name, sizes, clicker design, colours to load, hand-set warnings), saved at checkout
 - **Internal waybill** per order (A6 slip with barcode, ship-to, pack list and tick boxes) for our own tracking
 - **Search title and description** for the home page (Store & footer)
 - Shipping entry; **admin-only signed STL download** per order item

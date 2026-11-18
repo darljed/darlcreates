@@ -70,6 +70,8 @@ async function main() {
     assert("status awaiting_payment", order.status === "awaiting_payment");
     const items = await db.select().from(s.orderItems).where(eq(s.orderItems.orderId, order.id));
     assert("item snapshot: name, unit price, model key", items[0].nameSnapshot === `${T} Widget` && items[0].unitPriceCents === 10000 && items[0].stlKeySnapshot === "models/test.3mf");
+    const sheet = items[0].printSheet as { v?: number; model?: string | null; choices?: unknown[] } | null;
+    assert("print job sheet saved on the line at order time", sheet?.v === 1 && sheet.model === "test.3mf" && Array.isArray(sheet.choices), JSON.stringify(sheet));
     const cartLeft = await db.select().from(s.cartItems).where(inArray(s.cartItems.cartId, (await db.select().from(s.carts).where(eq(s.carts.userId, buyer))).map((c) => c.id)));
     assert("cart cleared", cartLeft.length === 0);
     const hist = await db.select().from(s.orderStatusHistory).where(eq(s.orderStatusHistory.orderId, order.id));

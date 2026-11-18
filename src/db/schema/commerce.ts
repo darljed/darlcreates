@@ -108,6 +108,8 @@ export const orderItems = pgTable("order_items", {
   imageKey: text("image_key"),
   unitPriceCents: integer("unit_price_cents").notNull(),
   stlKeySnapshot: text("stl_key_snapshot"),
+  /** The print job sheet written when the order was placed (see lib/job-sheet.ts). Null on orders from before it existed. */
+  printSheet: jsonb("print_sheet"),
 });
 
 /**

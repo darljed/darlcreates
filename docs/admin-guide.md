@@ -1,6 +1,6 @@
 # Admin guide (for the owner)
 
-> Last updated: 2026-11-17. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
+> Last updated: 2026-11-18. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
 
 Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Colours, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
 
@@ -33,6 +33,7 @@ The queue of GCash references customers submitted. For each one:
 - Change status with the buttons shown (only valid next steps appear). Add a note if useful. Moves never go backwards.
 - **Shipping**: enter courier, tracking number and status. Marking *Shipped* emails the customer.
 - **Order Acknowledgment**: a printable page for the customer's records.
+- **Print job sheet**: for each line, the colour (name and hex) and filament number of every part, the name and font, sizes (name area, clicker size), the clicker design, and the colours to load. Use it to check a downloaded 3MF when Bambu Studio shows the wrong colours. A ⚠ lists anything to set by hand. It was saved when the order was placed, so later product edits do not change it. "Copy as text" pastes it into a chat. The same details are under "Print details" on each order line.
 - **Print waybill**: a small (A6) internal slip for our own tracking: order barcode, who it ships to, what to pack, courier and tracking lines (filled in once you save the shipment) and tick boxes (Printed, Cleaned, Packed, Handed to courier). It warns "NOT VERIFIED: do not ship" if the payment isn't verified. It has no prices. It is **not** a courier label; book the courier separately. Scan the barcode into the Orders search box to jump to the order.
 - **Refunds and cancelling a paid order**: this changes the status only. Send the money back yourself in GCash.
 

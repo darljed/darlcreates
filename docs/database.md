@@ -20,7 +20,7 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 `product_option_values`, `reviews`, `review_photos`.
 **Admin**: `admin_audit` (append-only log of admin actions on user accounts: `actor_id`, `target_user_id`, `action`, `detail` jsonb; no foreign keys on purpose, so the trail outlives a user row). `users` also has `blocked_at`, `blocked_reason` (private) and `admin_note` (private).
 **Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited documents. Keys: `home` (landing page), `site` (store info + footer), `brand` (uploaded logos), `colours` (the colour inventory: `{ colours: [{ name, hex }] }`; absent = colours are not limited), `legal:privacy`, `legal:terms`. A missing or invalid row falls back to the built-in default; shapes are validated in code (D-25, D-28).
-**Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items`,
+**Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items` (`print_sheet` jsonb: the print job sheet written when the order was placed, null on older orders; migration 0005),
 `payments`, `shipments`, `order_status_history`.
 
 ## Enums
@@ -69,4 +69,4 @@ Workflow, rollback and the "confirm the target first" rule: [operations.md](./op
 - `admin_audit` has **no** foreign keys on purpose, so the trail outlives a user row.
 - `site_content.updated_by` is set null if the editor's user is removed.
 
-Last updated: 2026-11-17
+Last updated: 2026-11-18

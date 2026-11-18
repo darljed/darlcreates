@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-17
+Last updated: 2026-11-18
 
 ---
 
@@ -245,3 +245,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-74 | 2026-11-11 | **SEO and answer-engine metadata.** Per-page titles, descriptions, canonical, Open Graph; schema.org Organization / WebSite / FAQPage / Product / BreadcrumbList / ItemList; `sitemap.xml`, `robots.txt` (AI crawlers allowed on public pages), `/llms.txt`; private pages `noindex`; owner-editable search title and description. `test-seo.ts`. See D-38. |
 | G-75 | 2026-11-17 | **Open:** a colour choice outside the 3MF project's filaments cannot set the print file's filament (no filament number), so the part keeps the designer's colour in the downloaded file. The order shows the chosen colour. Needs a filament-slot rewrite in `project_settings.config`. Also name colours still come only from the project's filaments. |
 | G-76 | 2026-11-17 | **Clicker designer is a standalone service** (`products.is_service`, migration 0004): out of the product grid, in the sitemap as /clicker, never deletable. **Delete product** added (refused when ordered). **Customizations easier**: edit options and choices, "Add all colours", auto-detect re-run, every shop colour on auto-created colour options. `test-service-delete.ts`, `test-model-autoconfig.ts`. |
+| G-77 | 2026-11-18 | **Print job sheet.** Each order line keeps a plain description of what to print (`order_items.print_sheet`, migration 0005), shown on the order page and at `/admin/orders/[id]/job-sheet` (print or copy). Warns when a chosen colour is not a 3MF filament (see G-75). `test-job-sheet.ts`. |
