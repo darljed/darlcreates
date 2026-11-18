@@ -287,6 +287,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | File | Purpose |
 |---|---|
 | `make-admin.ts` | Promote a user to admin by email |
+| `seed-keychain.ts` | Creates the name keychain designer product with default settings (idempotent), so `/keychain` works on a fresh database |
 | `seed-prod.ts` | Seed a fresh production DB (`TARGET_DATABASE_URL`): landing content, the clicker product, the owner as admin |
 | `seed.ts` | Sample catalog |
 | `seed-demo.ts` | Demo store: `seed`, `clear`, `status` (tagged, removable) |
