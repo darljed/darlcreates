@@ -60,9 +60,12 @@ const textLayer = (over: Partial<TextLayer> = {}): TextLayer => ({ id: newId("t"
   const fonts = (id: string) => loaded.get(id);
 
   console.log("\nthe design schema");
-  const base = defaultSpec(cfg);
+  assert("a new clicker and new name keys start with the keyring tab on", defaultSpec(cfg).keyring.on && defaultSpec(cfg, "name").keyring.on);
+  // the fixtures below measure the clicker itself, so they start without the tab
+  const noRing = <T extends ClickerSpec>(s: T): T => ({ ...s, keyring: { ...s.keyring, on: false } });
+  const base = noRing(defaultSpec(cfg));
   const plain = clickerSpecSchema.parse({ ...base, shape: "circle", layers: [textLayer({ text: "Hi", color: RED })], baseColor: WHITE, capColor: BLACK });
-  const nameSpec = (over: Partial<NonNullable<ClickerSpec["name"]>> = {}, top: Partial<ClickerSpec> = {}) => clickerSpecSchema.parse({ ...defaultSpec(cfg, "name"), ...top, name: { ...defaultSpec(cfg, "name").name!, ...over } });
+  const nameSpec = (over: Partial<NonNullable<ClickerSpec["name"]>> = {}, top: Partial<ClickerSpec> = {}) => clickerSpecSchema.parse({ ...noRing(defaultSpec(cfg, "name")), ...top, name: { ...defaultSpec(cfg, "name").name!, ...over } });
   assert("the default clicker and the default name keys are valid", clickerSpecSchema.safeParse(base).success && clickerSpecSchema.safeParse(defaultSpec(cfg, "name")).success);
   assert("an older (version 1) design is refused, not misread", !clickerSpecSchema.safeParse({ ...base, v: 1 }).success);
   assert("a size under the minimum is refused", !clickerSpecSchema.safeParse({ ...base, width: 5 }).success);

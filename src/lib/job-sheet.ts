@@ -10,6 +10,8 @@ import { colorName } from "./color-name";
 import { NAME_FONTS, personalizedName, slotMaxHeight, type NameFontId } from "./name-mesh";
 import { clickerColours, designSummary, nameKeys, switchCount } from "./clicker/spec";
 import { designOf } from "./clicker/of-product";
+import { keychainColours, keychainSummary, linesOf, STYLE_LABELS } from "./keychain/spec";
+import { keychainDesignOf } from "./keychain/of-product";
 
 export type SheetColour = { hex: string; name: string };
 
@@ -25,6 +27,8 @@ export type JobSheet = {
   name: { text: string; font: string; mode: "raised" | "engraved"; colour: SheetColour | null; filament: number | null; areaMm: string; depthMm: number } | null;
   /** The clicker design (made to order): sizes, colours, layers. */
   clicker: { summary: string; kind: string; sizeMm: string; shape: string; switches: number; keyring: boolean; base: SheetColour; cap: SheetColour | null; layers: string[]; colours: SheetColour[]; keys: string[] } | null;
+  /** The name keychain design (made to order). Optional: sheets saved before keychains existed do not have it. */
+  keychain?: { summary: string; style: string; name: string; font: string; lengthMm: string; thicknessMm: string; ring: string; parts: { part: string; colour: SheetColour }[] } | null;
   /** The distinct colours to load, with the filament number the print file gives them (null: not set by the file). */
   filaments: { hex: string; colour: string; filament: number | null; usedBy: string[] }[];
   /** Things to do by hand because the print file cannot do them. */
@@ -37,7 +41,7 @@ const named = (hex: string, label?: string): SheetColour => ({ hex: lc(hex), nam
 /** Build the sheet for one order line from the product's options and the customer's saved selection. */
 export function buildJobSheet(opts: { options: ProductOptionInput[]; config: ConfigSelection; modelKey: string | null }): JobSheet {
   const { options, config } = opts;
-  const out: JobSheet = { v: 1, model: opts.modelKey ? (opts.modelKey.split("/").pop() ?? opts.modelKey) : null, choices: [], parts: [], name: null, clicker: null, filaments: [], warnings: [] };
+  const out: JobSheet = { v: 1, model: opts.modelKey ? (opts.modelKey.split("/").pop() ?? opts.modelKey) : null, choices: [], parts: [], name: null, clicker: null, keychain: null, filaments: [], warnings: [] };
   const fil = new Map<string, { hex: string; colour: string; filament: number | null; usedBy: string[] }>();
   const addFilament = (hex: string, colour: string, filament: number | null, by: string) => {
     const k = lc(hex);
@@ -51,7 +55,7 @@ export function buildJobSheet(opts: { options: ProductOptionInput[]; config: Con
   for (const opt of options) {
     const sel = config[opt.id];
     if (!sel) continue;
-    if (opt.type === "text" && opt.constraints.clicker) continue; // the clicker design is described below
+    if (opt.type === "text" && (opt.constraints.clicker || opt.constraints.keychain)) continue; // the clicker or keychain design is described below
     if (opt.type === "text") {
       if (sel.text) out.choices.push({ label: opt.label, value: sel.text });
     } else if (sel.valueId) {
@@ -124,6 +128,26 @@ export function buildJobSheet(opts: { options: ProductOptionInput[]; config: Con
     out.warnings.push("Clicker print file: filament numbers follow the order the parts appear in the file. If the colours look wrong in Bambu Studio, match each part to the colours listed here by name.");
   }
 
+  // the name keychain design
+  const kc = keychainDesignOf(options, config);
+  if (kc) {
+    const s = kc.spec;
+    const round1 = (n: number) => Math.round(n * 10) / 10;
+    const parts = [{ part: "Plate", hex: s.baseColor }, { part: "Name", hex: s.textColor }, ...(s.style === "icon" ? [{ part: `Icon (${s.icon})`, hex: s.iconColor }] : []), ...(s.style === "tag" ? [{ part: "Frame", hex: s.frameColor }] : [])];
+    out.keychain = {
+      summary: keychainSummary(s),
+      style: STYLE_LABELS[s.style],
+      name: linesOf(s).join(" / ") + (s.style === "tag" && s.sub.trim() ? ` + “${s.sub.trim()}”` : ""),
+      font: NAME_FONTS[s.font as NameFontId]?.label ?? s.font,
+      lengthMm: `${round1(s.lengthMm)} mm long, letters ${s.size} mm tall`,
+      thicknessMm: `${round1(s.baseMm + s.textMm)} mm (plate ${s.baseMm} + letters ${s.textMm})`,
+      ring: s.ring.pos === "none" ? "no hole" : `hole ${s.ring.hole} mm, ${s.ring.pos}`,
+      parts: parts.map((p) => ({ part: p.part, colour: named(p.hex) })),
+    };
+    keychainColours(s).forEach((c) => addFilament(c, named(c).name, null, "Keychain"));
+    out.warnings.push("Keychain print file: filament numbers follow the order the parts appear in the file. If the colours look wrong in Bambu Studio, match each part to the colours listed here by name.");
+  }
+
   out.filaments = [...fil.values()].sort((a, b) => (a.filament ?? 99) - (b.filament ?? 99));
   return out;
 }
@@ -141,6 +165,10 @@ export function sheetText(title: string, qty: number, s: JobSheet): string {
   if (s.clicker) {
     L.push(`${s.clicker.kind}: ${s.clicker.summary}`, `  Size: ${s.clicker.sizeMm} · ${s.clicker.switches} switch${s.clicker.switches === 1 ? "" : "es"}${s.clicker.keyring ? " · keyring" : ""}`, `  Base: ${s.clicker.base.name} ${s.clicker.base.hex}${s.clicker.cap ? ` · Cap: ${s.clicker.cap.name} ${s.clicker.cap.hex}` : ""}`);
     for (const l of s.clicker.layers) L.push(`  - ${l}`);
+  }
+  if (s.keychain) {
+    L.push(`Keychain (${s.keychain.style}): “${s.keychain.name}” · ${s.keychain.font}`, `  Size: ${s.keychain.lengthMm} · ${s.keychain.thicknessMm} · ${s.keychain.ring}`);
+    for (const p of s.keychain.parts) L.push(`  - ${p.part}: ${p.colour.name} ${p.colour.hex}`);
   }
   if (s.filaments.length) L.push(`Load: ${s.filaments.map((f) => `${f.colour} ${f.hex}${f.filament ? ` (filament ${f.filament})` : ""}`).join(", ")}`);
   for (const w of s.warnings) L.push(`! ${w}`);

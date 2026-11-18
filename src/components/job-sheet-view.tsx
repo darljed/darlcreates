@@ -56,6 +56,14 @@ export function JobSheetView({ sheet }: { sheet: JobSheet }) {
         </div>
       )}
 
+      {sheet.keychain && (
+        <div>
+          <p><span className="font-medium">Keychain ({sheet.keychain.style}):</span> “{sheet.keychain.name}” · {sheet.keychain.font}</p>
+          <p>{sheet.keychain.lengthMm} · {sheet.keychain.thicknessMm} · {sheet.keychain.ring}</p>
+          <p>{sheet.keychain.parts.map((p) => <span key={p.part} className="mr-3 inline-block"><span className="font-medium">{p.part}:</span> <Chip {...p.colour} /></span>)}</p>
+        </div>
+      )}
+
       {sheet.filaments.length > 0 && (
         <p>
           <span className="font-medium">Load:</span>{" "}

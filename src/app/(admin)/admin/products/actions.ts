@@ -23,6 +23,7 @@ import { loadSurface } from "@/lib/name-surface";
 import { measureSpace } from "@/lib/name-space";
 import type { SpaceTable } from "@/lib/name-mesh";
 import { clickerConfigSchema, type ClickerConfig } from "@/lib/clicker/spec";
+import { keychainConfigSchema, type KeychainConfig } from "@/lib/keychain/spec";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
 import { DEFAULT_INVENTORY, inStock, inventoryHexes } from "@/lib/colour-inventory-schema";
 import { loadColourInventory } from "@/lib/site-content-store";
@@ -452,7 +453,7 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
   const slug = await slugOf(productId);
   if (!slug) return { ok: false, error: "Product not found" };
   const [self] = await db.select({ isService: products.isService }).from(products).where(eq(products.id, productId)).limit(1);
-  if (!config && self?.isService) return { ok: false, error: "The clicker designer is a standalone service and cannot be turned back into a product." };
+  if (!config && self?.isService) return { ok: false, error: "A designer service (clicker or keychain) cannot be turned back into a product." };
 
   if (config) {
     // when the shop has a colour list, it IS the palette (the browser's copy is ignored)
@@ -496,6 +497,60 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
   return { ok: true };
 }
 
+const keychainActionSchema = z.object({
+  productId: z.string().uuid(),
+  /** null turns the product back into a normal one (refused for a service). */
+  config: keychainConfigSchema.nullable(),
+});
+
+/**
+ * Make a product a name keychain designer. Same shape as `saveClickerConfigAction`: the settings (limits, offered fonts,
+ * icons and colours, and every price) live in the constraints of one required text option, "Your keychain".
+ */
+export async function saveKeychainConfigAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = keychainActionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid keychain settings" };
+  const { productId, config } = parsed.data;
+  const slug = await slugOf(productId);
+  if (!slug) return { ok: false, error: "Product not found" };
+  const [self] = await db.select({ isService: products.isService }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!config && self?.isService) return { ok: false, error: "A designer service (clicker or keychain) cannot be turned back into a product." };
+
+  if (config) {
+    // when the shop has a colour list, it IS the palette (the browser's copy is ignored)
+    const inventory = await loadColourInventory();
+    if (inventory) config.palette = inventoryHexes(inventory);
+    if (new Set(config.palette.map((c) => c.toLowerCase())).size !== config.palette.length) return { ok: false, error: "The colour list has the same colour twice" };
+    const tiers = config.sizeTiers.map((t) => t.upToMm);
+    if (tiers.some((t, i) => i > 0 && t <= tiers[i - 1])) return { ok: false, error: "Length steps must go up from short to long" };
+    if (tiers[tiers.length - 1] < config.maxLengthMm) return { ok: false, error: `The last length step must reach the longest keychain you allow (${config.maxLengthMm} mm)` };
+    if (config.maxColours > config.palette.length) return { ok: false, error: "The number of colours per print cannot be more than the colours you offer" };
+    if (new Set(config.fonts).size !== config.fonts.length || new Set(config.icons).size !== config.icons.length || new Set(config.styles).size !== config.styles.length) return { ok: false, error: "A font, icon or style is listed twice" };
+    if (config.styles.includes("icon") && config.icons.length === 0) return { ok: false, error: "Offer at least one icon, or turn the icon style off" };
+  }
+
+  const options = await db.select().from(productOptions).where(eq(productOptions.productId, productId));
+  const existing = options.find((o) => (o.constraints as { keychain?: unknown } | null)?.keychain);
+  if (config && options.some((o) => o !== existing)) {
+    return { ok: false, error: "Remove this product's other customization options first. The keychain designer replaces them." };
+  }
+
+  const saved: KeychainConfig | null = config;
+  if (!saved) {
+    if (existing) await db.delete(productOptions).where(eq(productOptions.id, existing.id));
+  } else if (existing) {
+    await db.update(productOptions).set({ constraints: { ...(existing.constraints as object), keychain: saved } }).where(eq(productOptions.id, existing.id));
+  } else {
+    await db.insert(productOptions).values({ productId, type: "text", label: "Your keychain", required: true, priceDeltaCents: 0, constraints: { maxLen: 20, keychain: saved }, sort: 0 });
+  }
+  await db.update(products).set({ isService: Boolean(saved), updatedAt: new Date() }).where(eq(products.id, productId));
+  invalidate(slug);
+  revalidatePath("/keychain");
+  revalidatePath(`/admin/products/${productId}`);
+  return { ok: true };
+}
+
 const deleteProductSchema = z.object({ productId: z.string().uuid() });
 
 /**
@@ -511,7 +566,7 @@ export async function deleteProductAction(input: unknown): Promise<Result> {
 
   const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
   if (!product) return { ok: false, error: "Product not found" };
-  if (product.isService) return { ok: false, error: "The clicker designer is a standalone service and cannot be deleted." };
+  if (product.isService) return { ok: false, error: "A designer service (clicker or keychain) is standalone and cannot be deleted." };
   const [{ n }] = await db.select({ n: count() }).from(orderItems).where(eq(orderItems.productId, productId));
   if (n > 0) return { ok: false, error: `This product is on ${n} order line${n === 1 ? "" : "s"}, so it cannot be deleted. Set its status to Archived to take it off the shop.` };
 

@@ -3,6 +3,7 @@ import { fileUrl } from "@/lib/storage";
 import { ProductBrowser } from "@/components/product-browser";
 import { JsonLd } from "@/components/json-ld";
 import { itemListLd, pageMetadata } from "@/lib/seo";
+import { ServicesSection } from "@/components/services-section";
 
 export const metadata = pageMetadata({
   title: "Shop custom 3D printed products",
@@ -37,6 +38,9 @@ export default async function ProductsPage() {
           <ProductBrowser items={withImages} />
         )}
       </section>
+      <div className="mx-auto max-w-6xl px-6 pb-12">
+        <ServicesSection variant="compact" />
+      </div>
     </main>
   );
 }

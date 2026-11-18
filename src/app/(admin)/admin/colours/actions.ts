@@ -17,6 +17,7 @@ function invalidate() {
   updateTag("products");
   revalidatePath("/products", "layout");
   revalidatePath("/clicker");
+  revalidatePath("/keychain");
   revalidatePath("/admin/colours");
   revalidatePath("/admin/products", "layout");
 }

@@ -4,6 +4,8 @@ import { eq, sql } from "drizzle-orm";
 import { getProductsByIds } from "./catalog";
 import { designOf } from "./clicker/of-product";
 import { designSvgDataUri } from "./clicker/server";
+import { keychainDesignOf } from "./keychain/of-product";
+import { keychainSvgDataUri } from "./keychain/server";
 import { fileUrl, readUrl } from "./storage";
 import type { ConfigSelection } from "./pricing";
 
@@ -35,7 +37,7 @@ export type CartLine = {
   imageUrl: string | null;
   /** The customer's own uploaded artwork (signed, short-lived), if any. */
   uploadUrl: string | null;
-  /** A picture of the clicker design (a data: URL of an SVG), for a clicker designer line. */
+  /** A picture of the clicker or keychain design (a data: URL of an SVG), for a designer line. */
   designUri: string | null;
 };
 
@@ -82,10 +84,12 @@ export async function getCartLines(userId: string): Promise<CartLine[]> {
   );
 }
 
-/** The small picture of a clicker design, or null for any other line. */
+/** The small picture of a clicker or keychain design, or null for any other line. */
 export async function designPicture(options: Parameters<typeof designOf>[0], config: ConfigSelection): Promise<string | null> {
   const d = designOf(options, config);
-  return d ? designSvgDataUri(d.spec) : null;
+  if (d) return designSvgDataUri(d.spec);
+  const k = keychainDesignOf(options, config);
+  return k ? keychainSvgDataUri(k.spec) : null;
 }
 
 export function cartSubtotalCents(lines: CartLine[]): number {

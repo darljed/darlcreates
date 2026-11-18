@@ -9,6 +9,8 @@ import { formatPHP } from "@/lib/money";
 import { ProductCustomizer } from "@/components/product-customizer";
 import { ClickerDesigner } from "@/components/clicker/clicker-designer";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
+import { KeychainDesigner } from "@/components/keychain/keychain-designer";
+import { keychainOptionOf } from "@/lib/keychain/of-product";
 import { ProductPageSkeleton } from "@/components/skeletons";
 import { ProductReviews } from "@/components/product-reviews";
 import { JsonLd } from "@/components/json-ld";
@@ -65,6 +67,7 @@ async function ProductContent({
   if (!product) notFound();
 
   const clicker = clickerOptionOf(product.options);
+  const keychain = keychainOptionOf(product.options);
   const stlUrl = fileUrl(product.stlKey);
   const photos = product.photos.flatMap((p) => {
     const url = fileUrl(p.key);
@@ -115,6 +118,8 @@ async function ProductContent({
             optionId={clicker.option.id}
             config={{ ...clicker.config, allowAi: clicker.config.allowAi && aiConfigured() }} // AI redraw needs the owner's switch AND the API key
           />
+        ) : keychain ? (
+          <KeychainDesigner productId={product.id} basePriceCents={product.basePriceCents} optionId={keychain.option.id} config={keychain.config} />
         ) : (
           <ProductCustomizer
             productId={product.id}

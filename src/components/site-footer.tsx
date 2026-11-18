@@ -5,16 +5,17 @@ import { telHref } from "@/lib/site-content-schema";
 import { CmsLink } from "@/components/cms";
 import { BrandLogo } from "@/components/brand-logo";
 import { InstallApp } from "@/components/install-app";
+import { listServices } from "@/lib/services";
 
 /** Site-wide footer. Everything except the legal links is managed in Admin → Store & footer. */
 export async function SiteFooter() {
-  const { store, links, social, note } = await getSiteInfo();
+  const [{ store, links, social, note }, services] = await Promise.all([getSiteInfo(), listServices()]);
   const tel = telHref(store.phone);
   const linkClass = "text-muted-foreground hover:text-foreground hover:underline";
 
   return (
     <footer className="mt-auto border-t bg-muted/40">
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`mx-auto grid max-w-6xl gap-8 px-6 py-10 sm:grid-cols-2 ${services.length ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <div className="space-y-3 sm:col-span-2 lg:col-span-1">
           <Link href="/" aria-label={`${store.name} home`} className="inline-block">
             <BrandLogo variant="horizontal" className="h-8" />
@@ -35,6 +36,22 @@ export async function SiteFooter() {
             ))}
           </ul>
         </nav>
+
+        {services.length > 0 && (
+          <nav aria-label="Design your own" className="text-sm">
+            <h2 className="mb-3 font-bold">Design your own</h2>
+            <ul className="space-y-2">
+              {services.map((s) => (
+                <li key={s.id}>
+                  <Link href={s.href} className={linkClass}>{s.title}</Link>
+                </li>
+              ))}
+              <li>
+                <Link href="/services" className={linkClass}>All design tools</Link>
+              </li>
+            </ul>
+          </nav>
+        )}
 
         <nav aria-label="Legal" className="text-sm">
           <h2 className="mb-3 font-bold">Legal</h2>

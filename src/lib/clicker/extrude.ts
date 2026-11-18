@@ -91,8 +91,11 @@ function fingerprint(p: LayoutPart): string {
   return `${p.id}|${p.object}|${p.color}|${p.z0.toFixed(3)}|${p.z1.toFixed(3)}|${points}|${(h >>> 0).toString(36)}`;
 }
 
-export function extrudeLayout(layout: Layout, cache?: GeometryCache): SolidPart[] {
-  return layout.parts
+export const extrudeLayout = (layout: Layout, cache?: GeometryCache): SolidPart[] => extrudeParts(layout.parts, cache);
+
+/** The solids for a list of pieces (also used by the name keychain, whose layout is not a clicker `Layout`). */
+export function extrudeParts(parts: LayoutPart[], cache?: GeometryCache): SolidPart[] {
+  return parts
     .filter((p) => p.z1 - p.z0 > 1e-6)
     .map((p) => {
       if (!cache) return { ...p, geometry: extrudePart(p) };

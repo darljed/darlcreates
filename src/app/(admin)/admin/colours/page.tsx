@@ -16,7 +16,7 @@ export default async function AdminColoursPage() {
     <div className="max-w-3xl">
       <PageHeader
         title="Colours"
-        description="The filament colours you have in stock. Once saved, these are the only colours customers can pick: in the clicker designer, on colour options and for names."
+        description="The filament colours you have in stock. Once saved, these are the only colours customers can pick: in the clicker and keychain designers, on colour options and for names."
       />
       <ColourInventoryEditor initial={saved ?? DEFAULT_INVENTORY} configured={Boolean(saved)} />
     </div>

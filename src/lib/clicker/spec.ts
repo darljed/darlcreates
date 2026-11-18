@@ -287,7 +287,7 @@ export function defaultSpec(cfg: ClickerConfig = DEFAULT_CLICKER_CONFIG, kind: K
     capColor: p[1] ?? "#111827",
     relief: "flat",
     rim: "standard",
-    keyring: { on: false, angle: 180, hole: 5, wall: 2.4 },
+    keyring: { on: true, angle: 180, hole: 5, wall: 2.4 },
     layers: kind === "clicker" && cfg.allowText ? [defaultText(cfg)] : [],
     ...(kind === "name" ? { name: defaultName(cfg) } : {}),
   };

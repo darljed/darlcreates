@@ -18,6 +18,8 @@ export async function adminListProducts() {
       basePriceCents: products.basePriceCents,
       status: products.status,
       isService: products.isService,
+      /** Which designer a service is (its page is /clicker or /keychain), from its option's settings. */
+      designer: sql<string | null>`(select case when o.constraints ? 'keychain' then 'keychain' when o.constraints ? 'clicker' then 'clicker' end from product_options o where o.product_id = "products"."id" and (o.constraints ? 'keychain' or o.constraints ? 'clicker') limit 1)`,
       stlKey: products.stlKey,
       photoKey: sql<string | null>`(select ${productPhotos.s3Key} from ${productPhotos} where ${productPhotos.productId} = ${products.id} order by ${productPhotos.sort} limit 1)`,
     })
