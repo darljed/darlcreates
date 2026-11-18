@@ -24,6 +24,11 @@ export const NAME_FONTS = {
   modern: { label: "Modern", file: "Righteous-Regular.ttf" },
   condensed: { label: "Condensed", file: "Anton-Regular.ttf" },
   script: { label: "Script", file: "Pacifico-Regular.ttf" },
+  // added for the name keychain (script faces like the ones on name tags); all OFL, checked to parse with opentype.js
+  lobster: { label: "Lobster", file: "Lobster-Regular.ttf" },
+  courgette: { label: "Courgette", file: "Courgette-Regular.ttf" },
+  kaushan: { label: "Kaushan", file: "KaushanScript-Regular.ttf" },
+  damion: { label: "Damion", file: "Damion-Regular.ttf" },
 } as const;
 export type NameFontId = keyof typeof NAME_FONTS;
 export const NAME_FONT_IDS = Object.keys(NAME_FONTS) as [NameFontId, ...NameFontId[]];

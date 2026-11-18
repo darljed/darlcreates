@@ -79,6 +79,21 @@ export async function findClickerProductSlug(): Promise<string | null> {
   return row?.slug ?? null;
 }
 
+/** Slug of the first published product that is a name keychain designer (its text option holds a `keychain` config), or null. */
+export async function findKeychainProductSlug(): Promise<string | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("products");
+  const [row] = await db
+    .select({ slug: products.slug })
+    .from(products)
+    .innerJoin(productOptions, eq(productOptions.productId, products.id))
+    .where(and(eq(products.status, "published"), sql`${productOptions.constraints} ? 'keychain'`))
+    .orderBy(asc(products.createdAt))
+    .limit(1);
+  return row?.slug ?? null;
+}
+
 export type FullProduct = {
   id: string;
   slug: string;

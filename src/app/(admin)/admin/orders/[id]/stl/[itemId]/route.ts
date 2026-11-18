@@ -11,6 +11,9 @@ import { bytesToStream } from "@/lib/stream-bytes";
 import { designOf } from "@/lib/clicker/of-product";
 import { clickerConfigDamaged } from "@/lib/clicker/spec";
 import { buildClickerPrint } from "@/lib/clicker/server";
+import { keychainDesignOf } from "@/lib/keychain/of-product";
+import { keychainConfigDamaged } from "@/lib/keychain/spec";
+import { buildKeychainPrint } from "@/lib/keychain/server";
 import { filamentAssignments, paintAssignments } from "@/lib/part-colors";
 import type { ConfigSelection } from "@/lib/pricing";
 
@@ -47,6 +50,19 @@ export async function GET(
     if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
     return new Response(bytesToStream(built.file), {
       headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="clicker-${itemId.slice(0, 8)}.3mf"`, "Cache-Control": "private, no-store" },
+    });
+  }
+
+  // a name keychain line: the same, built from the saved design
+  const keychain = itemProduct ? keychainDesignOf(itemProduct.options, (item.config ?? {}) as ConfigSelection) : null;
+  if (keychain) {
+    if (itemProduct?.options.some((o) => o.type === "text" && keychainConfigDamaged(o.constraints))) {
+      return NextResponse.json({ error: "This product's keychain settings are damaged. Save the product again in the admin, then retry." }, { status: 422 });
+    }
+    const built = await buildKeychainPrint(keychain.spec, `Keychain ${itemId.slice(0, 8)}`);
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 422 });
+    return new Response(bytesToStream(built.file), {
+      headers: { "Content-Type": "model/3mf", "Content-Disposition": `attachment; filename="keychain-${itemId.slice(0, 8)}.3mf"`, "Cache-Control": "private, no-store" },
     });
   }
 

@@ -17,6 +17,8 @@ import { nameProblem } from "./name-3mf";
 import { clickerOptionOf } from "./clicker/of-product";
 import { checkDesign } from "./clicker/server";
 import { MAX_ADD_JSON } from "./clicker/spec";
+import { keychainOptionOf } from "./keychain/of-product";
+import { checkKeychain } from "./keychain/server";
 
 /** Framework-free so it can be tested with the real DB/S3. The action wrapper does auth + revalidation. */
 export const addToCartSchema = z.object({
@@ -46,6 +48,18 @@ async function prepareLine(userId: string, product: Product, rawSelection: Confi
     } else {
       const checked = await checkDesign(design, clicker.config);
       if (!checked.ok) return { ok: false, error: `${clicker.option.label}: ${checked.error}` };
+    }
+  }
+
+  // A name keychain must be one we can print: allowed font, icon and colours, letters the font can draw, a true length
+  const keychain = keychainOptionOf(product.options);
+  if (keychain) {
+    const design = config[keychain.option.id]?.design;
+    if (design === undefined) {
+      if (keychain.option.required) return { ok: false, error: `${keychain.option.label} is required` };
+    } else {
+      const checked = await checkKeychain(design, keychain.config);
+      if (!checked.ok) return { ok: false, error: `${keychain.option.label}: ${checked.error}` };
     }
   }
 

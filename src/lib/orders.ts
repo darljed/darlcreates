@@ -17,6 +17,7 @@ import { getProductsByIds } from "./catalog";
 import { designPicture } from "./cart";
 import { buildJobSheet, type JobSheet } from "./job-sheet";
 import { designOf } from "./clicker/of-product";
+import { keychainDesignOf } from "./keychain/of-product";
 import { summarizeConfig } from "./cart";
 import { personalizedName } from "./name-mesh";
 import { readUrl } from "./storage";
@@ -82,6 +83,8 @@ export type OrderDetail = {
     /** A picture of the clicker design (data: URL), and whether this line is a clicker (so it gets a generated print file). */
     designUri: string | null;
     clicker: boolean;
+    /** Whether this line is a name keychain (it also gets a generated print file). */
+    keychain: boolean;
     /** Print job sheet: saved when the order was placed; built from the product for older orders. */
     sheet: JobSheet | null;
   }[];
@@ -129,6 +132,7 @@ async function assembleOrderDetail(
         imageUrl: await readUrl(it.imageKey),
         designUri: product ? await designPicture(product.options, config) : null,
         clicker: product ? designOf(product.options, config) !== null : false,
+        keychain: product ? keychainDesignOf(product.options, config) !== null : false,
         sheet: (it.printSheet as JobSheet | null) ?? (product ? buildJobSheet({ options: product.options, config, modelKey: it.stlKeySnapshot }) : null),
       };
     }),

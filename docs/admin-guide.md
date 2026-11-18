@@ -68,6 +68,9 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 - Areas the designer **painted in another filament** (for example an outline) become their own colour option, "Outline colour" (rename it if you like). Customers change that colour on the 3D preview and in the print file.
 - Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
 
+### Name keychain designer
+On a product's page, **Name keychain designer → Make this a keychain product** (only when the product has no other options). It becomes a service reached from "Name keychain" (/keychain). Set the styles, fonts and icons on offer, the limits (letters, lines, longest keychain, keychains per order, colours per print) and the prices: a length step table, each extra line, the icon and bag-tag styles, each colour after the second, and a thick-keychain price. The product price is the starting price. Each ordered keychain has a **Download 3MF** button on the order (plate, name, icon and frame already on the plate), and its colours, sizes and font appear in the order's print details. Details: [keychain-designer.md](./keychain-designer.md).
+
 ### Clicker designer
 On a product's page, **Clicker designer → Make this a clicker product** (only when the product has no other options). Then set:
 - **Key size** range and the **price by size**; the price for each colour after the second, for a keyring tab and for a picture.

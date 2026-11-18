@@ -44,7 +44,7 @@ export default async function AdminProductsPage() {
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border bg-card p-3">
               <div>
                 <Link href={`/admin/products/${s.id}`} className="font-semibold hover:text-primary">{s.name}</Link>
-                <p className="text-xs text-muted-foreground">Standalone service at /clicker. Not in the product grid and cannot be deleted. From {formatPHP(s.basePriceCents)}.</p>
+                <p className="text-xs text-muted-foreground">Standalone service at /{s.designer ?? "clicker"}. Not in the product grid and cannot be deleted. From {formatPHP(s.basePriceCents)}.</p>
               </div>
               <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${STATUS_STYLE[s.status] ?? ""}`}>{s.status}</span>
             </div>

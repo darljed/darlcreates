@@ -47,7 +47,7 @@ export const colourName = (inv: ColourInventory | null, hex: string): string | n
  * A product's options with the inventory applied, so everything downstream (the storefront, the cart, pricing, checkout)
  * sees only colours in stock:
  *  - colour options lose the values that are not in stock;
- *  - a clicker designer gets the inventory as its palette (and cannot ask for more colours per print than there are);
+ *  - a clicker or keychain designer gets the inventory as its palette (and cannot ask for more colours per print than there are);
  *  - a name slot keeps only the name colours in stock.
  * Returns the options unchanged when there is no inventory.
  */
@@ -57,11 +57,15 @@ export function applyInventory(options: ProductOptionInput[], inv: ColourInvento
   return options.map((o) => {
     if (o.type === "color") return { ...o, values: o.values.filter((v) => inStock(inv, v.value)) };
     if (o.type !== "text") return o;
-    const c = o.constraints as { clicker?: Record<string, unknown>; slot?: { nameColors?: { hex: string }[] } };
+    const c = o.constraints as { clicker?: Record<string, unknown>; keychain?: Record<string, unknown>; slot?: { nameColors?: { hex: string }[] } };
     let constraints = o.constraints;
     if (c.clicker) {
       const maxColours = typeof c.clicker.maxColours === "number" ? Math.min(c.clicker.maxColours, hexes.length) : hexes.length;
       constraints = { ...constraints, clicker: { ...c.clicker, palette: hexes, maxColours } } as typeof constraints;
+    }
+    if (c.keychain) {
+      const maxColours = typeof c.keychain.maxColours === "number" ? Math.min(c.keychain.maxColours, hexes.length) : hexes.length;
+      constraints = { ...constraints, keychain: { ...c.keychain, palette: hexes, maxColours } } as typeof constraints;
     }
     if (c.slot?.nameColors) {
       constraints = { ...constraints, slot: { ...c.slot, nameColors: c.slot.nameColors.filter((n) => inStock(inv, n.hex)) } } as typeof constraints;

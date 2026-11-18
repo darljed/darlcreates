@@ -97,7 +97,7 @@ async function OrderContents({ orderNo }: { orderNo: string }) {
                 </div>
                 {it.designUri && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.designUri} alt="Your clicker design" className="mt-2 size-24 rounded-md border bg-muted/40 object-contain" />
+                  <img src={it.designUri} alt="Your design" className="mt-2 size-24 rounded-md border bg-muted/40 object-contain" />
                 )}
                 {it.imageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element

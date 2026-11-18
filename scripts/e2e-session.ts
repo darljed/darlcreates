@@ -43,7 +43,7 @@ async function main() {
 
   if (cmd === "cleanup") {
     await cleanup();
-    await refreshStorefrontCache(["test-e2e-keychain"]); // the deleted test product must not linger in the cached shop listing
+    await refreshStorefrontCache(["test-e2e-keychain", "test-e2e-keychain-designer"]); // the deleted test product must not linger in the cached shop listing
     const left = await db.select().from(s.users).where(like(s.users.id, `${PREFIX}%`));
     console.log(JSON.stringify({ cleaned: true, leftoverUsers: left.length }));
     process.exit(0);
@@ -83,6 +83,14 @@ async function main() {
   ]);
   await db.insert(s.productOptions).values({ productId: p.id, type: "text", label: "Name", required: true, priceDeltaCents: 2000, constraints: { maxLen: 10, pattern: "^[A-Za-z0-9 ]*$" }, sort: 1 });
   await db.insert(s.productOptions).values({ productId: p.id, type: "image", label: "Logo", required: false, priceDeltaCents: 500, sort: 2 });
+
+  // The name keychain designer service (a published product whose one text option holds the keychain settings)
+  const { DEFAULT_KEYCHAIN_CONFIG } = await import("../src/lib/keychain/spec");
+  const [kp] = await db.insert(s.products).values({
+    slug: "test-e2e-keychain-designer", name: "TEST E2E Name Keychain", description: "Throwaway name keychain designer for automated E2E.",
+    category: "test", basePriceCents: 12900, status: "published", isService: true,
+  }).returning();
+  await db.insert(s.productOptions).values({ productId: kp.id, type: "text", label: "Your keychain", required: true, priceDeltaCents: 0, constraints: { maxLen: 20, keychain: DEFAULT_KEYCHAIN_CONFIG }, sort: 0 });
 
   // Product with an STL model and one text option, for the "name on the model" flow. The admin places the slot in the UI.
   if (storage.isStorageConfigured()) {

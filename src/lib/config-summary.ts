@@ -5,6 +5,7 @@
 import type { ConfigSelection, ProductOptionInput } from "./pricing";
 import { NAME_FONTS, type NameFontId } from "./name-mesh";
 import { clickerConfigOf, clickerSpecSchema, designSummary } from "./clicker/spec";
+import { keychainConfigOf, keychainSpecSchema, keychainSummary } from "./keychain/spec";
 
 /** Summary of a config snapshot using the product's option schema. */
 export function summarizeConfig(
@@ -18,6 +19,9 @@ export function summarizeConfig(
     if (opt.type === "text" && sel.design !== undefined && clickerConfigOf(opt.constraints)) {
       const d = clickerSpecSchema.safeParse(sel.design);
       if (d.success) out.push({ label: opt.label, value: designSummary(d.data) });
+    } else if (opt.type === "text" && sel.design !== undefined && keychainConfigOf(opt.constraints)) {
+      const d = keychainSpecSchema.safeParse(sel.design);
+      if (d.success) out.push({ label: opt.label, value: keychainSummary(d.data) });
     } else if (opt.type === "text" && sel.text) {
       const fontLabel = sel.font && sel.font in NAME_FONTS ? NAME_FONTS[sel.font as NameFontId].label : null;
       const colours = ((opt.constraints.slot ?? {}) as { nameColors?: { hex: string; label: string }[] }).nameColors ?? [];

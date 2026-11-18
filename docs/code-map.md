@@ -1,6 +1,6 @@
 # Code map
 
-> Last updated: 2026-11-11. Every route, library file, component, script and top-level config, with one line on what it is for.
+> Last updated: 2026-11-18. Every route, library file, component, script and top-level config, with one line on what it is for.
 > `npx tsx scripts/test-docs.ts` fails if a file, route, table, env var, Server Action, cache tag or npm script is missing here or in the linked docs, so keep this page current when you add code.
 
 Linked docs: env vars → [configuration.md](./configuration.md) · tables → [database.md](./database.md) · actions, routes and cache tags → [api-routes.md](./api-routes.md) · UI rules → [design-system.md](./design-system.md).
@@ -16,6 +16,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/` | Landing page from the CMS (`site_content` "home"): hero, highlights, featured products, FAQ, CTA |
 | `/products` | Catalog with instant search and category filter |
 | `/products/[slug]` | Product page: gallery + 3D viewer, customizer (or the clicker designer for a clicker product), add to cart, reviews. `review-actions.ts` holds the review actions |
+| `/keychain` | Short link: redirects to the first published name keychain product (404 if none). Header link "Name keychain" |
 | `/clicker` | Short link: redirects to the first published clicker product (404 if none). Header link "Design a clicker" |
 | `/cart` | Cart with line editing |
 | `/checkout` | Address, shipping, order summary, place order |
@@ -126,6 +127,11 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/reach.ts` | **Pure.** How far a key may reach past its switches (20 mm) and how far off-centre it may be (6 mm): `reachCheck`, `maxKeySide`, `clampShift` (limits a drag of the artwork) |
 | `clicker/fit-art.ts` | **Pure.** `centreAndFitArt`: when the shape changes, put the artwork in the middle of the key and shrink the whole design just enough that nothing is cut off |
 | `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |
+| `keychain/spec.ts` | **Pure.** Name keychain design schema (`KeychainSpec`), owner settings (`KeychainConfig`: styles, fonts, icons, limits, every price), price, limits check, summary |
+| `keychain/icons.ts` | **Pure.** The 16 icon presets, drawn from circles and polygons (`iconRegions`, `iconPath`) |
+| `keychain/layout.ts` | **Pure.** `buildKeychainLayout`: plate (follows the letters, rounded or pill), keyring loop and hole, name, icon, bag-tag frame; `keychainText`, `keychainToSvg`, `layoutProblem` |
+| `keychain/of-product.ts` | **Pure.** Finds the keychain option and a line's design on a product |
+| `keychain/server.ts` | **Service (server).** `checkKeychain`, `buildKeychainPrint` (3MF), `keychainSvgDataUri` |
 | `clicker/of-product.ts` | **Pure.** Finds the clicker option and a line's design on a product |
 | `clicker/server.ts` | **Service (server).** `checkDesign`, `buildClickerPrint` (lays the base and keys out on the plate), `buildFitTest`, `designSvgDataUri`, font loading |
 | `name-mesh.ts` | **Pure.** Name slot schema, text → raised-letter mesh, printability checks, watertight test |
@@ -219,6 +225,14 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `three/stl-viewer-lazy.tsx` | Dynamic import wrapper (`ssr: false`) |
 | `three/viewer-loading.tsx` | Loading animation |
 
+### Name keychain designer (`components/keychain`)
+
+| File | What it does |
+|---|---|
+| `keychain-designer.tsx` | The designer: viewer, style, name, font, icon, colours, plate and thickness, keyring hole, list of keychains, price bar, undo/redo, draft, add to cart |
+| `keychain-viewer.tsx` | Three.js view of the printed pieces with orbit and a top view, flat-picture fallback |
+| `use-keychain-fonts.ts` | Loads the fonts a keychain design uses and tells when one arrives |
+
 ### Clicker designer (`components/clicker`)
 
 | File | Purpose |
@@ -239,6 +253,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
 | `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
+| `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
 | `delete-product-button.tsx` | Delete a product behind a confirm step (list row and edit page) |
@@ -298,6 +313,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
+| `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
 | `poc-ai-vectorize.ts` | Experiment, not part of the app: asks OpenRouter image models to redraw sample pictures as flat-colour art, traces them with the app's tracer and writes comparison sheets to `/tmp/ai-poc/out` |
 | `test-name-mesh.ts` | Name slot, letter geometry, orientation, printability, 3MF print file |

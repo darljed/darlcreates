@@ -16,7 +16,7 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
 ## Tables (20)
 **Auth**: `users` (+ `role` customer|admin), `sessions`, `accounts`,
 `verifications`.
-**Catalog**: `products` (`is_service`: a standalone service, the clicker designer; hidden from the product grid and never deletable, migration 0004 backfills it), `product_photos`, `product_options`,
+**Catalog**: `products` (`is_service`: a standalone service (the clicker or the name keychain designer; no new table: a keychain product is one text option whose `constraints.keychain` holds the settings); hidden from the product grid and never deletable, migration 0004 backfills it), `product_photos`, `product_options`,
 `product_option_values`, `reviews`, `review_photos`.
 **Admin**: `admin_audit` (append-only log of admin actions on user accounts: `actor_id`, `target_user_id`, `action`, `detail` jsonb; no foreign keys on purpose, so the trail outlives a user row). `users` also has `blocked_at`, `blocked_reason` (private) and `admin_note` (private).
 **Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited documents. Keys: `home` (landing page), `site` (store info + footer), `brand` (uploaded logos), `colours` (the colour inventory: `{ colours: [{ name, hex }] }`; absent = colours are not limited), `legal:privacy`, `legal:terms`. A missing or invalid row falls back to the built-in default; shapes are validated in code (D-25, D-28).
