@@ -15,6 +15,7 @@ Two printed objects around a real switch:
 - **Switch:** a Cherry MX switch you buy and fit. There is one type, so the customer does not choose one; they choose how many (up to your limit) and where they go.
 
 ## What the customer can do
+- **Keyring tab is on by default** for a new clicker or name keys (the customer can turn it off).
 - **Clicker** (one big key): a shape, size of the key, text and/or pictures, colours, flat or raised artwork, wall height
   (low, standard, high, flush with the key), **1 to 6 switches placed where you want them**, keyring tab.
 - **Follow my design (outline):** the key and the base take the shape of the text and pictures, with a coloured border round them (thin 0.8, normal 1.2, thick 2 or extra 3 mm). Gaps between letters are closed up and holes (the inside of an O) are filled, so it is one solid key. Pieces too far apart are wrapped in one shape. The 15 mm switch square is always inside it, so a very small design gets a small plate round the switch. The size is the design's size: "Longest side" scales the whole design and the key follows. The key colour is the border colour. Default for a new clicker.

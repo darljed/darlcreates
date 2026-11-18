@@ -16,8 +16,9 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/` | Landing page from the CMS (`site_content` "home"): hero, highlights, featured products, FAQ, CTA |
 | `/products` | Catalog with instant search and category filter |
 | `/products/[slug]` | Product page: gallery + 3D viewer, customizer (or the clicker designer for a clicker product), add to cart, reviews. `review-actions.ts` holds the review actions |
-| `/keychain` | Short link: redirects to the first published name keychain product (404 if none). Header link "Name keychain" |
-| `/clicker` | Short link: redirects to the first published clicker product (404 if none). Header link "Design a clicker" |
+| `/services` | The design-tools hub: a card per set-up service (name keychain, clicker) |
+| `/keychain` | Short link: redirects to the first published name keychain product (404 if none). Linked from the landing page, the footer, /services and the call-to-action bands (not the navbar) |
+| `/clicker` | Short link: redirects to the first published clicker product (404 if none). Linked from the landing page, the footer, /services and the call-to-action bands (not the navbar) |
 | `/cart` | Cart with line editing |
 | `/checkout` | Address, shipping, order summary, place order |
 | `/sign-in` | Google sign-in card |
@@ -127,6 +128,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/reach.ts` | **Pure.** How far a key may reach past its switches (20 mm) and how far off-centre it may be (6 mm): `reachCheck`, `maxKeySide`, `clampShift` (limits a drag of the artwork) |
 | `clicker/fit-art.ts` | **Pure.** `centreAndFitArt`: when the shape changes, put the artwork in the middle of the key and shrink the whole design just enough that nothing is cut off |
 | `clicker/state.ts` | **Pure.** Undo/redo history, layer helpers and `scaleDesign` (resize the whole design) for the designer |
+| `services.ts` | The design-your-own services (keychain, clicker) and `listServices`: which are set up and published right now |
 | `keychain/spec.ts` | **Pure.** Name keychain design schema (`KeychainSpec`), owner settings (`KeychainConfig`: styles, fonts, icons, limits, every price), price, limits check, summary |
 | `keychain/icons.ts` | **Pure.** The 16 icon presets, drawn from circles and polygons (`iconRegions`, `iconPath`) |
 | `keychain/layout.ts` | **Pure.** `buildKeychainLayout`: plate (follows the letters, rounded or pill), keyring loop and hole, name, icon, bag-tag frame; `keychainText`, `keychainToSvg`, `layoutProblem` |
@@ -253,6 +255,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
 | `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
+| `services-section.tsx` | The services as cards (landing page, /services) or a slim call-to-action band (shop, empty cart) |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |

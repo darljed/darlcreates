@@ -10,7 +10,7 @@ Three styles (the owner can switch any off):
 | Style | What it is |
 |---|---|
 | **Name** | The name in a font, on a plate that follows the letters (like the sample photo), with a keyring loop. |
-| **Name + icon** | The same, with a preset icon beside the name (left or right, any size). 16 icons drawn in code: heart, star, flower, paw, crown, lightning, moon, sun, cloud, smiley, cat, bone, music, diamond, leaf, fish. |
+| **Name + icon** | The same, with a preset icon beside the name (left or right, any size). 40 icons drawn in code, in two groups. **Cute animals** (bracelet-charm style): cat, bunny, bear, panda, puppy, piggy, duck, chick, penguin, frog, fox, owl, butterfly, bee, ladybug, whale, dino, paw, fish, bone. **Charms and shapes**: heart, star, bow, strawberry, cherries, cupcake, ice cream, rainbow, mushroom, clover, flower, crown, lightning, moon, sun, cloud, smiley, music, diamond, leaf. Eyes and spots are real holes, so the plate colour shows through. |
 | **Bag tag** (our own idea) | A name plus a small second line (phone number, class, address) inside a raised frame on a box-shaped plate. For bags, pets, luggage and school gear, where the keychain has a job. |
 
 Every style can choose: **font** (10: Bold, Chunky, Marker, Modern, Condensed, and the script faces Script, Lobster, Courgette, Kaushan,
@@ -50,7 +50,7 @@ Defaults: steps 70 / 100 / 120 mm = 0 / 30 / 60, line 30, icon 20, bag tag 30, c
 ## Adding a font or an icon
 - **Font:** put the `.ttf` and its licence in `public/fonts`, add it to `NAME_FONTS` (`name-mesh.ts`) and an `@font-face` to `globals.css`. It must parse with
   `opentype.js` (Bangers does not). Run `scripts/test-keychain.ts`: it builds names in every font.
-- **Icon:** add the id to `ICON_IDS`, a label, and a builder (circles and polygons) in `src/lib/keychain/icons.ts`.
+- **Icon:** add the id to `ANIMAL_ICONS` or `CHARM_ICONS`, a label, and a builder (circles and polygons) in `src/lib/keychain/icons.ts`.
 
 ## Limits
 | Limit | Value | Where |
@@ -63,7 +63,7 @@ Defaults: steps 70 / 100 / 120 mm = 0 / 30 / 60, line 30, icon 20, bag tag 30, c
 
 ## Known limits
 - Not printed yet; the 3MF has not been opened in Bambu Studio (G-110). The plate margin, thickness presets and keyring wall are sensible defaults.
-- Icons are simple silhouettes; a couple (cloud, leaf) are plain. More and nicer presets are a design job.
+- Icons are simple silhouettes drawn from circles and polygons; a couple (cloud, whale tail) are plain. Nicer presets are a design job. Products saved before an icon was added do not offer it until you tick it under Icons on offer.
 - Fonts are limited to the bundled ones; thin script strokes may be dropped (the customer is told).
 - Emoji as colour pictures are not supported (only the icon presets), by design: one colour per piece.
 

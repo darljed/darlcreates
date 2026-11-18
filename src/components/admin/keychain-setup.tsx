@@ -17,7 +17,7 @@ import { Panel } from "@/components/shell/ui";
 import { Check, Field } from "@/components/admin/editor-bits";
 import { formatPHP } from "@/lib/money";
 import { NAME_FONTS, NAME_FONT_IDS } from "@/lib/name-mesh";
-import { ICON_IDS, ICON_LABELS, iconPath } from "@/lib/keychain/icons";
+import { ICON_GROUPS, ICON_IDS, ICON_LABELS, iconPath } from "@/lib/keychain/icons";
 import { DEFAULT_KEYCHAIN_CONFIG, LIMITS, STYLE_IDS, STYLE_LABELS, type KeychainConfig } from "@/lib/keychain/spec";
 import { saveKeychainConfigAction } from "@/app/(admin)/admin/products/actions";
 import type { ColourInventory } from "@/lib/colour-inventory-schema";
@@ -82,16 +82,21 @@ export function KeychainSetup({ productId, initial, canSwitchOn, locked, invento
 
         <div className="space-y-2">
           <h3 className="text-xs font-bold">Icons on offer (name + icon style)</h3>
-          <div className="flex flex-wrap gap-2">
-            {ICON_IDS.map((id) => {
-              const sel = c.icons.includes(id);
-              return (
-                <button key={id} type="button" aria-pressed={sel} title={ICON_LABELS[id]} aria-label={ICON_LABELS[id]} onClick={() => set({ icons: toggle(c.icons, id, !sel).sort((a, b) => ICON_IDS.indexOf(a) - ICON_IDS.indexOf(b)) })} className={`size-11 rounded-lg border-2 p-1.5 ${sel ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground opacity-60"}`}>
-                  <svg viewBox="0 0 100 100" className="size-full" aria-hidden><path d={iconPath(id)} fill="currentColor" fillRule="evenodd" /></svg>
-                </button>
-              );
-            })}
-          </div>
+          {ICON_GROUPS.map((g) => (
+            <div key={g.label} className="space-y-1">
+              <p className="text-[11px] font-semibold text-muted-foreground">{g.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {g.ids.map((id) => {
+                  const sel = c.icons.includes(id);
+                  return (
+                    <button key={id} type="button" aria-pressed={sel} title={ICON_LABELS[id]} aria-label={ICON_LABELS[id]} onClick={() => set({ icons: toggle(c.icons, id, !sel).sort((a, b) => ICON_IDS.indexOf(a) - ICON_IDS.indexOf(b)) })} className={`size-11 rounded-lg border-2 p-1.5 ${sel ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground opacity-60"}`}>
+                      <svg viewBox="0 0 100 100" className="size-full" aria-hidden><path d={iconPath(id)} fill="currentColor" fillRule="evenodd" /></svg>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
           <p className="text-[11px] text-muted-foreground">Icons are drawn in code (src/lib/keychain/icons.ts). Ask a developer to add more presets.</p>
         </div>
 

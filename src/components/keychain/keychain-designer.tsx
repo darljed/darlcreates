@@ -27,7 +27,7 @@ import { formatPHP } from "@/lib/money";
 import { extrudeParts, GeometryCache } from "@/lib/clicker/extrude";
 import { canRedo, canUndo, commit, newHistory, redo, undo, type History } from "@/lib/clicker/state";
 import { MAX_ADD_JSON } from "@/lib/clicker/spec";
-import { ICON_LABELS, iconPath } from "@/lib/keychain/icons";
+import { ICON_GROUPS, ICON_LABELS, iconPath } from "@/lib/keychain/icons";
 import { buildKeychainLayout, keychainToSvg, layoutProblem } from "@/lib/keychain/layout";
 import {
   checkKeychainAgainstConfig, defaultKeychain, keychainColours, keychainPriceDeltaCents, keychainSpecSchema, linesOf, LIMITS, PLATE_IDS, PLATE_LABELS, RING_LABELS, RING_POSITIONS, STYLE_HINTS, STYLE_LABELS,
@@ -415,13 +415,22 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
 
           {spec.style === "icon" && config.icons.length > 0 && (
             <Section n={4} title="Pick an icon">
-              <div role="group" aria-label="Icon" className="grid grid-cols-4 gap-2 sm:grid-cols-8 lg:grid-cols-4">
-                {config.icons.map((id) => (
-                  <button key={id} type="button" aria-pressed={spec.icon === id} aria-label={ICON_LABELS[id]} title={ICON_LABELS[id]} onClick={() => edit({ icon: id })} className={cn("flex aspect-square items-center justify-center rounded-lg border-2 p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", spec.icon === id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:border-primary")}>
-                    <svg viewBox="0 0 100 100" className="size-full" aria-hidden><path d={iconPath(id)} fill="currentColor" fillRule="evenodd" /></svg>
-                  </button>
-                ))}
-              </div>
+              {ICON_GROUPS.map((g) => {
+                const ids = g.ids.filter((id) => config.icons.includes(id));
+                if (!ids.length) return null;
+                return (
+                  <div key={g.label} role="group" aria-label={g.label} className="space-y-1.5">
+                    <p className="text-xs font-semibold">{g.label}</p>
+                    <div className="grid grid-cols-5 gap-2 sm:grid-cols-10 lg:grid-cols-5">
+                      {ids.map((id) => (
+                        <button key={id} type="button" aria-pressed={spec.icon === id} aria-label={ICON_LABELS[id]} title={ICON_LABELS[id]} onClick={() => edit({ icon: id })} className={cn("flex aspect-square items-center justify-center rounded-lg border-2 p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", spec.icon === id ? "border-primary bg-primary/10 text-primary" : "border-border text-foreground hover:border-primary")}>
+                          <svg viewBox="0 0 100 100" className="size-full" aria-hidden><path d={iconPath(id)} fill="currentColor" fillRule="evenodd" /></svg>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
               <div role="group" aria-label="Icon side" className="grid grid-cols-2 gap-2">
                 {(["left", "right"] as const).map((side) => (
                   <button key={side} type="button" aria-pressed={spec.iconSide === side} onClick={() => edit({ iconSide: side })} className={choiceClass(spec.iconSide === side)}>
