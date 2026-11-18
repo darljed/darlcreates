@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { AlertCircle } from "lucide-react";
 import { RevenueChart } from "@/components/admin/revenue-chart";
 import { OrderStatusBadge } from "@/components/order-status-badge";
@@ -6,6 +7,7 @@ import { DataTable, EmptyState, PageHeader, Panel, Stat, Td, Th, Tr } from "@/co
 import { adminBadgeCounts } from "@/lib/admin-counts";
 import { adminDashboard, adminRecentOrders, adminRevenueSeries } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
+import { workshopSummary } from "@/lib/workshop/summary";
 
 export const metadata = { title: "Admin Dashboard" };
 // Admin pages are per-request and RBAC-gated; they may block on navigation.
@@ -13,8 +15,9 @@ export const metadata = { title: "Admin Dashboard" };
 export const instant = false;
 
 export default async function AdminDashboardPage() {
-  const [stats, series, recent, counts] = await Promise.all([
-    adminDashboard(), adminRevenueSeries(30), adminRecentOrders(8), adminBadgeCounts(),
+  await connection(); // the workshop windows use the current time, which Cache Components forbids during prerender
+  const [stats, series, recent, counts, shop] = await Promise.all([
+    adminDashboard(), adminRevenueSeries(30), adminRecentOrders(8), adminBadgeCounts(), workshopSummary(),
   ]);
   const attention = [
     counts.pendingPayments && { href: "/admin/payments", text: `${counts.pendingPayments} payment${counts.pendingPayments > 1 ? "s" : ""} to verify` },
@@ -56,6 +59,41 @@ export default async function AdminDashboardPage() {
           )}
         </Panel>
       </div>
+
+      <Panel title="Workshop" description="Stock, and profit from sales logged outside the website and from online orders whose cost is known." actions={<Link href="/admin/inventory" className="text-xs font-semibold underline">Inventory</Link>} flush>
+        <div className="grid gap-px bg-border md:grid-cols-3">
+          <div className="space-y-1 bg-card p-3 text-sm">
+            <p className="text-xs text-muted-foreground">Stock value</p>
+            <p className="text-lg font-extrabold tabular-nums">{formatPHP(shop.inventoryValueCents)}</p>
+            <p className="text-xs text-muted-foreground">{shop.partsCount} part{shop.partsCount === 1 ? "" : "s"}</p>
+          </div>
+          <div className="space-y-1 bg-card p-3 text-sm md:col-span-2">
+            <p className="text-xs text-muted-foreground">Running low ({shop.lowStock.length})</p>
+            {shop.lowStock.length === 0 ? <p className="text-xs text-muted-foreground">Nothing is at or below its reorder level.</p> : (
+              <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                {shop.lowStock.slice(0, 8).map((p) => (
+                  <li key={p.id}><Link href="/admin/inventory" className="font-semibold hover:text-primary">{p.name}</Link> <span className="text-muted-foreground">{Math.round(p.qtyOnHand * 100) / 100} {p.unit} left</span></li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        <DataTable className="border-0 border-t">
+          <thead><tr><Th>Period</Th><Th className="text-right">Sales log revenue</Th><Th className="text-right">Sales log profit</Th><Th className="text-right">Owed to you</Th><Th className="text-right">Online revenue</Th><Th className="text-right">Online profit (costed)</Th></tr></thead>
+          <tbody>
+            {shop.windows.map((w) => (
+              <Tr key={w.label}>
+                <Td className="font-semibold">{w.label}</Td>
+                <Td label="Sales log revenue" className="text-right tabular-nums">{formatPHP(w.manual.revenueCents)}</Td>
+                <Td label="Sales log profit" className="text-right tabular-nums">{formatPHP(w.manual.profitCents)}</Td>
+                <Td label="Owed to you" className="text-right tabular-nums text-muted-foreground">{formatPHP(w.manual.pendingCents)}</Td>
+                <Td label="Online revenue" className="text-right tabular-nums">{formatPHP(w.online.revenueCents)}</Td>
+                <Td label="Online profit (costed)" className="text-right tabular-nums">{w.online.cogsCents > 0 ? formatPHP(w.online.costedRevenueCents - w.online.cogsCents) : "–"}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </DataTable>
+      </Panel>
 
       <Panel title="Recent orders" actions={<Link href="/admin/orders" className="text-xs font-semibold underline">All orders</Link>} flush>
         {recent.length === 0 ? <EmptyState>No orders yet.</EmptyState> : (

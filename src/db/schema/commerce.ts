@@ -92,6 +92,10 @@ export const orders = pgTable("orders", {
   orNumber: text("or_number"),
   vatCents: integer("vat_cents").notNull().default(0),
   placedAt: timestamp("placed_at").defaultNow().notNull(),
+  /** Set when the order used up stock (it entered production). Cleared when the stock is given back. */
+  stockDeductedAt: timestamp("stock_deducted_at"),
+  /** What the stocked items cost to make, saved when stock was used. Null when nothing was costed. */
+  cogsCents: integer("cogs_cents"),
 });
 
 export const orderItems = pgTable("order_items", {

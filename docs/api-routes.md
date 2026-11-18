@@ -39,6 +39,7 @@ prices and state transitions.
 | `redetectCustomizationsAction` | same | Auto-detect: read the attached 3MF again and replace the product's colour options (one per colourable part, each with every shop colour). Text and size options stay. Returns `auto` with notes. STL refused |
 | `deleteProductAction` | same | Delete a product for good (options, photos, reviews cascade; files removed from storage; cart lines removed). Refused for a service (the clicker designer) and for a product on any order line (archive instead) |
 | `saveNameSlotAction` | same | Save or remove the **name slot** on a text option (Zod `nameSlotSchema`). Refused unless the product's model is an STL or 3MF, and unless a name of the widest allowed size sits fully on the surface there (the error says the widest width that does). Invalidates the product caches. `attachModelAction` additionally auto-configures from a 3MF (name slot from the designer's example text, Colors from the project's filaments) and returns what it did in `auto` |
+| `saveProductCostingAction` | `(admin)/admin/products/costing-actions.ts` | Admin: set a product's internal print cost and bill of materials (parts per unit). Zod; returns `{ ok }` |
 | `saveKeychainConfigAction` | same | Admin: make a product a name keychain designer (or back to normal). Zod `keychainConfigSchema`; length steps must rise and reach the longest keychain; palette has no repeats; at least one icon when the icon style is on; refused when the product has other options. Saves into the one text option's `constraints.keychain` and flags the product `is_service` |
 | `saveClickerConfigAction` | same | Admin: make a product a clicker designer (or back to normal). Zod `clickerConfigSchema`; size steps must rise and reach the largest key size; palette has no repeats; colours per print not above the palette. Creates or updates the required text option "Your clicker" (`constraints.clicker`); refused if the product has other options. Turning it on sets `products.is_service`; turning it off is refused for a service. Invalidates the product caches |
 | `measureWallAction` | same | Admin: how thick the model is behind the name area (mm), so the editor can limit an engraving's depth (needs 0.8 mm left). `saveNameSlotAction` checks it again |
@@ -121,3 +122,20 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
 Last updated: 2026-11-17
+
+
+## Workshop Server Actions (admin only, all return `{ ok: true, ... }` or `{ ok: false, error }`, never throw)
+
+| Action | File | What it does |
+|---|---|---|
+| `saveEstimateAction`, `updateEstimateAction`, `deleteEstimateAction` | `(admin)/admin/estimator/actions.ts` | Save, update and delete a saved estimate (job snapshot, 3 tiers, cost, chosen price, tags) |
+| `listEstimatesAction` | same | The estimates (optionally only those with every given tag) and the tags in use |
+| `createProductFromEstimateAction` | same | Create a DRAFT shop product from an estimate: costing saved, the chosen tier is its price |
+| `applyEstimateToProductAction` | same | Put an estimate's costing (BOM + print cost) on an existing product; its price is left alone |
+| `createPartAction`, `updatePartAction`, `deletePartAction` | `(admin)/admin/inventory/actions.ts` | Parts (optionally with first stock as one purchase lot); delete removes lots, history and BOM lines |
+| `recordPurchaseAction`, `editPurchaseAction`, `voidPurchaseAction` | same | Purchase lots (edit = void + re-record in one transaction) |
+| `adjustStockAction` | same | Manual correction: a +/- change or the real count; writes a ledger row with a reason |
+| `listPurchasesAction`, `listMovementsAction` | same | A part's lots and recent ledger rows |
+| `createSaleAction`, `updateSaleAction`, `deleteSaleAction` | `(admin)/admin/sales/actions.ts` | The sales log. Product name and cost come from the database; stock is used on Packaged / Delivered and given back on revert, cancel or delete |
+
+Online orders also touch stock: `transitionOrder` (`src/lib/order-service.ts`) uses an order's BOMs when it enters `in_production` and gives them back on `cancelled` (see [order-lifecycle.md](./order-lifecycle.md)).
