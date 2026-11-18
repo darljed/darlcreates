@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckoutSteps } from "@/components/order-progress";
 import { CartItemRow } from "@/components/cart-item-row";
 import { CartSkeleton } from "@/components/skeletons";
+import { ServicesSection } from "@/components/services-section";
 
 export const metadata = { title: "Cart", ...NOINDEX };
 
@@ -47,6 +48,7 @@ async function CartContents() {
         <Button asChild className="mt-4 bg-primary text-primary-foreground">
           <Link href="/products">Browse products</Link>
         </Button>
+        <div className="mt-8 text-left"><ServicesSection variant="compact" /></div>
       </div>
     );
   }

@@ -348,3 +348,7 @@
 @font-face { font-family: "dc-name-modern"; src: url("/fonts/Righteous-Regular.ttf") format("truetype"); font-display: swap; }
 @font-face { font-family: "dc-name-condensed"; src: url("/fonts/Anton-Regular.ttf") format("truetype"); font-display: swap; }
 @font-face { font-family: "dc-name-script"; src: url("/fonts/Pacifico-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-lobster"; src: url("/fonts/Lobster-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-courgette"; src: url("/fonts/Courgette-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-kaushan"; src: url("/fonts/KaushanScript-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "dc-name-damion"; src: url("/fonts/Damion-Regular.ttf") format("truetype"); font-display: swap; }

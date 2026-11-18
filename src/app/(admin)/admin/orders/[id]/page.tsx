@@ -72,24 +72,24 @@ export default async function AdminOrderDetailPage({
                       </li>
                     ))}
                   </ul>
-                  {it.sheet && (it.sheet.parts.length > 0 || it.sheet.filaments.length > 0 || it.sheet.warnings.length > 0 || it.sheet.clicker || it.sheet.name) && (
+                  {it.sheet && (it.sheet.parts.length > 0 || it.sheet.filaments.length > 0 || it.sheet.warnings.length > 0 || it.sheet.clicker || it.sheet.keychain || it.sheet.name) && (
                     <details className="mt-2 rounded border bg-muted/30 p-2">
                       <summary className="cursor-pointer text-xs font-semibold">Print details (colours, sizes, filaments)</summary>
                       <div className="mt-2"><JobSheetView sheet={it.sheet} /></div>
                     </details>
                   )}
                   <div className="mt-3 flex items-center gap-3">
-                    {it.clicker ? (
+                    {it.clicker || it.keychain ? (
                       <>
                         <a
                           href={`/admin/orders/${order.id}/stl/${it.id}`}
                           className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                         >
-                          <Download className="size-4" /> Download 3MF (clicker design)
+                          <Download className="size-4" /> Download 3MF ({it.keychain ? "keychain" : "clicker"} design)
                         </a>
                         {it.designUri && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={it.designUri} alt="The customer's clicker design" className="size-20 rounded-md border bg-muted/40 object-contain" />
+                          <img src={it.designUri} alt="The customer's design" className="size-20 rounded-md border bg-muted/40 object-contain" />
                         )}
                       </>
                     ) : it.stlKey ? (

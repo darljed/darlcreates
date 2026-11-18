@@ -89,7 +89,7 @@ Checked: `scripts/test-model-autoconfig.ts` (DB + S3, synthetic Bambu-style file
 
 ## Fonts
 
-Six heavy fonts are bundled in `public/fonts` (Bold = Poppins ExtraBold, Chunky = Lilita One, Marker = Permanent Marker, Modern = Righteous, Condensed = Anton, Script = Pacifico), all OFL except Permanent Marker (Apache 2.0); licence files are alongside. Bangers was tried and dropped: `opentype.js` cannot read its GSUB table. A font that `opentype.js` cannot parse must not be added; test it with `test-name-mesh.ts`.
+Ten fonts are bundled in `public/fonts` (the four script faces Lobster, Courgette, Kaushan Script and Damion were added for the name keychain, all OFL; Bold = Poppins ExtraBold, Chunky = Lilita One, Marker = Permanent Marker, Modern = Righteous, Condensed = Anton, Script = Pacifico), all OFL except Permanent Marker (Apache 2.0); licence files are alongside. Bangers was tried and dropped: `opentype.js` cannot read its GSUB table. A font that `opentype.js` cannot parse must not be added; test it with `test-name-mesh.ts`.
 - **Admin:** "Name on the model" has the default Font and "Fonts customers can choose". Two or more ticked fonts show a picker; one means no choice.
 - **Customer:** a **Font** select under the Name box redraws the name on the model immediately. The choice is stored in the cart/order config (`font`), validated against the slot's offered list (anything else is dropped), shown in the order summary ("Maria (Chunky font)"), checked for printability with that font on add-to-cart, and used for the print file.
 - Verified with a real order: the Chunky name part has 1,772 triangles against 1,080 for Bold.

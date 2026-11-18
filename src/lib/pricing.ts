@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sumCentavos } from "./money";
 import { checkAgainstConfig, clickerConfigDamaged, clickerConfigOf, clickerPriceDeltaCents, clickerSpecSchema, MAX_SPEC_JSON } from "./clicker/spec";
+import { checkKeychainAgainstConfig, keychainConfigDamaged, keychainConfigOf, keychainPriceDeltaCents, keychainSpecSchema, MAX_KEYCHAIN_JSON } from "./keychain/spec";
 
 /**
  * Server-authoritative price computation and customization validation.
@@ -16,6 +17,8 @@ export type OptionConstraints = {
   slot?: unknown;
   /** Text options only: this option is the clicker designer, with the owner's settings (see clicker/spec.ts). */
   clicker?: unknown;
+  /** Text options only: this option is the name keychain designer, with the owner's settings (see keychain/spec.ts). */
+  keychain?: unknown;
   /**
    * Colour options only: this option colours one part of a multi-colour model (see part-colors.ts). `partName` is the
    * mesh name the 3D viewer colours (`dc-slot-<n>`), `parts` the slicer parts it covers, `filaments` the filament
@@ -105,6 +108,24 @@ export function computeUnitPrice(
       continue;
     }
 
+    // a name keychain designer: the same idea, priced by the owner's size / line / icon / colour rules
+    const keychain = opt.type === "text" ? keychainConfigOf(opt.constraints) : null;
+    if (keychain) {
+      if (keychainConfigDamaged(opt.constraints)) {
+        errors.push(`${opt.label} cannot be ordered right now. Please try again later.`);
+        continue;
+      }
+      const design = keychainSpecSchema.safeParse(sel!.design);
+      if (!design.success) errors.push(`${opt.label}: ${design.error.issues[0]?.message ?? "the design is not valid"}`);
+      else if (JSON.stringify(design.data).length > MAX_KEYCHAIN_JSON) errors.push(`${opt.label}: the design is not valid.`);
+      else {
+        const problem = checkKeychainAgainstConfig(design.data, keychain);
+        if (problem) errors.push(`${opt.label}: ${problem}`);
+        else deltas.push(keychainPriceDeltaCents(design.data, keychain));
+      }
+      continue;
+    }
+
     switch (opt.type) {
       case "color":
       case "size": {
@@ -169,6 +190,13 @@ export function normalizeSelection(
         const parsed = clickerSpecSchema.safeParse(sel.design);
         if (parsed.success && JSON.stringify(parsed.data).length <= MAX_SPEC_JSON) config[opt.id] = { design: parsed.data };
         else errors.push(`${opt.label}: the design is not valid or too detailed.`);
+      }
+    } else if (opt.type === "text" && keychainConfigOf(opt.constraints)) {
+      if (keychainConfigDamaged(opt.constraints)) errors.push(`${opt.label} cannot be ordered right now. Please try again later.`);
+      else if (sel.design !== undefined) {
+        const parsed = keychainSpecSchema.safeParse(sel.design);
+        if (parsed.success && JSON.stringify(parsed.data).length <= MAX_KEYCHAIN_JSON) config[opt.id] = { design: parsed.data };
+        else errors.push(`${opt.label}: the design is not valid.`);
       }
     } else if (opt.type === "text") {
       const text = (sel.text ?? "").trim();

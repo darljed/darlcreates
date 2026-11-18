@@ -8,6 +8,7 @@ import { faqLd, organizationLd, pageMetadata, websiteLd } from "@/lib/seo";
 import { getBranding, getHomeContent, getSiteInfo } from "@/lib/site-content";
 import { listPublishedProducts } from "@/lib/catalog";
 import { fileUrl } from "@/lib/storage";
+import { ServicesSection } from "@/components/services-section";
 
 export async function generateMetadata() {
   const { seo } = await getSiteInfo();
@@ -117,6 +118,9 @@ export default async function Home() {
           </div>
         </section>
       )}
+
+      {/* DESIGN-YOUR-OWN SERVICES */}
+      <ServicesSection />
 
       {/* FEATURED PRODUCTS */}
       {products.length > 0 && (
