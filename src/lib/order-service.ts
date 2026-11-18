@@ -1,3 +1,4 @@
+import { buildJobSheet, type JobSheet } from "./job-sheet";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
@@ -76,6 +77,7 @@ export async function placeOrder(
     config: ConfigSelection;
     unitPriceCents: number;
     stlKey: string | null;
+    printSheet: JobSheet;
   }[] = [];
 
   const productsById = await getProductsByIds(lines.map((l) => l.productId)); // one round for all lines
@@ -97,6 +99,7 @@ export async function placeOrder(
       config: line.config,
       unitPriceCents,
       stlKey: product.stlKey,
+      printSheet: buildJobSheet({ options: product.options, config: line.config, modelKey: product.stlKey }),
     });
   }
 
@@ -131,6 +134,7 @@ export async function placeOrder(
             imageKey: firstImageKey(r.config),
             unitPriceCents: r.unitPriceCents,
             stlKeySnapshot: r.stlKey,
+            printSheet: r.printSheet,
           })),
         );
 

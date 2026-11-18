@@ -56,7 +56,10 @@ async function main() {
     assert("the name area is the example's own box: 10 x 4 mm", slot?.maxWidth === 10 && slot?.maxHeight === 4, JSON.stringify([slot?.maxWidth, slot?.maxHeight]));
     const colourOpt = opts1.find((o) => o.type === "color");
     const vals = colourOpt ? await db.select().from(s.productOptionValues).where(eq(s.productOptionValues.optionId, colourOpt.id)) : [];
-    assert("Colors were created from the three filaments, named in plain English, hex as the value", r1.colours.added.length === 3 && vals.map((v) => v.value).sort().join() === "#F7E6DE,#F95D73,#FF0000" && vals.some((v) => v.label === "Pink") && vals.some((v) => v.label === "Cream") && vals.some((v) => v.label === "Red"), JSON.stringify(vals.map((v) => v.label)));
+    const { DEFAULT_INVENTORY } = await import("../src/lib/colour-inventory-schema");
+    const lower = vals.map((v) => v.value.toLowerCase());
+    assert("Colors offer EVERY colour of the list (built-in list here) plus the project's filaments the list lacks", DEFAULT_INVENTORY.colours.every((c) => lower.includes(c.hex.toLowerCase())) && ["#f7e6de", "#f95d73", "#ff0000"].every((h) => lower.includes(h)) && r1.colours.added.length === vals.length && vals.length > 3, JSON.stringify(vals.map((v) => v.label)));
+    assert("a project filament keeps its plain-English name when the list lacks it", vals.some((v) => v.label === "Pink" || v.value.toLowerCase() === "#f95d73"));
     assert("the product now points at a cleaned copy, not the upload", r1.modelKey !== key1);
     const [p1after] = await db.select().from(s.products).where(eq(s.products.id, p1.id));
     assert("products.stl_key was switched to the cleaned copy", p1after.stlKey === r1.modelKey);
@@ -78,7 +81,7 @@ async function main() {
     const c0 = colourOpts[0].constraints as PartCons, c1 = colourOpts[1].constraints as PartCons;
     assert("each carries its mesh name, slicer parts, the filament map and the designer's colour", c0.partName === "dc-slot-0" && c1.partName === "dc-slot-1" && c0.parts?.[0].objectId === "3" && c1.parts?.[0].objectId === "4" && c0.defaultHex === "#F95D73" && c1.defaultHex === "#0000FF" && c1.filaments?.["#0000FF"] === 3, JSON.stringify([c0, c1]));
     const v4 = await db.select().from(s.productOptionValues).where(eq(s.productOptionValues.optionId, colourOpts[1].id));
-    assert("both offer the project's three colours", v4.map((v) => v.value).sort().join() === "#0000FF,#00FF00,#F95D73");
+    assert("both offer the project's three colours AND the whole list", ["#0000ff", "#00ff00", "#f95d73"].every((h) => v4.some((v) => v.value.toLowerCase() === h)) && v4.length > 3 && new Set(v4.map((v) => v.value.toLowerCase())).size === v4.length);
     assert("the stored copy is a new file whose meshes are named for the viewer", r6.modelKey !== key6 && await (async () => {
       const o = await storage.getObject(r6.modelKey);
       const f = unzipSync(new Uint8Array(await new Response(o!.stream).arrayBuffer()));
@@ -135,6 +138,20 @@ async function main() {
     const junkKey = await upload(new TextEncoder().encode("PK not really a zip").buffer as ArrayBuffer, "junk.3mf");
     const r4 = await autoConfigureModel(p2.id, junkKey);
     assert("a broken 3MF is reported, nothing is changed", r4.modelKey === junkKey && !r4.slotSaved && r4.notes.length > 0 && (await optionsOf(p2.id)).length === 0, r4.notes.join("|"));
+
+    console.log("\nauto-detect again on the same product (redetect): colour options replaced, no duplicates, edits are gone");
+    await db.update(s.productOptions).set({ label: "Ball colour" }).where(eq(s.productOptions.id, colourOpts[0].id));
+    const rd = await autoConfigureModel(p4.id, r6.modelKey, { redetect: true });
+    keys.push(rd.modelKey);
+    const o4b = (await optionsOf(p4.id)).filter((o) => o.type === "color").sort((a, b) => a.sort - b.sort);
+    assert("still exactly Body colour and Lid colour (no doubles), text option kept", o4b.map((o) => o.label).join() === "Body colour,Lid colour" && (await optionsOf(p4.id)).filter((o) => o.type === "text").length === 1, o4b.map((o) => o.label).join());
+    const v4b = await db.select().from(s.productOptionValues).where(eq(s.productOptionValues.optionId, o4b[0].id));
+    assert("every colour is offered again", v4b.length === v4.length);
+
+    console.log("\nthe shop's colour list drives the swatches");
+    const { swatchesFor } = await import("../src/lib/model-autoconfig");
+    const sw = swatchesFor(["#F95D73", "#123456"], { colours: [{ name: "Pink", hex: "#f95d73" }, { name: "Mint", hex: "#98ff98" }] });
+    assert("list colours first, then project colours the list lacks, no duplicates", sw.map((x) => x.label).join() === "Pink,Mint,Midnight Blue" || (sw.length === 3 && sw[0].label === "Pink" && sw[1].label === "Mint" && sw[2].value === "#123456"), JSON.stringify(sw));
 
     console.log("\n3MF without a text element (colours only)");
     const p3 = await newProduct("test-autocfg-3");

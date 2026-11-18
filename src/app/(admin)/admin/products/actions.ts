@@ -2,12 +2,14 @@
 
 import { z } from "zod";
 import { revalidatePath, updateTag } from "next/cache";
-import { eq } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   products,
   productOptions,
   productOptionValues,
+  cartItems,
+  orderItems,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { parsePesoInput } from "@/lib/money";
@@ -22,7 +24,7 @@ import { measureSpace } from "@/lib/name-space";
 import type { SpaceTable } from "@/lib/name-mesh";
 import { clickerConfigSchema, type ClickerConfig } from "@/lib/clicker/spec";
 import { autoConfigureModel, type AutoConfig } from "@/lib/model-autoconfig";
-import { inStock, inventoryHexes } from "@/lib/colour-inventory-schema";
+import { DEFAULT_INVENTORY, inStock, inventoryHexes } from "@/lib/colour-inventory-schema";
 import { loadColourInventory } from "@/lib/site-content-store";
 
 type Result = { ok: true; id?: string; auto?: AutoConfig } | { ok: false; error: string };
@@ -364,7 +366,7 @@ export async function attachModelAction(input: unknown): Promise<Result> {
   // project's filament colours become the colour swatches (see lib/model-autoconfig.ts). Never blocks the upload.
   let auto: AutoConfig | undefined;
   try {
-    auto = await autoConfigureModel(productId, key);
+    auto = await autoConfigureModel(productId, key, { inventory: await loadColourInventory() });
   } catch (e) {
     auto = { modelKey: key, detected: null, slotSaved: false, textOptionCreated: false, colours: { added: [], kept: false, parts: [] }, notes: [`Auto-configuration failed: ${e instanceof Error ? e.message : "unknown error"}. The model was attached as uploaded.`] };
   }
@@ -449,6 +451,8 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
   const { productId, config } = parsed.data;
   const slug = await slugOf(productId);
   if (!slug) return { ok: false, error: "Product not found" };
+  const [self] = await db.select({ isService: products.isService }).from(products).where(eq(products.id, productId)).limit(1);
+  if (!config && self?.isService) return { ok: false, error: "The clicker designer is a standalone service and cannot be turned back into a product." };
 
   if (config) {
     // when the shop has a colour list, it IS the palette (the browser's copy is ignored)
@@ -484,7 +488,162 @@ export async function saveClickerConfigAction(input: unknown): Promise<Result> {
       sort: 0,
     });
   }
+  // the designer is a service of its own: out of the product grid, and never deletable
+  await db.update(products).set({ isService: Boolean(saved), updatedAt: new Date() }).where(eq(products.id, productId));
   invalidate(slug);
+  revalidatePath("/clicker");
   revalidatePath(`/admin/products/${productId}`);
   return { ok: true };
+}
+
+const deleteProductSchema = z.object({ productId: z.string().uuid() });
+
+/**
+ * Delete a product for good (photos, options and reviews go with it; its files are removed from storage). Refused for a
+ * service (the clicker designer) and for a product that has been ordered: order history keeps pointing at it, so
+ * archive it instead. Lines in customers' carts are removed.
+ */
+export async function deleteProductAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = deleteProductSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  const { productId } = parsed.data;
+
+  const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) return { ok: false, error: "Product not found" };
+  if (product.isService) return { ok: false, error: "The clicker designer is a standalone service and cannot be deleted." };
+  const [{ n }] = await db.select({ n: count() }).from(orderItems).where(eq(orderItems.productId, productId));
+  if (n > 0) return { ok: false, error: `This product is on ${n} order line${n === 1 ? "" : "s"}, so it cannot be deleted. Set its status to Archived to take it off the shop.` };
+
+  const photos = await db.select({ key: productPhotos.s3Key }).from(productPhotos).where(eq(productPhotos.productId, productId));
+  try {
+    await db.transaction(async (tx) => {
+      await tx.delete(cartItems).where(eq(cartItems.productId, productId));
+      await tx.delete(products).where(eq(products.id, productId));
+    });
+  } catch {
+    // an order placed between the check and the delete: the restrict key refuses
+    return { ok: false, error: "This product was just ordered, so it cannot be deleted. Archive it instead." };
+  }
+  for (const key of [...photos.map((p) => p.key), ...(product.stlKey ? [product.stlKey] : [])]) {
+    try { await deleteObject(key); } catch { /* an orphan file is harmless */ }
+  }
+  invalidate(product.slug);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Editing customizations (also the ones found automatically)
+// ---------------------------------------------------------------------------------------------------------------------
+
+const updateOptionSchema = z.object({
+  optionId: z.string().uuid(),
+  label: z.string().trim().min(1).max(60),
+  required: z.boolean(),
+  priceDelta: z.string().optional().default("0"),
+  maxLen: z.number().int().min(1).max(200).optional(),
+});
+
+/** Rename an option, make it required or not, change its price, or (text) its length. The rest of its settings stay. */
+export async function updateOptionAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = updateOptionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid option" };
+  const d = parsed.data;
+  const priceDeltaCents = parsePesoInput(d.priceDelta || "0");
+  if (priceDeltaCents === null) return { ok: false, error: "Invalid price" };
+  const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, d.optionId)).limit(1);
+  if (!opt) return { ok: false, error: "Option not found" };
+  const constraints = opt.type === "text" && d.maxLen ? { ...(opt.constraints as object), maxLen: d.maxLen } : opt.constraints;
+  await db.update(productOptions).set({ label: d.label, required: d.required, priceDeltaCents, constraints }).where(eq(productOptions.id, d.optionId));
+  invalidate(await slugOf(opt.productId));
+  return { ok: true };
+}
+
+const updateValueSchema = z.object({
+  valueId: z.string().uuid(),
+  label: z.string().trim().min(1).max(60),
+  priceDelta: z.string().optional().default("0"),
+});
+
+/** Rename a choice or change its price. A colour's hex is not editable (a print file is tied to it): delete it and add another. */
+export async function updateOptionValueAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = updateValueSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid choice" };
+  const priceDeltaCents = parsePesoInput(parsed.data.priceDelta || "0");
+  if (priceDeltaCents === null) return { ok: false, error: "Invalid price" };
+  const [row] = await db
+    .select({ productId: productOptions.productId })
+    .from(productOptionValues)
+    .innerJoin(productOptions, eq(productOptionValues.optionId, productOptions.id))
+    .where(eq(productOptionValues.id, parsed.data.valueId))
+    .limit(1);
+  if (!row) return { ok: false, error: "Choice not found" };
+  await db.update(productOptionValues).set({ label: parsed.data.label, priceDeltaCents }).where(eq(productOptionValues.id, parsed.data.valueId));
+  invalidate(await slugOf(row.productId));
+  return { ok: true };
+}
+
+const deleteValuesSchema = z.object({ valueIds: z.array(z.string().uuid()).min(1).max(200) });
+
+/** Remove choices (a colour you do not want to offer on this option). */
+export async function deleteOptionValuesAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = deleteValuesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  const rows = await db
+    .select({ productId: productOptions.productId })
+    .from(productOptionValues)
+    .innerJoin(productOptions, eq(productOptionValues.optionId, productOptions.id))
+    .where(inArray(productOptionValues.id, parsed.data.valueIds));
+  await db.delete(productOptionValues).where(inArray(productOptionValues.id, parsed.data.valueIds));
+  for (const slug of new Set(await Promise.all([...new Set(rows.map((r) => r.productId))].map(slugOf)))) invalidate(slug);
+  return { ok: true };
+}
+
+const addAllColoursSchema = z.object({ optionId: z.string().uuid() });
+
+/** Add every colour of the shop's list that this colour option does not offer yet. Existing choices are kept as they are. */
+export async function addAllColoursAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = addAllColoursSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  const [opt] = await db.select().from(productOptions).where(eq(productOptions.id, parsed.data.optionId)).limit(1);
+  if (!opt || opt.type !== "color") return { ok: false, error: "Choose a colour option" };
+  const inventory = (await loadColourInventory()) ?? DEFAULT_INVENTORY;
+  const have = await db.select({ value: productOptionValues.value, sort: productOptionValues.sort }).from(productOptionValues).where(eq(productOptionValues.optionId, opt.id));
+  const haveHex = new Set(have.map((v) => v.value.toLowerCase()));
+  const missing = inventory.colours.filter((c) => !haveHex.has(c.hex.toLowerCase()));
+  if (missing.length) {
+    const start = have.reduce((m, v) => Math.max(m, v.sort + 1), 0);
+    await db.insert(productOptionValues).values(missing.map((c, i) => ({ optionId: opt.id, label: c.name, value: c.hex, sort: start + i })));
+    invalidate(await slugOf(opt.productId));
+  }
+  return { ok: true, id: String(missing.length) };
+}
+
+const redetectSchema = z.object({ productId: z.string().uuid() });
+
+/**
+ * Read the attached 3MF again and rebuild the product's colour options from it (see lib/model-autoconfig.ts). The
+ * colour options are replaced; text and size options stay. Returns what was found so the admin can edit it.
+ */
+export async function redetectCustomizationsAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const parsed = redetectSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request" };
+  const [product] = await db.select({ slug: products.slug, stlKey: products.stlKey }).from(products).where(eq(products.id, parsed.data.productId)).limit(1);
+  if (!product) return { ok: false, error: "Product not found" };
+  if (!product.stlKey) return { ok: false, error: "Attach a 3D model first." };
+  if (!/\.3mf$/i.test(product.stlKey)) return { ok: false, error: "Auto-detect reads a 3MF slicer project. An STL has no parts or colours to find." };
+  let auto: AutoConfig;
+  try {
+    auto = await autoConfigureModel(parsed.data.productId, product.stlKey, { inventory: await loadColourInventory(), redetect: true });
+  } catch (e) {
+    return { ok: false, error: `Auto-detect failed: ${e instanceof Error ? e.message : "unknown error"}` };
+  }
+  invalidate(product.slug);
+  revalidatePath(`/admin/products/${parsed.data.productId}`);
+  return { ok: true, auto };
 }

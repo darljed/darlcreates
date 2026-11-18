@@ -55,11 +55,13 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **AI picture redraw** (clicker designer): optional per product; flat colours or a 2-colour portrait from the colour inventory, with before / after examples on the choice screen.
 - **Colours** (`/admin/colours`): the filament colours in stock (swatch + name, 2 to 24). Once saved they are the only colours offered anywhere: the clicker designer palette, colour options on products and name colours. Choices already on products that are not in the list are hidden (not deleted); the server also refuses them at add-to-cart and checkout. Not saved yet = nothing is limited.
 - **Logos & branding** (`/admin/branding`): six upload slots, each showing where it is used, the exact size, allowed file types and a live preview: wide logo, dark-background logo, icon-only mark, browser-tab icon, phone home-screen icon, link-sharing image. Files are checked in the browser and again on the server; the page shows a preview of the tab, navbar and shared link; "Use built-in logos" restores the originals
-- Product CRUD + **customization-schema builder** (options + color/size values)
+- Product CRUD + **customization-schema builder** (options + color/size values; options and choices are editable; "Add all colours"; **auto-detect** from a 3MF)
+- **Delete product** (refused when ordered: archive) and the **clicker designer as a standalone service** (not in the grid, not deletable)
 - Payment verification queue: verify/reject with reason + **separation of duties**
 - Order management: forward-only status transitions + **append-only history**
-- **3MF upload auto-configures the product**: the example text in a Bambu Studio file becomes the name position, the example is removed, and the project's filaments become Colors
+- **3MF upload auto-configures the product**: the example text in a Bambu Studio file becomes the name position, the example is removed, and the project's filaments become Colors, each offering every colour of the Colours list (delete what you do not want)
 - **Name on the model**: click the 3D model to place the customer's name; the order download becomes a 3MF with the base and the name as separate parts (proof of concept, STL products)
+- **Print job sheet** per order (colour + filament of every part, name, sizes, clicker design, colours to load, hand-set warnings), saved at checkout
 - **Internal waybill** per order (A6 slip with barcode, ship-to, pack list and tick boxes) for our own tracking
 - **Search title and description** for the home page (Store & footer)
 - Shipping entry; **admin-only signed STL download** per order item
@@ -74,6 +76,6 @@ Full, tracked list with IDs: [roadmap-and-gaps.md](./roadmap-and-gaps.md). Headl
 - Google sign-in on the production address is not yet confirmed end to end by the owner (G-05).
 - No security headers (G-65), no second factor beyond the owner's Google account (G-66), no scheduled database backup or error monitoring (G-67).
 - A removed product's URL answers HTTP 200 with the branded 404 page and `noindex` (G-68).
-- No dark theme (G-30); review photos and option reordering are not built (G-17, G-19).
+- No dark theme (G-30); review photos and option reordering are not built (G-17, G-19). A colour that is not one of the 3MF project's filaments shows in the preview and the order, but the print file keeps the designer's filament for that part (G-75).
 - Emails only print to the console until SMTP is configured (G-23).
 - **Phase 2**: in-browser STL generators ([plan](./phase-2-generators.md)).

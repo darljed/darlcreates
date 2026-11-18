@@ -24,7 +24,7 @@ import type { ColourInventory } from "@/lib/colour-inventory-schema";
 const pesos = (cents: number) => String(cents / 100);
 const toCents = (s: string) => Math.max(0, Math.round((Number(s) || 0) * 100));
 
-export function ClickerSetup({ productId, initial, canSwitchOn, inventory, aiReady }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean; inventory: ColourInventory | null; aiReady: boolean }) {
+export function ClickerSetup({ productId, initial, canSwitchOn, locked, inventory, aiReady }: { productId: string; initial: ClickerConfig | null; canSwitchOn: boolean; /** a service: cannot go back to a normal product */ locked: boolean; inventory: ColourInventory | null; aiReady: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [on, setOn] = useState(Boolean(initial));
@@ -51,6 +51,7 @@ export function ClickerSetup({ productId, initial, canSwitchOn, inventory, aiRea
         <Button type="button" disabled={!canSwitchOn || pending} onClick={() => save(c)}>
           {pending && <Loader2 className="mr-2 size-4 animate-spin" />} Make this a clicker product
         </Button>
+        <p className="mt-2 text-xs text-muted-foreground">It becomes a standalone service: out of the product grid, reached from &ldquo;Design a clicker&rdquo;, and it can no longer be deleted.</p>
         {!canSwitchOn && <p className="mt-2 text-xs text-muted-foreground">Remove this product&apos;s customization options first. The designer replaces them.</p>}
       </Panel>
     );
@@ -207,9 +208,11 @@ export function ClickerSetup({ productId, initial, canSwitchOn, inventory, aiRea
           <Button type="button" disabled={pending} onClick={() => save(c)}>
             {pending && <Loader2 className="mr-2 size-4 animate-spin" />} Save clicker settings
           </Button>
-          <Button type="button" variant="outline" disabled={pending} onClick={() => save(null)}>
-            Make it a normal product again
-          </Button>
+          {!locked && (
+            <Button type="button" variant="outline" disabled={pending} onClick={() => save(null)}>
+              Make it a normal product again
+            </Button>
+          )}
         </div>
       </div>
     </Panel>
