@@ -17,6 +17,7 @@ export async function adminListProducts() {
       category: products.category,
       basePriceCents: products.basePriceCents,
       status: products.status,
+      isService: products.isService,
       stlKey: products.stlKey,
       photoKey: sql<string | null>`(select ${productPhotos.s3Key} from ${productPhotos} where ${productPhotos.productId} = ${products.id} order by ${productPhotos.sort} limit 1)`,
     })

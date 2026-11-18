@@ -41,6 +41,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/orders` | Orders list: search, status chips, 25 per page |
 | `/admin/orders/[id]` | Order detail, status buttons, shipping form, payment actions |
 | `/admin/orders/[id]/acknowledgment` | Admin copy of the Order Acknowledgment |
+| `/admin/orders/[id]/job-sheet` | Print job sheet: per order line, the colour (name + hex) and filament of every part, name, sizes, clicker design, colours to load, and what to set by hand. Print or copy as text |
 | `/admin/orders/[id]/waybill` | Internal printable waybill (A6) for our own tracking: barcode, ship-to, pack list, tick boxes |
 | `/admin/orders/[id]/stl/[itemId]` | GET: redirect to a 120 s signed S3 link for an item's print file |
 | `/admin/clicker-fit-test` | GET: the clicker fit-test plate as a 3MF (four pocket and four stem tolerances) |
@@ -136,6 +137,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `privacy.ts` | **Service.** Consent record, data export, account anonymization (RA 10173) |
 | `product-filter.ts` | **Pure.** Shop search and category filter |
 | `reviews.ts` | Approved reviews and ratings (cached `reviews:<id>`); who may review |
+| `job-sheet.ts` | **Pure.** Builds the print job sheet of an order line (saved on `order_items.print_sheet` at checkout) and its plain-text copy |
 | `code128.ts` | **Pure.** Code 128 barcode (subset B) as SVG bar geometry, for the waybill |
 | `seo.ts` | **Pure.** URLs, page metadata, schema.org JSON-LD builders, crawler lists for robots.txt |
 | `safe-redirect.ts` | **Pure.** Accepts only same-site relative redirect targets |
@@ -203,6 +205,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `site-footer.tsx` | Footer from CMS |
 | `site-header.tsx` | Header with cart badge |
 | `user-menu.tsx` | Account dropdown (carries My orders and Admin, which the header hides on phones) |
+| `job-sheet-view.tsx` | One order line's job sheet (order page and printable sheet) |
+| `copy-text-button.tsx` | Copy a text to the clipboard |
 | `waybill.tsx` | The internal waybill slip and its `Barcode` |
 
 ### Shell and 3D
@@ -235,8 +239,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
 | `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
-| `clicker-setup.tsx` | Make a product a clicker product and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
+| `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
+| `delete-product-button.tsx` | Delete a product behind a confirm step (list row and edit page) |
 | `content-editor.tsx` | Landing-page editor |
 | `editor-bits.tsx` | `Field`, `Check`, `RowTools`, `swap` |
 | `legal-editor.tsx` | Legal text editor: toolbar, outline, word count |
@@ -248,7 +253,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `product-form.tsx` | Product create / edit form |
 | `revenue-chart.tsx` | 30-day revenue chart |
 | `review-moderation.tsx` | Approve / hide buttons |
-| `schema-builder.tsx` | Customization option builder |
+| `schema-builder.tsx` | Customization option builder: add, edit (label, required, price, length) and delete options and choices, add every shop colour, auto-detect from the 3D model |
 | `store-editor.tsx` | Store details and footer editor |
 | `user-addresses.tsx` | Edit / delete a user's saved addresses |
 | `user-badges.tsx` | Status and role badges, initials avatar |
@@ -309,6 +314,8 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-seo.ts` | SEO helpers, JSON-LD, robots rules, private pages are noindex |
 | `test-uploads.ts` | Upload rules and S3 round trip |
 | `test-user-admin.ts` | User management |
+| `test-service-delete.ts` | Clicker designer is a service; deleting a product removes its options |
+| `test-job-sheet.ts` | Job sheet: part colours and filaments, hand-set warning, name, clicker, text copy |
 | `test-waybill.ts` | Code 128 encoder and the waybill slip |
 | `test-viewer-framing.ts` | 3D framing math |
 

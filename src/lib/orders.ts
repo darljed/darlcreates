@@ -15,6 +15,7 @@ import { randomInt } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getProductsByIds } from "./catalog";
 import { designPicture } from "./cart";
+import { buildJobSheet, type JobSheet } from "./job-sheet";
 import { designOf } from "./clicker/of-product";
 import { summarizeConfig } from "./cart";
 import { personalizedName } from "./name-mesh";
@@ -81,6 +82,8 @@ export type OrderDetail = {
     /** A picture of the clicker design (data: URL), and whether this line is a clicker (so it gets a generated print file). */
     designUri: string | null;
     clicker: boolean;
+    /** Print job sheet: saved when the order was placed; built from the product for older orders. */
+    sheet: JobSheet | null;
   }[];
   latestPayment: {
     reference: string;
@@ -126,6 +129,7 @@ async function assembleOrderDetail(
         imageUrl: await readUrl(it.imageKey),
         designUri: product ? await designPicture(product.options, config) : null,
         clicker: product ? designOf(product.options, config) !== null : false,
+        sheet: (it.printSheet as JobSheet | null) ?? (product ? buildJobSheet({ options: product.options, config, modelKey: it.stlKeySnapshot }) : null),
       };
     }),
   );

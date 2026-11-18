@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import { getOrderByIdAdmin, ORDER_TRANSITIONS, type OrderStatus } from "@/lib/orders";
 import { formatPHP } from "@/lib/money";
+import { JobSheetView } from "@/components/job-sheet-view";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { OrderAdminControls } from "@/components/admin/order-admin-controls";
 import { PageHeader, Panel } from "@/components/shell/ui";
@@ -33,6 +34,9 @@ export default async function AdminOrderDetailPage({
         title={order.orderNo}
         actions={
           <>
+            <Link href={`/admin/orders/${order.id}/job-sheet`} className="text-xs font-semibold underline">
+              Print job sheet
+            </Link>
             <Link href={`/admin/orders/${order.id}/waybill`} className="text-xs font-semibold underline">
               Print waybill
             </Link>
@@ -68,6 +72,12 @@ export default async function AdminOrderDetailPage({
                       </li>
                     ))}
                   </ul>
+                  {it.sheet && (it.sheet.parts.length > 0 || it.sheet.filaments.length > 0 || it.sheet.warnings.length > 0 || it.sheet.clicker || it.sheet.name) && (
+                    <details className="mt-2 rounded border bg-muted/30 p-2">
+                      <summary className="cursor-pointer text-xs font-semibold">Print details (colours, sizes, filaments)</summary>
+                      <div className="mt-2"><JobSheetView sheet={it.sheet} /></div>
+                    </details>
+                  )}
                   <div className="mt-3 flex items-center gap-3">
                     {it.clicker ? (
                       <>

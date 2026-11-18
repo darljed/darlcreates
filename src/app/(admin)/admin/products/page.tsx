@@ -4,6 +4,7 @@ import { adminListProducts } from "@/lib/admin";
 import { formatPHP } from "@/lib/money";
 import { fileUrl } from "@/lib/storage-url";
 import { Button } from "@/components/ui/button";
+import { DeleteProductButton } from "@/components/admin/delete-product-button";
 import { DataTable, EmptyState, PageHeader, Td, Th, Tr } from "@/components/shell/ui";
 
 export const metadata = { title: "Products · Admin" };
@@ -19,7 +20,9 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 export default async function AdminProductsPage() {
-  const products = await adminListProducts();
+  const all = await adminListProducts();
+  const services = all.filter((p) => p.isService);
+  const products = all.filter((p) => !p.isService);
 
   return (
     <div>
@@ -34,6 +37,21 @@ export default async function AdminProductsPage() {
         }
       />
 
+      {services.length > 0 && (
+        <section className="mb-5" aria-label="Services">
+          <h2 className="mb-2 text-sm font-bold">Services</h2>
+          {services.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border bg-card p-3">
+              <div>
+                <Link href={`/admin/products/${s.id}`} className="font-semibold hover:text-primary">{s.name}</Link>
+                <p className="text-xs text-muted-foreground">Standalone service at /clicker. Not in the product grid and cannot be deleted. From {formatPHP(s.basePriceCents)}.</p>
+              </div>
+              <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${STATUS_STYLE[s.status] ?? ""}`}>{s.status}</span>
+            </div>
+          ))}
+        </section>
+      )}
+
       {products.length === 0 ? (
         <EmptyState>No products yet.</EmptyState>
       ) : (
@@ -46,6 +64,7 @@ export default async function AdminProductsPage() {
               <Th>Base price</Th>
               <Th>3D model</Th>
               <Th>Status</Th>
+              <Th className="w-12"><span className="sr-only">Delete</span></Th>
             </tr>
           </thead>
           <tbody>
@@ -77,6 +96,9 @@ export default async function AdminProductsPage() {
                   <span className={`rounded-md px-1.5 py-0.5 text-xs font-bold ${STATUS_STYLE[p.status] ?? ""}`}>
                     {p.status}
                   </span>
+                </Td>
+                <Td className="w-12 !py-1.5">
+                  <DeleteProductButton productId={p.id} name={p.name} iconOnly />
                 </Td>
               </Tr>
             ))}

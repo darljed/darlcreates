@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { products } from "@/db/schema";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
 import { ProductForm } from "@/components/admin/product-form";
@@ -5,6 +8,7 @@ import { SchemaBuilder } from "@/components/admin/schema-builder";
 import { ProductFiles } from "@/components/admin/product-files";
 import { fileUrl } from "@/lib/storage";
 import { PageHeader } from "@/components/shell/ui";
+import { DeleteProductButton } from "@/components/admin/delete-product-button";
 import { ClickerSetup } from "@/components/admin/clicker-setup";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
@@ -25,6 +29,7 @@ export default async function EditProductPage({
   const [product, inventory] = await Promise.all([getProductById(id, { raw: true }), loadColourInventory()]);
   if (!product) notFound();
   const clicker = clickerOptionOf(product.options);
+  const [{ isService }] = await db.select({ isService: products.isService }).from(products).where(eq(products.id, id)).limit(1);
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -55,12 +60,12 @@ export default async function EditProductPage({
         />
       </div>
 
-      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} inventory={inventory} aiReady={aiConfigured()} />
+      <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} locked={isService} inventory={inventory} aiReady={aiConfigured()} />
 
       {!clicker && (
         <div>
           <h2 className="mb-2 text-sm font-bold">Customization options</h2>
-          <SchemaBuilder productId={product.id} options={product.options} inventory={inventory} />
+          <SchemaBuilder productId={product.id} options={product.options} inventory={inventory} canDetect={Boolean(product.stlKey && /\.3mf$/i.test(product.stlKey))} />
         </div>
       )}
 
@@ -72,6 +77,14 @@ export default async function EditProductPage({
           options={product.options.filter((o) => o.type === "text").map((o) => ({ id: o.id, label: o.label, constraints: o.constraints }))}
           colors={(product.options.find((o) => o.type === "color")?.values ?? []).filter((v) => inStock(inventory, v.value)).map((v) => ({ label: v.label, hex: v.value }))}
         />
+      )}
+
+      {isService ? (
+        <p className="border-t pt-4 text-xs text-muted-foreground">This is a standalone service. It stays in the shop at /clicker and cannot be deleted.</p>
+      ) : (
+        <div className="border-t pt-4">
+          <DeleteProductButton productId={product.id} name={product.name} redirectTo="/admin/products" />
+        </div>
       )}
     </div>
   );
