@@ -55,7 +55,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
 | `/admin/estimator` | Workshop: the price estimator (cost + three prices), saved estimates, "save as product" |
 | `/admin/inventory` | Workshop: parts, purchase lots, stock adjustments and history |
-| `/admin/sales` | Workshop: the sales log (sales taken outside the website), table and kanban |
+| `/admin/sales` | Workshop: the off-site sales (sales taken outside the website), table and kanban |
 | `/admin/colours` | The filament colours in stock (the shop-wide colour inventory) |
 | `/admin/branding` | Logo and brand-image uploads |
 | `/admin/store` | Store details and footer |
@@ -139,9 +139,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `workshop/stock.ts` | **Service (server).** The append-only stock ledger rules: `consumeStock`, `restockFromLedger` (exact reversal) |
 | `workshop/costing.ts` | **Service (server).** Product costing (BOM + print cost), `productFromEstimate`, create a draft product from an estimate |
 | `workshop/estimates.ts` | **Service (server).** Saved estimates with lower-case tags and an all-tags filter |
-| `workshop/sales.ts` | **Service (server).** The sales log: create/update/delete with stock use and give-back, cost snapshots, summaries |
+| `workshop/sales.ts` | **Service (server).** The off-site sales: create/update/delete with stock use and give-back, cost snapshots, summaries |
 | `workshop/online-stock.ts` | **Service (server).** Online orders use stock (and save their cost) when production starts; cancelling gives it back |
-| `workshop/summary.ts` | **Service (server).** The dashboard's Workshop numbers and the Philippine-calendar windows |
+| `workshop/summary.ts` | **Service (server).** The dashboard numbers: revenue and profit per source and window, the 30-day series split online / off-site, top products by source, stock; the Philippine-calendar windows |
 | `services.ts` | The design-your-own services (keychain, clicker) and `listServices`: which are set up and published right now |
 | `keychain/spec.ts` | **Pure.** Name keychain design schema (`KeychainSpec`), owner settings (`KeychainConfig`: styles, fonts, icons, limits, every price), price, limits check, summary |
 | `keychain/icons.ts` | **Pure.** The 16 icon presets, drawn from circles and polygons (`iconRegions`, `iconPath`) |
@@ -259,7 +259,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `save-product-dialog.tsx` | Create a draft product from an estimate, or add its costing to an existing product |
 | `inventory-client.tsx` | The inventory screen: parts table, search, low-stock filter |
 | `part-dialog.tsx`, `restock-dialog.tsx`, `adjust-dialog.tsx`, `part-history-dialog.tsx` | Add/edit a part, restock, adjust stock, and a part's lots and ledger |
-| `sales-client.tsx` | The sales log: summary, filters, table and kanban views |
+| `sales-client.tsx` | The off-site sales: summary, filters, table and kanban views |
 | `sale-dialog.tsx`, `sale-kanban.tsx`, `sale-math.ts` | Add/edit a sale, the kanban (native drag and drop plus a status menu), cost and profit math |
 | `product-costing.tsx` | The Costing panel on a product's admin page: parts per unit, print cost, margin |
 | `form-bits.tsx`, `confirm-dialog.tsx` | Shared form field, native select and confirm dialog |
@@ -306,7 +306,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `payment-actions.tsx` | Verify / reject buttons |
 | `product-files.tsx` | Model and photo uploads |
 | `product-form.tsx` | Product create / edit form |
-| `revenue-chart.tsx` | 30-day revenue chart |
+| `revenue-chart.tsx` | 30-day revenue chart, stacked by source (online / off-site) |
 | `review-moderation.tsx` | Approve / hide buttons |
 | `schema-builder.tsx` | Customization option builder: add, edit (label, required, price, length) and delete options and choices, add every shop colour, auto-detect from the 3D model |
 | `store-editor.tsx` | Store details and footer editor |
@@ -354,7 +354,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
-| `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the sales log, online-order stock, estimates, summaries (needs the database) |
+| `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
 | `poc-ai-vectorize.ts` | Experiment, not part of the app: asks OpenRouter image models to redraw sample pictures as flat-colour art, traces them with the app's tracer and writes comparison sheets to `/tmp/ai-poc/out` |

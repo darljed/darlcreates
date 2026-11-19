@@ -212,6 +212,14 @@ async function main() {
     console.log("\ndashboard numbers");
     const sum2 = await workshopSummary();
     assert("the summary has stock value, low stock, three windows", sum2.inventoryValueCents > 0 && Array.isArray(sum2.lowStock) && sum2.windows.length === 3 && sum2.windows[0].label === "Today");
+    const { revenueSeriesBySource, topProductsBySource } = await import("../src/lib/workshop/summary");
+    const series = await revenueSeriesBySource(30);
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    assert("the 30-day series has one point per day, oldest first, ending today", series.length === 30 && series[29].day === todayKey && series[0].day < series[29].day);
+    assert("a paid off-site sale shows under off-site on the day it was paid, not under online", series[29].offsiteCents >= 20000);
+    const topAll = await topProductsBySource(500);
+    const mine = topAll.find((t) => t.name === `${T} Keychain`);
+    assert("top products split units by source (this sale is off-site only)", !!mine && mine.offsite >= 1 && mine.online === 0);
   } finally {
     await cleanup();
   }

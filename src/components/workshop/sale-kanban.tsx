@@ -11,7 +11,7 @@ import { NativeSelect } from "./form-bits";
 import { saleCost } from "./sale-math";
 
 /**
- * Kanban view of the sales log: one column per status. Cards can be dragged between columns (native HTML5 drag and drop)
+ * Kanban view of the off-site sales: one column per status. Cards can be dragged between columns (native HTML5 drag and drop)
  * or moved with the status dropdown on each card, which also works on touch screens.
  */
 interface Props {

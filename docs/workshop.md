@@ -1,7 +1,7 @@
-# Workshop: estimator, inventory, costing and the sales log
+# Workshop: estimator, inventory, costing and the off-site sales
 
 The internal side of the shop, merged in from the owner's separate 3dEstimator app ("Dreety"). It lives in the admin under
-**Workshop** (Estimator, Inventory, Sales log), on each product's page (**Costing**) and on the dashboard (**Workshop** panel).
+**Workshop** (Estimator, Inventory, Off-site sales), on each product's page (**Costing**) and on the dashboard (**Workshop** panel).
 Everything here is admin-only (`requireAdmin()` on every page and Server Action) and nothing in it is ever shown to customers.
 
 ## What it does
@@ -11,11 +11,11 @@ Everything here is admin-only (`requireAdmin()` on every page and Server Action)
 | **Estimator** `/admin/estimator` | Turn slicer numbers (grams, print time) into the true cost of a job and three prices. Save estimates with a comment and tags, reopen and edit them, and turn one into a product. |
 | **Inventory** `/admin/inventory` | The parts and filament you stock: purchase lots (so each part has a weighted-average cost), manual corrections, a history per part, low-stock flags. |
 | **Product costing** (on a product's page) | What one unit costs: its **bill of materials** (parts per unit) plus a **print cost** (machine time, labour, failures), and the margin that leaves at the product's price. |
-| **Sales log** `/admin/sales` | Sales taken outside the website (Messenger, in person): table and kanban, payment and status, one-off extra parts. Replaces the spreadsheet. |
-| **Dashboard panel** `/admin` | Stock value, what is running low, and profit by today / week / month from the sales log and from online orders whose cost is known. |
+| **Off-site sales** `/admin/sales` | Sales taken outside the website (Messenger, in person): table and kanban, payment and status, one-off extra parts. Replaces the spreadsheet. |
+| **Dashboard** `/admin` | Revenue and profit **by source** (online vs off-site), a 30-day chart split by source, top products by source, stock value and what is running low. |
 
 How the old app's pages map: Inventory -> Inventory, Products + BOM -> Costing on the existing shop products (there is one product
-list now, not two), Orders -> Sales log (online orders already exist under Orders), Estimator -> Estimator, Dashboard -> the Workshop panel.
+list now, not two), Orders -> Off-site sales (online orders already exist under Orders), Estimator -> Estimator, Dashboard -> the source split on the main dashboard.
 
 ## The costing model
 
@@ -45,17 +45,33 @@ Defaults: electricity ₱12/kWh, 150 W, printer ₱25,000 over 5,000 h, maintena
 
 - **Append-only ledger.** Every change of a part's quantity is a row in `stock_movements` (never edited); `parts.qty_on_hand` is kept equal to their sum in the same transaction. Purchases, voids, adjustments, sales and orders all write rows.
 - **Cost = weighted average** over a part's purchase lots (`sum(total cost) / sum(qty)`). Editing a lot voids it and re-records it with its date; voiding a lot recomputes the average.
-- **Sales log:** a sale uses stock the first time it reaches **Packaged** or **Delivered** (`deducted_at` guards against twice). Moving it back to *For Processing*, to *Cancelled*, or deleting it gives the stock back; editing quantity, product or extras on a sale that used stock re-balances it. The product's BOM x quantity plus the sale's own extra parts are used.
+- **Off-site sales:** a sale uses stock the first time it reaches **Packaged** or **Delivered** (`deducted_at` guards against twice). Moving it back to *For Processing*, to *Cancelled*, or deleting it gives the stock back; editing quantity, product or extras on a sale that used stock re-balances it. The product's BOM x quantity plus the sale's own extra parts are used.
 - **Online orders:** when an order moves to **In production** its items' BOMs are used up (`orders.stock_deducted_at`), and the cost of making them is saved as `orders.cogs_cents`. **Cancelling** gives it back exactly (the order's own ledger rows are reversed). Items whose product has no BOM and no print cost (the clicker and keychain services) use nothing and add no cost. This happens inside the order's status change transaction (`transitionOrder`), so the status and the stock can never disagree.
 - **Giving back is a ledger reversal,** not a recomputation: it is exact after later BOM edits, a deleted product, or a deleted part.
 - **Stock may go negative.** The shop prints first and restocks later; the ledger shows it and the low-stock flag catches it.
 - **Costs are snapshotted.** A sale saves the product's unit cost and its extra parts' costs when saved. Once it has used stock, editing it keeps those costs where what they price is unchanged, so a status drag cannot rewrite old profit with today's average cost.
 - **Paid date:** a sale gets `paid_at` = now on the flip to Paid, kept while it stays Paid, cleared when it leaves Paid (a sale created already Paid is paid on its own date).
 
-## Profit and the dashboard
+## Orders vs off-site sales, and the dashboard
 
-- **Sales log:** revenue and profit count **Paid** sales only; "owed" is the Unpaid total of live (not cancelled) sales.
-- **Online:** revenue is verified payments (as the main dashboard). Profit is shown only for orders that have a saved cost: `revenue of costed orders - cogs`. Orders with no costed items show "–", not a fake margin.
+| | **Orders** (online) | **Off-site sales** |
+|---|---|---|
+| Who creates it | The customer, at checkout | You, by hand (Messenger, in person) |
+| Customer account | Required | None, a contact note |
+| Payment | GCash reference you verify (separation of duties) | You tick Paid / Unpaid / Free |
+| Counts as revenue when | The payment is **verified** (cancelled and refunded excluded) | It is marked **Paid** (cancelled sales are left out of the totals) |
+| Day it is counted on | The day the payment was verified | The day it was marked Paid |
+
+The dashboard keeps the two apart everywhere, so you always see where money came from:
+- **Top row:** total revenue (all time), then Online, Off-site (each with its share of the total), and what is **owed to you** (unpaid off-site sales; online unpaid orders are the "Awaiting payment" count under Online orders).
+- **30-day chart:** one bar per day, online at the bottom and off-site on top (yellow); hover for the split.
+- **Revenue and profit by source:** today / this week / this month with Online, Off-site and Total revenue, then profit per source, and a bar showing this month's online vs off-site share.
+- **Top products:** units sold, with how many were online and how many off-site.
+- **Online orders** (the status counts) are labelled as online only. Stock and the recent-orders list follow.
+
+Profit rules:
+- **Off-site:** profit = Paid revenue - the saved cost of what was sold.
+- **Online:** profit is shown only for orders that have a saved cost (their products have costing set up): `revenue of costed orders - cogs`. Orders with no costing show "–", not a made-up margin.
 - Windows follow the Philippine calendar (UTC+8): today, this week (from Monday), this month (`phWindowStart`).
 
 ## Data

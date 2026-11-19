@@ -18,7 +18,7 @@ import { SaleKanban } from "./sale-kanban";
 import { saleCost, salePayload, saleTotals } from "./sale-math";
 
 /**
- * The sales log: manual sales taken outside the website, as a table or a kanban board, with filters, a summary strip and
+ * The off-site sales: manual sales taken outside the website, as a table or a kanban board, with filters, a summary strip and
  * add/edit/delete. Status moves are optimistic: the card jumps at once and goes back with a message if the save fails.
  * The rows come from the server-rendered `initialSales`; an optimistic override is dropped as soon as the server's status
  * differs from the one it was made on (i.e. after the refresh, or any other change).
@@ -106,7 +106,7 @@ export function SalesClient({ initialSales, products, parts }: { initialSales: S
       <p className="text-xs text-muted-foreground">{shown.length} {shown.length === 1 ? "sale" : "sales"} shown. Cancelled sales are left out of the totals.</p>
 
       {shown.length === 0 ? (
-        <EmptyState>{initialSales.length === 0 ? "No sales logged yet." : "No sales match."}</EmptyState>
+        <EmptyState>{initialSales.length === 0 ? "No off-site salesged yet." : "No sales match."}</EmptyState>
       ) : view === "kanban" ? (
         <SaleKanban sales={shown} saving={saving} onMove={move} onEdit={onEdit} onDelete={onDelete} />
       ) : (

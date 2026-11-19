@@ -1,7 +1,7 @@
 import type { SaleRow, SaleStatus } from "@/lib/workshop/types";
 
 /**
- * Client-safe sale arithmetic and the sale-to-payload mapping shared by the sales log views
+ * Client-safe sale arithmetic and the sale-to-payload mapping shared by the off-site sales views
  * (`saleCostCents` in lib/workshop/sales.ts imports the database, so it cannot be used in the browser).
  */
 export function saleCost(s: SaleRow): number {

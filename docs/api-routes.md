@@ -136,6 +136,6 @@ Last updated: 2026-11-17
 | `recordPurchaseAction`, `editPurchaseAction`, `voidPurchaseAction` | same | Purchase lots (edit = void + re-record in one transaction) |
 | `adjustStockAction` | same | Manual correction: a +/- change or the real count; writes a ledger row with a reason |
 | `listPurchasesAction`, `listMovementsAction` | same | A part's lots and recent ledger rows |
-| `createSaleAction`, `updateSaleAction`, `deleteSaleAction` | `(admin)/admin/sales/actions.ts` | The sales log. Product name and cost come from the database; stock is used on Packaged / Delivered and given back on revert, cancel or delete |
+| `createSaleAction`, `updateSaleAction`, `deleteSaleAction` | `(admin)/admin/sales/actions.ts` | The off-site sales. Product name and cost come from the database; stock is used on Packaged / Delivered and given back on revert, cancel or delete |
 
 Online orders also touch stock: `transitionOrder` (`src/lib/order-service.ts`) uses an order's BOMs when it enters `in_production` and gives them back on `cancelled` (see [order-lifecycle.md](./order-lifecycle.md)).
