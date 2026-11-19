@@ -12,10 +12,11 @@ Sign in with Google using the owner account. Only accounts with the admin role s
 
 ## Dashboard
 
-Numbers use **verified payments only**. Cancelled and refunded orders are left out.
-- Cards: verified revenue, paid orders, and counts waiting at each step.
-- Chart: revenue per day for the last 30 days (Philippine time).
-- Top products (by quantity sold) and recent orders.
+Revenue is shown **by source**: **Online** (website orders, counted when the payment is verified) and **Off-site** (sales you logged under Off-site sales and marked Paid). Cancelled and refunded orders are left out.
+- Top cards: total revenue, Online, Off-site (each with its share) and what is owed to you on unpaid off-site sales.
+- Chart: revenue per day for the last 30 days (Philippine time), online at the bottom and off-site on top.
+- Revenue and profit by source: today, this week and this month, with a bar for this month's split. Profit needs a cost: off-site sales save their product's cost; online profit counts only orders whose products have costing set up (otherwise it shows "–").
+- Top products (units, with how many were online and off-site), the online order counts at each step, stock, and recent orders.
 
 ## Payments
 
@@ -67,6 +68,14 @@ Under "Name on the model", pick the default **Font** and tick the fonts **custom
 - A 3MF made of parts in different filaments (for example a ball and its holder) gets one colour option per part on upload. Customers colour each part; the print file uses their choices.
 - Areas the designer **painted in another filament** (for example an outline) become their own colour option, "Outline colour" (rename it if you like). Customers change that colour on the 3D preview and in the print file.
 - Customers can add several names in one order, each with its own colours and quantity. They appear as separate lines in the cart and the order, each with its own download.
+
+### Workshop: costing, inventory and the off-site sales
+- **Inventory** (Workshop → Inventory): add each part and filament you stock. Enter what you bought and paid (a purchase lot); the average cost follows. Use **Restock** when you buy more and **Adjust** to correct a count. Set a reorder level to get a low-stock flag (also on the dashboard).
+- **Estimator** (Workshop → Estimator): enter the filament (pick a stocked filament or a preset), grams, print time and labour; read the true cost and the three prices; click a price to choose it. **Save estimate** keeps it (with tags) for later; **Save as product** creates a draft product or adds the costing to an existing one.
+- **Costing** (on a product's page): the parts one unit uses and the print cost. Without it, the product costs nothing in your reports and no stock is used when it sells.
+- **Off-site sales** (Workshop → Off-site sales): record a sale from Messenger or in person. Marking it **Packaged** or **Delivered** uses up the parts; moving it back, cancelling or deleting it gives them back.
+- **Online orders:** when you move an order to **In production**, its products' parts are used up automatically (and its cost is saved); **Cancelled** gives them back.
+- Everything here is private to admins. Details and rules: [workshop.md](./workshop.md).
 
 ### Name keychain designer
 On a product's page, **Name keychain designer → Make this a keychain product** (only when the product has no other options). It becomes a service reached from "Name keychain" (/keychain). Set the styles, fonts and icons on offer, the limits (letters, lines, longest keychain, keychains per order, colours per print) and the prices: a length step table, each extra line, the icon and bag-tag styles, each colour after the second, and a thick-keychain price. The product price is the starting price. Each ordered keychain has a **Download 3MF** button on the order (plate, name, icon and frame already on the plate), and its colours, sizes and font appear in the order's print details. Details: [keychain-designer.md](./keychain-designer.md).

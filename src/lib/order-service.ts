@@ -17,6 +17,7 @@ import { addToCart } from "./cart-service";
 import { canTransition, generateOrderNo, type OrderStatus } from "./orders";
 import { computeUnitPrice, firstImageKey, type ConfigSelection } from "./pricing";
 import { shippingCentsFor } from "./shipping";
+import { consumeOnlineOrderStock, restockOnlineOrder } from "./workshop/online-stock";
 
 /**
  * Order business logic with NO framework dependencies (no next/*, no cookies/headers),
@@ -342,6 +343,10 @@ export async function transitionOrder(
       note: note.slice(0, 200),
       actorId: adminId,
     });
+    // Workshop stock: entering production uses up the items' bills of materials; cancelling gives them back exactly.
+    // Same transaction, so the status and the stock never disagree.
+    if (to === "in_production" && !order.stockDeductedAt) await consumeOnlineOrderStock(tx, order.id);
+    else if (to === "cancelled" && order.stockDeductedAt) await restockOnlineOrder(tx, order.id);
     return { ok: true as const, orderNo: order.orderNo, customerId: order.userId, from };
   });
 }

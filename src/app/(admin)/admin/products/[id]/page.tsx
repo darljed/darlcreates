@@ -11,6 +11,9 @@ import { PageHeader } from "@/components/shell/ui";
 import { DeleteProductButton } from "@/components/admin/delete-product-button";
 import { ClickerSetup } from "@/components/admin/clicker-setup";
 import { clickerOptionOf } from "@/lib/clicker/of-product";
+import { ProductCostingPanel } from "@/components/workshop/product-costing";
+import { getProductCosting } from "@/lib/workshop/costing";
+import { listPartsWithCost } from "@/lib/workshop/inventory";
 import { KeychainSetup } from "@/components/admin/keychain-setup";
 import { keychainOptionOf } from "@/lib/keychain/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
@@ -33,6 +36,7 @@ export default async function EditProductPage({
   const clicker = clickerOptionOf(product.options);
   const keychain = keychainOptionOf(product.options);
   const [{ isService }] = await db.select({ isService: products.isService }).from(products).where(eq(products.id, id)).limit(1);
+  const [costing, parts] = isService ? [null, []] : await Promise.all([getProductCosting(id), listPartsWithCost()]);
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -62,6 +66,8 @@ export default async function EditProductPage({
           }))}
         />
       </div>
+
+      {costing && <ProductCostingPanel key={`${costing.printCostCents}-${costing.bom.map((b) => `${b.partId}:${b.qty}`).join(",")}`} costing={costing} parts={parts} />}
 
       {!keychain && <ClickerSetup productId={product.id} initial={clicker?.config ?? null} canSwitchOn={product.options.length === 0} locked={isService} inventory={inventory} aiReady={aiConfigured()} />}
       {!clicker && <KeychainSetup productId={product.id} initial={keychain?.config ?? null} canSwitchOn={product.options.length === 0} locked={isService} inventory={inventory} />}

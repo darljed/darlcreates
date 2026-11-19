@@ -13,13 +13,14 @@ re-exported from `index.ts`. Migrations in `drizzle/` (generate with
   time; later catalog/address edits do not mutate them.
 - **Reserved columns**: `orders.or_number`, `orders.vat_cents` exist but nothing reads or writes them yet.
 
-## Tables (20)
+## Tables (26)
 **Auth**: `users` (+ `role` customer|admin), `sessions`, `accounts`,
 `verifications`.
 **Catalog**: `products` (`is_service`: a standalone service (the clicker or the name keychain designer; no new table: a keychain product is one text option whose `constraints.keychain` holds the settings); hidden from the product grid and never deletable, migration 0004 backfills it), `product_photos`, `product_options`,
 `product_option_values`, `reviews`, `review_photos`.
 **Admin**: `admin_audit` (append-only log of admin actions on user accounts: `actor_id`, `target_user_id`, `action`, `detail` jsonb; no foreign keys on purpose, so the trail outlives a user row). `users` also has `blocked_at`, `blocked_reason` (private) and `admin_note` (private).
 **Site**: `site_content` (`key` pk, `data` jsonb, `updated_at`, `updated_by`): owner-edited documents. Keys: `home` (landing page), `site` (store info + footer), `brand` (uploaded logos), `colours` (the colour inventory: `{ colours: [{ name, hex }] }`; absent = colours are not limited), `legal:privacy`, `legal:terms`. A missing or invalid row falls back to the built-in default; shapes are validated in code (D-25, D-28).
+**Workshop** (internal, see [workshop.md](./workshop.md); money in centavos, ids uuid): `parts` (name, category, unit, `qty_on_hand`, reorder level), `stock_purchases` (lots: qty, `total_cost_cents`, supplier), `stock_movements` (the append-only ledger: delta, reason, `ref_type` + `ref_id`; `qty_on_hand` always equals its sum), `product_parts` (the bill of materials: product, part, qty per unit), `estimates` (a saved estimator run: `input` jsonb, `tiers` jsonb, cost, chosen price, lower-case `tags text[]`), `manual_sales` (the off-site sales: product, qty, price, saved unit cost, `extra_parts` jsonb, payment and status, `deducted_at`, `paid_at`). Also `products.print_cost_cents` (the cost of one unit beyond its BOM parts), `orders.stock_deducted_at` and `orders.cogs_cents` (set when an online order used stock; migration 0006).
 **Commerce**: `addresses`, `carts`, `cart_items`, `orders`, `order_items` (`print_sheet` jsonb: the print job sheet written when the order was placed, null on older orders; migration 0005),
 `payments`, `shipments`, `order_status_history`.
 
@@ -57,6 +58,7 @@ Price (server-authoritative): `base + Σ option deltas + Σ value deltas`.
 | `0001_guards_consent.sql` | `users.consent_at`, `consent_version`, `deleted_at`; the two partial unique indexes on `payments` |
 | `0002_site_content.sql` | `site_content` table (owner-edited documents) |
 | `0003_users_admin.sql` | `admin_audit` table; `users.blocked_at`, `blocked_reason`, `admin_note` |
+| `0006_workshop.sql` | The workshop tables (`parts`, `stock_purchases`, `stock_movements`, `product_parts`, `estimates`, `manual_sales`), `products.print_cost_cents`, `orders.stock_deducted_at`, `orders.cogs_cents` |
 
 Workflow, rollback and the "confirm the target first" rule: [operations.md](./operations.md#migrations).
 

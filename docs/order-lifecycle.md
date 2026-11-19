@@ -26,6 +26,8 @@ awaiting_payment ──► paid ──► in_production ──► ready_to_ship 
 The table is `ORDER_TRANSITIONS` in `src/lib/orders.ts`. Each move reads the current status **under a row lock** inside a
 transaction, so two admins clicking at once cannot skip or double-apply a step. Moves never go backwards.
 
+**Stock:** moving an order to `in_production` uses up the bill of materials of its items (`src/lib/workshop/online-stock.ts`) and saves what they cost to make on the order (`orders.cogs_cents`); moving it to `cancelled` after that gives the stock back exactly. Both happen inside the same transaction as the status change. Items with no costing (for example the clicker and keychain services) use nothing. See [workshop.md](./workshop.md).
+
 "Refunded" and "cancelled after payment" change the status and the books only. **Sending the money back is done by hand in GCash.**
 
 ## Step by step
