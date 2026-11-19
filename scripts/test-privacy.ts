@@ -12,7 +12,8 @@ function assert(name: string, cond: boolean, extra = "") {
   if (!cond) { failures++; console.error(`  ✗ ${name} ${extra}`); } else console.log(`  ✓ ${name}`);
 }
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d]);
-const ADDR = { recipient: "Pat Privacy", phone: "09171112222", line1: "9 Secret Lane", barangay: "Brgy X", city: "Quezon City", province: "NCR", postalCode: "1100" };
+import { QUEZON_CITY } from "./fixtures/ph-address";
+const ADDR = { recipient: "Pat Privacy", phone: "09171112222", line1: "9 Secret Lane", ...QUEZON_CITY, postalCode: "1100" };
 
 async function main() {
   const { db } = await import("../src/db");

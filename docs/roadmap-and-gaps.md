@@ -77,7 +77,7 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Sev | Gap | Detail |
 |---|---|---|---|
-| G-75 | 🟠 | **Shipping is still a flat ₱80** | Most orders are over- or under-charged. Research and a build plan are in [shipping-research.md](./shipping-research.md) (F-05). Needs the owner's answers first. |
+| G-116 | 🟡 | **Shipping rates need a check against the courier rate card** | The starting table is J&T Express public walk-in rates (Jan 2025). Compare with your merchant rates in Admin → Shipping and set the "last checked" date. Also not built: pick-up option, courier API, postal-code lookup. See [shipping.md](./shipping.md) |
 | G-76 | 🟡 | **No push notifications or offline ordering in the PWA** | Deliberate (D-37). Order-status push would need a subscription table and VAPID keys. |
 | G-77 | 🟡 | **Search and AI visibility needs content, not just markup** | The markup is in place; ranking depends on good product names and descriptions, the FAQ, photos with alt text, reviews, and submitting `sitemap.xml` to Google Search Console / Bing. Owner task. |
 | G-78 | 🟡 | **Waybill is one order at a time** | No "print all ready-to-ship" batch page yet. Easy to add if the volume needs it. |
@@ -166,7 +166,7 @@ Verified against the code on 2026-11-09 (not from memory).
 | F-01 | **Phase 2 — STL generators** | See [phase-2-generators.md](./phase-2-generators.md). The headline feature. |
 | F-02 | Automated payment (Maya / GCash API) | Removes manual verification; needs a payment-provider merchant account. Schema already stores method + reference. |
 | F-04 | Courier API (J&T, LBC, Lalamove) | Live rates + label creation + tracking webhooks. |
-| F-05 | Region-based shipping table | Replace flat ₱80. Config-driven, per province/zone. **Researched 2026-11-11: [shipping-research.md](./shipping-research.md)** (own zone × weight rate table, pickup option, manual courier booking; owner questions listed there). |
+| F-05 | ~~Region-based shipping table~~ (built, G-115; pick-up option and courier API remain) | Replaced the flat ₱80. Config-driven, per province/zone. **Researched 2026-11-11: [shipping-research.md](./shipping-research.md)** (own zone × weight rate table, pickup option, manual courier booking; owner questions listed there). |
 | F-06 | Discount codes / bundles | Keychain multi-packs, event giveaways. |
 | F-07 | Bulk / corporate quote requests | Giveaways and events are a natural fit for 3D-printed keychains. |
 | F-08 | Print-queue / production board | Kanban of `in_production` orders, filament usage, print-time estimates. |
@@ -252,3 +252,4 @@ Verified against the code on 2026-11-09 (not from memory).
 | G-109 | 2026-11-18 | **Name keychain designer** as a second standalone service (`/keychain`): three styles (name, name + icon, bag tag), 10 fonts (4 script faces added), 16 icon presets, colours, thickness, multi-line, keyring hole, owner-set automatic pricing, 3MF print file, job sheet. See [keychain-designer.md](./keychain-designer.md). |
 | G-111 | 2026-11-18 | **Design tools hub.** `/services`, a landing-page section, footer column and call-to-action bands list the set-up services; the navbar links were removed. 24 cute animal and charm icons added to the keychain (40 in all). The clicker keyring tab is on by default. |
 | G-112 | 2026-11-18 | **Workshop merged into the admin.** Estimator, Inventory, product Costing, Off-site sales and a dashboard panel (D-61, migration 0006, [workshop.md](./workshop.md)); online orders use stock when production starts. |
+| G-115 | 2026-11-18 | **Shipping by location and weight, with real address pickers.** A zone x weight rate table (owner-editable), province-level zones, product packed weights, the public /shipping page, and province / city / barangay dropdowns from the PSA PSGC (42,010 barangays) validated on the server; orders keep how the fee was worked out. Replaces the flat ₱80 (G-75, F-05). See [shipping.md](./shipping.md) and D-62. |

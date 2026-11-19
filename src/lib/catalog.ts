@@ -103,6 +103,8 @@ export type FullProduct = {
   basePriceCents: number;
   status: string;
   stlKey: string | null;
+  /** Packed weight of one unit in grams, or null (the shop default applies). */
+  weightGrams: number | null;
   photos: { id: string; key: string; alt: string }[];
   options: ProductOptionInput[];
 };
@@ -185,6 +187,7 @@ function assemble(
       basePriceCents: p.basePriceCents,
       status: p.status,
       stlKey: p.stlKey,
+      weightGrams: p.weightGrams,
       photos: photos.filter((ph) => ph.productId === p.id).map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
       options,
     });

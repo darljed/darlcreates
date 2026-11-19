@@ -94,7 +94,7 @@ async function main() {
   const storage = await import("../src/lib/storage");
   const { computeUnitPrice } = await import("../src/lib/pricing");
   const { generateOrderNo } = await import("../src/lib/orders");
-  const { FLAT_SHIPPING_CENTS } = await import("../src/lib/shipping");
+  const FLAT_SHIPPING_CENTS = 8500; // demo orders all use one typical fee (Luzon, first weight tier); real orders are charged from the rate table
   const { loadLegal } = await import("../src/lib/site-content-store");
 
   const USER_PREFIX = "seed-user-";

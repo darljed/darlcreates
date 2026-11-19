@@ -49,6 +49,7 @@ export default async function EditProductPage({
             description: product.description,
             category: product.category,
             basePriceCents: product.basePriceCents,
+            weightGrams: product.weightGrams,
             status: product.status as "draft" | "published" | "archived",
           }}
         />

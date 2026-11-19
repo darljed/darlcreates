@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getOrderForUser } from "@/lib/orders";
+import { shippingNote } from "@/lib/shipping";
 import { formatPHP } from "@/lib/money";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { OrderTimeline } from "@/components/order-timeline";
@@ -127,6 +128,7 @@ async function OrderContents({ orderNo }: { orderNo: string }) {
           <div className="rounded-lg border bg-muted/40 p-4 text-sm">
             <Row label="Subtotal" value={formatPHP(order.subtotalCents)} />
             <Row label="Shipping" value={formatPHP(order.shippingCents)} />
+            {shippingNote(order.shipAddress) && <p className="mb-1 text-right text-xs text-muted-foreground">{shippingNote(order.shipAddress)}</p>}
             <div className="mt-2 flex justify-between border-t pt-2 font-extrabold">
               <span>Total</span>
               <span className="text-primary">{formatPHP(order.totalCents)}</span>

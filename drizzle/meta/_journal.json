@@ -50,6 +50,13 @@
       "when": 1795025696806,
       "tag": "0006_workshop",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795075538882,
+      "tag": "0007_ph_addresses_shipping",
+      "breakpoints": true
     }
   ]
 }

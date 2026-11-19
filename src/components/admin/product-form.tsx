@@ -31,6 +31,7 @@ export type ProductFormValues = {
   description: string;
   category: string;
   basePriceCents: number;
+  weightGrams?: number | null;
   status: "draft" | "published" | "archived";
 };
 
@@ -43,6 +44,7 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
     category: initial?.category ?? "general",
     basePrice: initial ? String(centavosToPesos(initial.basePriceCents)) : "",
     status: initial?.status ?? "draft",
+    weightGrams: initial?.weightGrams ? String(initial.weightGrams) : "",
   });
 
   function submit() {
@@ -119,6 +121,21 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div className="max-w-xs space-y-1.5">
+        <Label htmlFor="weightGrams">Packed weight (g)</Label>
+        <Input
+          id="weightGrams"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={50000}
+          step={1}
+          placeholder="Shop default"
+          value={v.weightGrams}
+          onChange={(e) => setV({ ...v, weightGrams: e.target.value })}
+        />
+        <p className="text-xs text-muted-foreground">Weight of one unit in its packaging; used for the shipping fee. Leave empty to use the shop&apos;s default.</p>
       </div>
       <p className="text-xs text-muted-foreground">
         {initial?.id

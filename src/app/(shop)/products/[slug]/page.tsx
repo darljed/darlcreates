@@ -109,6 +109,10 @@ async function ProductContent({
               {formatPHP(product.basePriceCents)}
             </span>
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Shipping depends on where it goes.{" "}
+            <Link href="/shipping" className="underline hover:text-foreground">See shipping rates</Link>
+          </p>
         </div>
 
         {clicker ? (

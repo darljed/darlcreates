@@ -17,7 +17,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Customizer**: color swatches / size choices / text input / image (schema-
   driven), **live server-authoritative price**, color drives the 3D material
 - Cart (add/update qty/remove) with immutable config + price snapshots
-- Checkout: address capture, flat shipping, order placement (transactional)
+- Checkout: address picked from the official Philippine province / city / barangay lists, a shipping fee from the owner's zone x weight rate table (shown live, charged exactly), order placement (transactional). See [shipping.md](./shipping.md)
 - **GCash manual payment**: instructions + reference submission (append-only)
 - Order tracking: status timeline, shipment/tracking, order history
 - Reviews: delivered-order-gated submit + star rating (moderated before shown)
