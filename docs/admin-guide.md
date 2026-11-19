@@ -166,4 +166,4 @@ Privacy Policy and Terms and Conditions, each with *Write* and *Preview* tabs (p
 | Take a product off the shop | Products → set status to Archived |
 | Customer locked out or reports a hijacked account | Users → Sign out everywhere (or Block) |
 | Customer asks for their data or deletion | They use My account → Download my data / Delete account. You can delete from their user page |
-| Change the shipping fee | Not editable in the admin. It is a flat ₱80 constant in `src/lib/shipping.ts` (see [configuration.md](./configuration.md)) |
+| Change the shipping fees | Admin → Shipping: the rate table, packaging and default weight, free shipping, and which zone each province is in. Set each product's packed weight on its page. See [shipping.md](./shipping.md) |

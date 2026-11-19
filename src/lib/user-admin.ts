@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { adminAudit, addresses, orders, sessions, users } from "@/db/schema";
 import { likeTerm } from "./like";
-import { addressSchema, type Result } from "./order-service";
+import { addressSchema, completeAddress, type Result } from "./order-service";
 import { deleteAccount } from "./privacy";
 
 /**
@@ -263,10 +263,14 @@ export async function updateUserProfile(actorId: string, userId: string, input: 
 export async function updateUserAddress(actorId: string, userId: string, addressId: string, input: unknown): Promise<Result> {
   const parsed = addressSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const completed = await completeAddress(parsed.data);
+  if (!completed.ok) return completed;
   const t = await loadTarget(actorId, userId, { allowAdmin: true, allowSelf: true });
   if ("error" in t) return { ok: false, error: t.error };
   return db.transaction(async (tx) => {
-    const done = await tx.update(addresses).set(parsed.data).where(and(eq(addresses.id, addressId), eq(addresses.userId, userId))).returning({ id: addresses.id });
+    const { regionName: _regionName, ...fields } = completed.address; // the region name is not stored, only its code
+    void _regionName;
+    const done = await tx.update(addresses).set(fields).where(and(eq(addresses.id, addressId), eq(addresses.userId, userId))).returning({ id: addresses.id });
     if (!done.length) return { ok: false as const, error: "Address not found" };
     await audit(tx, actorId, userId, "user.address_updated", { addressId });
     return { ok: true as const };

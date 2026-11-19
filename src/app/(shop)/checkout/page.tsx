@@ -3,13 +3,14 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { getCartLines, cartSubtotalCents } from "@/lib/cart";
-import { formatPHP } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { CheckoutSteps } from "@/components/order-progress";
-import { CheckoutForm } from "@/components/checkout-form";
+import { CheckoutForm, type CheckoutAddress } from "@/components/checkout-form";
 import { CheckoutSkeleton } from "@/components/skeletons";
-import { listAddresses } from "@/lib/addresses";
-import { shippingCentsFor } from "@/lib/shipping";
+import { listAddresses, type SavedAddress } from "@/lib/addresses";
+import { getShippingConfig } from "@/lib/site-content";
+import { shippingItems } from "@/lib/shipping-server";
+import { guessLocation } from "@/lib/psgc-server";
 
 export const metadata = { title: "Checkout", ...NOINDEX };
 
@@ -43,43 +44,29 @@ async function CheckoutContents() {
   }
 
   const subtotal = cartSubtotalCents(lines);
-  const shipping = shippingCentsFor(subtotal);
-  const total = subtotal + shipping;
+  const [shippingConfig, items, addresses] = await Promise.all([
+    getShippingConfig(),
+    shippingItems(lines.map((l) => ({ productId: l.productId, qty: l.qty }))),
+    Promise.all(saved.map(withLocation)),
+  ]);
 
   return (
-    <div className="grid gap-8 md:grid-cols-[1fr_320px]">
-      <CheckoutForm saved={saved} defaultName={user.name} />
-
-      <aside className="h-fit rounded-xl border-2 border-border bg-muted/40 p-5">
-        <h2 className="mb-3 font-bold">Order summary</h2>
-        <ul className="space-y-2 text-sm">
-          {lines.map((l) => (
-            <li key={l.id} className="flex justify-between gap-2">
-              <span className="text-muted-foreground">
-                {l.qty}× {l.productName}
-              </span>
-              <span className="font-medium">{formatPHP(l.lineTotalCents)}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-3 space-y-1 border-t pt-3 text-sm">
-          <Row label="Subtotal" value={formatPHP(subtotal)} />
-          <Row label="Shipping (flat)" value={formatPHP(shipping)} />
-        </div>
-        <div className="mt-3 flex justify-between border-t pt-3 text-lg font-extrabold">
-          <span>Total</span>
-          <span className="text-primary">{formatPHP(total)}</span>
-        </div>
-      </aside>
-    </div>
+    <CheckoutForm
+      saved={addresses}
+      defaultName={user.name}
+      lines={lines.map((l) => ({ id: l.id, productName: l.productName, qty: l.qty, lineTotalCents: l.lineTotalCents }))}
+      subtotalCents={subtotal}
+      shippingConfig={shippingConfig}
+      shippingItems={items}
+    />
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span>{value}</span>
-    </div>
-  );
+/** The location for a saved address: its own codes, or (older addresses) a guess that is used only when it is exact. */
+async function withLocation(a: SavedAddress): Promise<CheckoutAddress> {
+  if (a.provinceCode && a.cityCode && a.barangayCode) {
+    return { ...a, location: { provinceCode: a.provinceCode, cityCode: a.cityCode, barangayCode: a.barangayCode }, guessed: false };
+  }
+  const g = await guessLocation({ province: a.province, city: a.city, barangay: a.barangay });
+  return { ...a, location: g ?? { provinceCode: "", cityCode: "", barangayCode: "" }, guessed: Boolean(g) };
 }

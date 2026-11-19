@@ -1,8 +1,8 @@
 import { listPublishedProducts } from "@/lib/catalog";
 import { formatPHP } from "@/lib/money";
-import { FLAT_SHIPPING_CENTS } from "@/lib/shipping";
+import { rateRange } from "@/lib/shipping";
 import { absoluteUrl, clip } from "@/lib/seo";
-import { getHomeContent, getSiteInfo } from "@/lib/site-content";
+import { getHomeContent, getShippingConfig, getSiteInfo } from "@/lib/site-content";
 
 /**
  * /llms.txt: a plain-Markdown summary of the shop for AI assistants (what we sell, how ordering, paying and shipping
@@ -10,7 +10,8 @@ import { getHomeContent, getSiteInfo } from "@/lib/site-content";
  * Follows the llms.txt convention: H1 name, blockquote summary, then sections of links.
  */
 export async function GET() {
-  const [info, home, products] = await Promise.all([getSiteInfo(), getHomeContent(), listPublishedProducts()]);
+  const [info, home, products, shipping] = await Promise.all([getSiteInfo(), getHomeContent(), listPublishedProducts(), getShippingConfig()]);
+  const rates = rateRange(shipping);
   const { store, seo } = info;
   const lines: string[] = [
     `# ${store.name}`,
@@ -23,7 +24,7 @@ export async function GET() {
     "- Pick a product, view it in 3D, and choose the options (for example color, size, name or an image).",
     "- Sign in with Google, add to cart, and check out with a delivery address.",
     "- Pay by GCash and enter the GCash reference number. The shop verifies the payment by hand, then prints and ships the item.",
-    `- Shipping within the Philippines is a flat ${formatPHP(FLAT_SHIPPING_CENTS)} per order.`,
+    `- Shipping within the Philippines depends on where it goes (province) and how heavy the parcel is: from ${formatPHP(rates.minCents)} to ${formatPHP(rates.maxCents)} for parcels up to ${Math.round(shipping.tiers[shipping.tiers.length - 1] / 1000)} kg. The rate table is at ${absoluteUrl("/shipping")}.`,
     "- Every item is printed on demand, so the order page shows each step: payment verified, in production, ready to ship, shipped, delivered.",
     "",
     "## Shop",

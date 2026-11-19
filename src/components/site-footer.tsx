@@ -66,6 +66,11 @@ export async function SiteFooter() {
                 Terms and Conditions
               </Link>
             </li>
+            <li>
+              <Link href="/shipping" className={linkClass}>
+                Shipping rates
+              </Link>
+            </li>
           </ul>
         </nav>
 

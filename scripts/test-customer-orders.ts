@@ -11,7 +11,8 @@ let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
   if (!cond) { failures++; console.error(`  ✗ ${name} ${extra}`); } else console.log(`  ✓ ${name}`);
 }
-const ADDR = { recipient: "Cass Cancel", phone: "09170000000", line1: "1 Test St", city: "Manila", province: "NCR" };
+import { QUEZON_CITY } from "./fixtures/ph-address";
+const ADDR = { recipient: "Cass Cancel", phone: "09170000000", line1: "1 Test St", ...QUEZON_CITY };
 
 async function main() {
   const { db } = await import("../src/db");

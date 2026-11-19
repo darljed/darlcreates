@@ -46,6 +46,11 @@ export const addresses = pgTable("addresses", {
   city: text("city").notNull(),
   province: text("province").notNull(),
   postalCode: text("postal_code").notNull().default(""),
+  /** PSGC codes (10 digits) picked from the lists. Null on addresses saved before the pickers existed. The names above are the data's own names for these codes. */
+  regionCode: text("region_code"),
+  provinceCode: text("province_code"),
+  cityCode: text("city_code"),
+  barangayCode: text("barangay_code"),
   isDefault: integer("is_default").notNull().default(0),
 });
 

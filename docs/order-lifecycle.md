@@ -37,7 +37,7 @@ transaction, so two admins clicking at once cannot skip or double-apply a step. 
    - Writes the order (`awaiting_payment`), item snapshots (name, chosen options, unit price, model file, uploaded image), and the
      first history row "Order placed". Clears the cart. Optionally saves the address.
    - Order number: `DC-YYYYMMDD-XXXXXX`. The date is the Philippine date; the six characters are random and avoid look-alikes (no 0/O/1/I). The column is unique and a collision is retried.
-   - Shipping is the flat fee from `src/lib/shipping.ts`. Total = subtotal + shipping.
+   - The address must be picked from the province / city / barangay lists; the server checks the three codes belong together and replaces the names with the data's own. Shipping is the fee from the owner's rate table for that province and the items' weight (`src/lib/shipping.ts`), saved with how it was worked out in `ship_address.shipping`. Total = subtotal + shipping. See [shipping.md](./shipping.md).
    - Email to the customer: "Order … received".
 2. **Customer pays by GCash and submits the reference** (`submitGcashReference`).
    - The amount stored is always the order total from the database; whatever the browser sends is ignored.

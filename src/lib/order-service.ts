@@ -16,7 +16,8 @@ import { getCartLines, getOrCreateCart } from "./cart";
 import { addToCart } from "./cart-service";
 import { canTransition, generateOrderNo, type OrderStatus } from "./orders";
 import { computeUnitPrice, firstImageKey, type ConfigSelection } from "./pricing";
-import { shippingCentsFor } from "./shipping";
+import { quoteFor, shippingItems } from "./shipping-server";
+import { resolveLocation } from "./psgc-server";
 import { consumeOnlineOrderStock, restockOnlineOrder } from "./workshop/online-stock";
 
 /**
@@ -31,12 +32,31 @@ export const addressSchema = z.object({
   phone: z.string().trim().min(7).max(20),
   line1: z.string().trim().min(3).max(200),
   line2: z.string().trim().max(200).optional().default(""),
+  /** The picked location (PSGC codes). The names below are filled in from the data by `completeAddress`, never trusted from the browser. */
+  provinceCode: z.string().regex(/^\d{10}$/, "Please choose your province, city and barangay from the lists."),
+  cityCode: z.string().regex(/^\d{10}$/, "Please choose your province, city and barangay from the lists."),
+  barangayCode: z.string().regex(/^\d{10}$/, "Please choose your province, city and barangay from the lists."),
   barangay: z.string().trim().max(120).optional().default(""),
-  city: z.string().trim().min(2).max(120),
-  province: z.string().trim().min(2).max(120),
+  city: z.string().trim().max(120).optional().default(""),
+  province: z.string().trim().max(120).optional().default(""),
   postalCode: z.string().trim().max(10).optional().default(""),
 });
 export type ShipAddress = z.infer<typeof addressSchema>;
+/** An address whose location is checked and named from the data. */
+export type CompleteAddress = ShipAddress & { regionCode: string; regionName: string };
+
+/**
+ * Check that the picked province, city and barangay exist and belong together, and replace the names with the data's own
+ * (so a forged name cannot reach an order, a waybill or the shipping zone).
+ */
+export async function completeAddress(a: ShipAddress): Promise<Result<{ address: CompleteAddress }>> {
+  const loc = await resolveLocation(a);
+  if (!loc) return { ok: false, error: "That location is not valid. Please choose your province, city and barangay from the lists." };
+  return {
+    ok: true,
+    address: { ...a, province: loc.provinceName, city: loc.cityName, barangay: loc.barangayName, regionCode: loc.regionCode, regionName: loc.regionName },
+  };
+}
 
 function isUniqueViolation(err: unknown, constraintLike?: string): boolean {
   let e: unknown = err;
@@ -65,8 +85,14 @@ export async function placeOrder(
   addressInput: unknown,
   opts: { saveAddress?: boolean } = {},
 ): Promise<Result<{ orderNo: string; totalCents: number }>> {
-  const addr = addressSchema.safeParse(addressInput);
-  if (!addr.success) return { ok: false, error: "Please complete the shipping address." };
+  const parsedAddr = addressSchema.safeParse(addressInput);
+  if (!parsedAddr.success) {
+    const missingLocation = parsedAddr.error.issues.some((i) => ["provinceCode", "cityCode", "barangayCode"].includes(String(i.path[0])));
+    return { ok: false, error: missingLocation ? "Please choose your province, city and barangay from the lists." : "Please complete the shipping address." };
+  }
+  const completed = await completeAddress(parsedAddr.data);
+  if (!completed.ok) return completed;
+  const addr = { data: completed.address };
 
   const lines = await getCartLines(userId);
   if (lines.length === 0) return { ok: false, error: "Your cart is empty." };
@@ -105,7 +131,10 @@ export async function placeOrder(
   }
 
   const subtotal = resolved.reduce((a, r) => a + r.unitPriceCents * r.qty, 0);
-  const shipping = shippingCentsFor(subtotal);
+  // The fee comes from where it goes and how heavy it is (see lib/shipping.ts); the checkout page showed the same figure.
+  const quote = await quoteFor(addr.data.provinceCode, await shippingItems(resolved.map((r) => ({ productId: r.productId, qty: r.qty }))), subtotal);
+  if (!quote) return { ok: false, error: "We could not work out shipping for that province. Please choose it again." };
+  const shipping = quote.feeCents;
   const total = subtotal + shipping;
 
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -121,7 +150,7 @@ export async function placeOrder(
             subtotalCents: subtotal,
             shippingCents: shipping,
             totalCents: total,
-            shipAddress: addr.data,
+            shipAddress: { ...addr.data, shipping: quote },
           })
           .returning();
 
@@ -164,12 +193,12 @@ export async function placeOrder(
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** Insert an address unless an identical one is already saved; first one becomes the default. */
-async function saveAddressTx(tx: Tx, userId: string, a: ShipAddress) {
+async function saveAddressTx(tx: Tx, userId: string, a: CompleteAddress) {
   const existing = await tx.select().from(addresses).where(eq(addresses.userId, userId));
   const dup = existing.find(
     (x) =>
       x.recipient === a.recipient && x.phone === a.phone && x.line1 === a.line1 &&
-      x.line2 === a.line2 && x.city === a.city && x.province === a.province,
+      x.line2 === a.line2 && x.cityCode === a.cityCode && x.barangayCode === a.barangayCode,
   );
   if (dup) return;
   if (existing.length >= 10) return; // keep the book small; ignore extras silently
@@ -184,6 +213,10 @@ async function saveAddressTx(tx: Tx, userId: string, a: ShipAddress) {
     city: a.city,
     province: a.province,
     postalCode: a.postalCode,
+    regionCode: a.regionCode,
+    provinceCode: a.provinceCode,
+    cityCode: a.cityCode,
+    barangayCode: a.barangayCode,
     isDefault: existing.length === 0 ? 1 : 0,
   });
 }

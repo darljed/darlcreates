@@ -20,7 +20,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/keychain` | Short link: redirects to the first published name keychain product (404 if none). Linked from the landing page, the footer, /services and the call-to-action bands (not the navbar) |
 | `/clicker` | Short link: redirects to the first published clicker product (404 if none). Linked from the landing page, the footer, /services and the call-to-action bands (not the navbar) |
 | `/cart` | Cart with line editing |
-| `/checkout` | Address, shipping, order summary, place order |
+| `/checkout` | Address (province / city / barangay pickers), live shipping fee, order summary, place order |
+| `/shipping` | The shipping rates: how the fee works, the rate table, provinces per zone, a "check your fee" box |
 | `/sign-in` | Google sign-in card |
 | `/consent` | Privacy-consent screen shown until the current version is accepted |
 | `/privacy`, `/terms` | Owner-editable legal pages from the CMS |
@@ -41,6 +42,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 |---|---|
 | `/admin` | Dashboard |
 | `/admin/orders` | Orders list: search, status chips, 25 per page |
+| `/admin/shipping` | The shipping rate table, parcel settings and each province's zone, with a "try it" box |
 | `/admin/orders/[id]` | Order detail, status buttons, shipping form, payment actions |
 | `/admin/orders/[id]/acknowledgment` | Admin copy of the Order Acknowledgment |
 | `/admin/orders/[id]/job-sheet` | Print job sheet: per order line, the colour (name + hex) and filament of every part, name, sizes, clicker design, colours to load, and what to set by hand. Print or copy as text |
@@ -79,7 +81,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -164,7 +166,10 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `seo.ts` | **Pure.** URLs, page metadata, schema.org JSON-LD builders, crawler lists for robots.txt |
 | `safe-redirect.ts` | **Pure.** Accepts only same-site relative redirect targets |
 | `session.ts` | `getCurrentUser`, `requireUser`, `getAccess` (non-redirecting twin for client-called actions), `requireAdmin`, `isAdmin` |
-| `shipping.ts` | The flat shipping fee (single source) |
+| `shipping.ts` | **Pure.** Shipping zones, the rate-table schema and defaults, `quoteShipping` (zone from the province, tier from the weight, extra kg, free shipping), `shippingNote` |
+| `shipping-server.ts` | **Service (server).** The items' packed weights and `quoteFor(province, items, subtotal)` |
+| `psgc.ts` | **Pure.** Philippine location types, parsing of the static data, `resolveIn`, `normalizeName` |
+| `psgc-server.ts` | **Service (server).** Reads `public/psgc`, `resolveLocation` (codes belong together, names from the data), `guessLocation` (older text addresses) |
 | `site-content-schema.ts` | **Pure.** Zod schemas, defaults and link/icon allow-lists for all CMS documents |
 | `site-content-store.ts` | **Service.** Read/write of `site_content` rows with bad-row fallback |
 | `site-content.ts` | Cached CMS reads for the storefront (`site:*` tags) |
@@ -292,7 +297,10 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `clicker/picture-mode-chooser.tsx` | After a picture is chosen (AI on): three cards with before / after examples (keep, flat colours, 2-colour portrait); AI cards need sign-in |
 | `colour-inventory-editor.tsx` | Admin Colours page: swatch + name rows, add / remove, save, "stop limiting colours" |
 | `branding-editor.tsx` | Six logo upload slots with previews |
+| `location-picker.tsx` | Province -> city -> barangay dropdowns from the PSGC files (checkout, admin address editing) |
+| `shipping-checker.tsx` | "Check your fee" box on the public shipping page |
 | `services-section.tsx` | The services as cards (landing page, /services) or a slim call-to-action band (shop, empty cart) |
+| `shipping-editor.tsx` | Admin → Shipping: rate table, parcel settings, province zones, "try it" |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -354,6 +362,10 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-data-integrity.ts` | Read-only checks over all live orders and payments |
 | `test-docs.ts` | Documentation guard (this page and its siblings) |
 | `test-instant.ts` | Admin pages have the `instant = false` opt-out |
+| `build-psgc.ts` | Builds `public/psgc` from the PSA PSGC data (`psgc` package); says how to refresh it |
+| `fixtures/ph-address.ts` | Real PSGC locations for tests and demo data |
+| `test-psgc.ts` | Location data: completeness, consistency, resolving and refusing codes, matching older addresses, zones |
+| `test-shipping.ts` | Shipping: the rate math, saved settings, real orders (fee, snapshot, forged locations refused) (needs the database) |
 | `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |

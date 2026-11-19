@@ -7,6 +7,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { eq, inArray, like } from "drizzle-orm";
+import { QUEZON_CITY } from "./fixtures/ph-address";
 
 let failures = 0;
 function assert(name: string, cond: boolean, extra = "") {
@@ -24,7 +25,7 @@ async function main() {
   const admin = `${T}-admin`, admin2 = `${T}-admin2`, c1 = `${T}-c1`, c2 = `${T}-c2`, c3 = `${T}-c3`;
   const ids = [admin, admin2, c1, c2, c3];
   const email = (id: string) => `${id.toLowerCase()}@test.local`;
-  const addr = { recipient: "Test Person", phone: "09171234567", line1: "1 Test Street", city: "Manila", province: "NCR" };
+  const addr = { recipient: "Test Person", phone: "09171234567", line1: "1 Test Street", ...QUEZON_CITY };
 
   async function addSessions(userId: string, n: number) {
     for (let i = 0; i < n; i++) {
@@ -134,13 +135,15 @@ async function main() {
     console.log("\nfixing addresses");
     const [a1] = await db.select().from(s.addresses).where(eq(s.addresses.userId, c1));
     const [a3] = await db.select().from(s.addresses).where(eq(s.addresses.userId, c3));
-    assert("an invalid address is refused", !(await ua.updateUserAddress(admin, c1, a1.id, { ...addr, city: "" })).ok);
+    assert("an invalid address is refused (no name, or a city that is not in that province)", !(await ua.updateUserAddress(admin, c1, a1.id, { ...addr, recipient: "" })).ok && !(await ua.updateUserAddress(admin, c1, a1.id, { ...addr, cityCode: "0403424000" })).ok);
     assert("a valid edit saves", (await ua.updateUserAddress(admin, c1, a1.id, { ...addr, line1: "99 Corrected Road" })).ok);
-    assert("…and is stored", (await db.select().from(s.addresses).where(eq(s.addresses.id, a1.id)))[0].line1 === "99 Corrected Road");
+    const stored = (await db.select().from(s.addresses).where(eq(s.addresses.id, a1.id)))[0];
+    assert("…and is stored, with the location's own names and codes", stored.line1 === "99 Corrected Road" && stored.city === "Quezon City" && stored.barangayCode === "1381300001" && stored.regionCode === "1300000000");
+    assert("names sent by the browser are replaced by the data's (a forged city name does not stick)", (await ua.updateUserAddress(admin, c1, a1.id, { ...addr, city: "Atlantis", province: "Nowhere" })).ok && (await db.select().from(s.addresses).where(eq(s.addresses.id, a1.id)))[0].city === "Quezon City");
     assert("another user's address can't be edited through this user", !(await ua.updateUserAddress(admin, c1, a3.id, addr)).ok);
     assert("…nor deleted", !(await ua.deleteUserAddress(admin, c1, a3.id)).ok);
     assert("deleting their own address works", (await ua.deleteUserAddress(admin, c1, a1.id)).ok);
-    assert("address edits are audited", (await trail(c1)).filter((a) => a.action.startsWith("user.address_")).length === 2);
+    assert("address edits are audited", (await trail(c1)).filter((a) => a.action.startsWith("user.address_")).length === 3);
 
     // ---------------------------------------------------------------- delete
     console.log("\ndeleting an account");

@@ -337,13 +337,11 @@ export function CheckoutSkeleton() {
         <FieldSkeleton label="Street / House no." />
         <FieldSkeleton label="Apt / Landmark (optional)" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <FieldSkeleton label="Barangay" />
+          <FieldSkeleton label="Province" />
           <FieldSkeleton label="City / Municipality" />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FieldSkeleton label="Province" />
-          <FieldSkeleton label="Postal code" />
-        </div>
+        <FieldSkeleton label="Barangay" />
+        <FieldSkeleton label="Postal code (optional)" />
         <Skeleton className="h-12 w-full rounded-lg" />
       </div>
       <aside className="h-fit rounded-xl border-2 border-border bg-muted/40 p-5">
@@ -362,7 +360,7 @@ export function CheckoutSkeleton() {
             <Skeleton className="h-4 w-16" />
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Shipping (flat)</span>
+            <span className="text-muted-foreground">Shipping</span>
             <Skeleton className="h-4 w-14" />
           </div>
         </div>

@@ -12,22 +12,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { LocationPicker, EMPTY_LOCATION, type LocationValue } from "@/components/location-picker";
 import { Field } from "@/components/admin/editor-bits";
 import { deleteUserAddressAction, updateUserAddressAction } from "@/app/(admin)/admin/users/actions";
 
 export type AddressView = {
   id: string; label: string; recipient: string; phone: string; line1: string; line2: string;
   barangay: string; city: string; province: string; postalCode: string; isDefault: boolean;
+  provinceCode: string | null; cityCode: string | null; barangayCode: string | null;
 };
-type Fields = Omit<AddressView, "id" | "label" | "isDefault">;
+type Fields = { recipient: string; phone: string; line1: string; line2: string; postalCode: string };
 const KEYS: { key: keyof Fields; label: string; wide?: boolean }[] = [
   { key: "recipient", label: "Recipient" },
   { key: "phone", label: "Mobile number" },
   { key: "line1", label: "Street / House no.", wide: true },
   { key: "line2", label: "Apt / Landmark", wide: true },
-  { key: "barangay", label: "Barangay" },
-  { key: "city", label: "City / Municipality" },
-  { key: "province", label: "Province" },
   { key: "postalCode", label: "Postal code" },
 ];
 
@@ -35,6 +34,7 @@ export function UserAddresses({ userId, addresses, locked }: { userId: string; a
   const router = useRouter();
   const [editing, setEditing] = useState<AddressView | null>(null);
   const [form, setForm] = useState<Fields | null>(null);
+  const [location, setLocation] = useState<LocationValue>(EMPTY_LOCATION);
   const [removing, setRemoving] = useState<AddressView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -43,7 +43,8 @@ export function UserAddresses({ userId, addresses, locked }: { userId: string; a
 
   function open(a: AddressView) {
     setEditing(a);
-    setForm({ recipient: a.recipient, phone: a.phone, line1: a.line1, line2: a.line2, barangay: a.barangay, city: a.city, province: a.province, postalCode: a.postalCode });
+    setForm({ recipient: a.recipient, phone: a.phone, line1: a.line1, line2: a.line2, postalCode: a.postalCode });
+    setLocation(a.provinceCode && a.cityCode && a.barangayCode ? { provinceCode: a.provinceCode, cityCode: a.cityCode, barangayCode: a.barangayCode } : EMPTY_LOCATION);
     setError(null);
   }
 
@@ -84,7 +85,7 @@ export function UserAddresses({ userId, addresses, locked }: { userId: string; a
               e.preventDefault();
               if (!editing || !form) return;
               start(async () => {
-                const res = await updateUserAddressAction({ userId, addressId: editing.id, address: form });
+                const res = await updateUserAddressAction({ userId, addressId: editing.id, address: { ...form, ...location } });
                 if (res.ok) {
                   toast.success("Address saved");
                   setEditing(null);
@@ -104,12 +105,15 @@ export function UserAddresses({ userId, addresses, locked }: { userId: string; a
                     <Input value={form[key]} onChange={(e) => setForm((p) => (p ? { ...p, [key]: e.target.value } : p))} />
                   </Field>
                 ))}
+                <div className="sm:col-span-2">
+                  <LocationPicker idPrefix="admin-address" value={location} onChange={setLocation} />
+                </div>
               </div>
             )}
             {error && <p role="alert" className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditing(null)} disabled={pending}>Cancel</Button>
-              <Button type="submit" disabled={pending}>Save address</Button>
+              <Button type="submit" disabled={pending || !location.barangayCode}>Save address</Button>
             </DialogFooter>
           </form>
         </DialogContent>
