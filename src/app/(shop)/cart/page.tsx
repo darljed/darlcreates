@@ -71,7 +71,8 @@ async function CartContents() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Shipping is calculated at checkout.
+          Shipping depends on where it goes and how heavy the parcel is. You will see the exact fee at checkout.{" "}
+          <Link href="/shipping" className="underline underline-offset-2 hover:text-foreground">See shipping rates</Link>
         </p>
         <Button
           asChild

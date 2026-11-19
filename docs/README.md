@@ -16,7 +16,8 @@ Living documentation. Update it in the same unit of work as any code change.
 | [code-map.md](./code-map.md) | Every route, library, component and script, with what it is for |
 | [design-system.md](./design-system.md) | Tokens, density, shell and page primitives, forms, states, responsive and print rules |
 | [admin-guide.md](./admin-guide.md) | The owner's guide to each admin page and common workflows |
-| [shipping-research.md](./shipping-research.md) | Research (nothing built yet): how to calculate shipping and the cheapest way to integrate it |
+| [shipping.md](./shipping.md) | Shipping fees by province and weight, the rate table, and the Philippine address pickers (PSGC data) |
+| [shipping-research.md](./shipping-research.md) | Research behind it: how couriers price a parcel and the options for integrating one |
 | [features.md](./features.md) | What is built, by area |
 | [decisions.md](./decisions.md) | Decision log: why things are the way they are |
 | [testing.md](./testing.md) | What is tested, how to run it, authenticated browser E2E, demo data |
@@ -24,6 +25,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [name-on-model.md](./name-on-model.md) | Phase 2 proof of concept: the customer's name on the 3D model, and the 3MF print file built from it |
 | [personalization-and-3mf.md](./personalization-and-3mf.md) | Proposal: 3MF support + adding a name to an existing product (levels 1-3, owner questions) |
 | [clicker-designer.md](./clicker-designer.md) | The clicker designer: what customers can do, how the model and print file are built, owner settings, limits |
+| [workshop.md](./workshop.md) | The workshop (admin): estimator and costing model, inventory, product costing, the sales log, and how orders use up stock |
 | [keychain-designer.md](./keychain-designer.md) | The name keychain designer: three styles, fonts and icons, how the plate and print file are built, owner prices and limits |
 | [clicker-redesign-plan.md](./clicker-redesign-plan.md) | Research on the reference clicker makers and the plan to rebuild the clicker as a mechanical-switch fidget clicker (for review) |
 | [backlog.md](./backlog.md) | Pointer to the roadmap |

@@ -24,9 +24,10 @@ export async function placeOrderAction(
       phone: formData.get("phone"),
       line1: formData.get("line1"),
       line2: formData.get("line2") ?? "",
-      barangay: formData.get("barangay") ?? "",
-      city: formData.get("city"),
-      province: formData.get("province"),
+      // the location is picked from the lists: only the codes count, the names are filled in from the data on the server
+      provinceCode: formData.get("provinceCode"),
+      cityCode: formData.get("cityCode"),
+      barangayCode: formData.get("barangayCode"),
       postalCode: formData.get("postalCode") ?? "",
     },
     { saveAddress: formData.get("saveAddress") === "on" },

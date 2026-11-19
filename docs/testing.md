@@ -24,6 +24,9 @@ live ones in the background and poll; a killed run can leave `TEST-` rows (see C
 | Script | Covers | Needs |
 |---|---|---|
 | `docs` | the documentation guard: every `process.env.X` is in `configuration.md`; every file in `src/lib`, `src/components`, `scripts`, `src/db` and every route is in `code-map.md`; every table is in `database.md`; every Server Action and cache tag is in `api-routes.md`; every npm script is in `operations.md` | nothing |
+| `psgc` | the Philippine location data: complete and consistent, codes resolved and refused, older addresses matched, a zone for every province (`npx tsx scripts/test-psgc.ts`) |
+| `shipping` | the rate math, saved settings, and real orders: the fee, its snapshot, forged locations refused (`npx tsx scripts/test-shipping.ts`, needs the database) |
+| `workshop` | the workshop: costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates (`npx tsx scripts/test-workshop.ts`, needs the database) |
 | `keychain` | the name keychain designer: icons, schema, limits, price, every style / plate / keyring, every font, random designs, server check, 3MF, cart with the database (`npx tsx scripts/test-keychain.ts`) |
 | `clicker` | the clicker designer: schema, shapes, geometry (every shape with/without a keyring, and rim and relief variations, are closed solids that do not overlap), the sample clicker's measurements, switch keep-out growth, name keys, the 4-colour rule, keyring on every shape and angle, plate layout, price, the fit-test plate, the two-object 3MF, cart integration (DB for the cart part) |
 | `deploy` | connection options for direct / pooler / Vercel; the streamed download returns the same bytes in chunks (no DB) |

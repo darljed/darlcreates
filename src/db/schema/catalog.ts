@@ -42,6 +42,10 @@ export const products = pgTable("products", {
   stlKey: text("stl_key"),
   /** A standalone service (the clicker designer): kept out of the product grid and never deletable. */
   isService: boolean("is_service").notNull().default(false),
+  /** Internal: the cost of making one unit beyond its bill-of-materials parts (machine time, labour, failures). Never shown to customers. */
+  printCostCents: integer("print_cost_cents").notNull().default(0),
+  /** Packed weight of one unit in grams (item plus its own wrapping), for the shipping fee. Null: the shop's default item weight is used. */
+  weightGrams: integer("weight_grams"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

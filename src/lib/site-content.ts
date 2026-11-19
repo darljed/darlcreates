@@ -3,13 +3,14 @@
  * (site:home, site:info, site:brand, site:colours, site:legal:<slug>).
  */
 import { cacheLife, cacheTag } from "next/cache";
-import { loadBranding, loadColourInventory, loadHomeContent, loadLegal, loadSiteInfo } from "./site-content-store";
+import { loadBranding, loadColourInventory, loadShippingConfig, loadHomeContent, loadLegal, loadSiteInfo } from "./site-content-store";
 import type { LegalSlug } from "./site-content-schema";
 
 export const HOME_TAG = "site:home";
 export const SITE_TAG = "site:info";
 export const BRAND_TAG = "site:brand";
 export const COLOURS_TAG = "site:colours";
+export const SHIPPING_TAG = "site:shipping";
 export const legalTag = (slug: LegalSlug) => `site:legal:${slug}`;
 
 /** Landing-page content. Cached; the admin save revalidates `site:home`. */
@@ -54,4 +55,12 @@ export async function getBranding() {
   cacheLife("hours");
   cacheTag(BRAND_TAG);
   return loadBranding();
+}
+
+/** The shipping rate table. Cached; the admin save expires `site:shipping`. */
+export async function getShippingConfig() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(SHIPPING_TAG);
+  return loadShippingConfig();
 }

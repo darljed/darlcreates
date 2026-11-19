@@ -12,7 +12,8 @@ function assert(name: string, cond: boolean, extra = "") {
   if (!cond) { failures++; console.error(`  ✗ ${name} ${extra}`); } else console.log(`  ✓ ${name}`);
 }
 
-const ADDR = { recipient: "Test Buyer", phone: "09170000000", line1: "1 Test St", city: "Manila", province: "NCR" };
+import { SAN_PABLO } from "./fixtures/ph-address";
+const ADDR = { recipient: "Test Buyer", phone: "09170000000", line1: "1 Test St", ...SAN_PABLO };
 
 async function main() {
   const { db } = await import("../src/db");
@@ -20,7 +21,7 @@ async function main() {
   const svc = await import("../src/lib/order-service");
   const { generateOrderNo } = await import("../src/lib/orders");
   const { safeRedirect } = await import("../src/lib/safe-redirect");
-  const { FLAT_SHIPPING_CENTS } = await import("../src/lib/shipping");
+  const { quoteFor, shippingItems } = await import("../src/lib/shipping-server");
 
   const T = `TEST-CO-${Date.now()}`;
   const buyer = `${T}-buyer`, buyer2 = `${T}-buyer2`, admin = `${T}-admin`;
@@ -65,8 +66,9 @@ async function main() {
     const [order] = await db.select().from(s.orders).where(eq(s.orders.orderNo, placed.orderNo));
     orderIds.push(order.id);
     assert("price recomputed server-side (client sent 1 centavo) = 2 x 10000", order.subtotalCents === 20000, `${order.subtotalCents}`);
-    assert("shipping comes from the single config", order.shippingCents === FLAT_SHIPPING_CENTS);
-    assert("total = subtotal + shipping", order.totalCents === 20000 + FLAT_SHIPPING_CENTS);
+    const expected = (await quoteFor(SAN_PABLO.provinceCode, await shippingItems([{ productId, qty: 2 }]), 20000))!;
+    assert("shipping comes from the rate table: Luzon, 2 items + packaging = 400 g, so the first tier (₱85)", order.shippingCents === expected.feeCents && expected.zone === "luzon" && expected.grams === 400 && order.shippingCents === 8500, `${order.shippingCents} ${JSON.stringify(expected)}`);
+    assert("total = subtotal + shipping", order.totalCents === 20000 + order.shippingCents);
     assert("status awaiting_payment", order.status === "awaiting_payment");
     const items = await db.select().from(s.orderItems).where(eq(s.orderItems.orderId, order.id));
     assert("item snapshot: name, unit price, model key", items[0].nameSnapshot === `${T} Widget` && items[0].unitPriceCents === 10000 && items[0].stlKeySnapshot === "models/test.3mf");

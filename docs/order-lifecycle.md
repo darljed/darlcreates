@@ -26,6 +26,8 @@ awaiting_payment ──► paid ──► in_production ──► ready_to_ship 
 The table is `ORDER_TRANSITIONS` in `src/lib/orders.ts`. Each move reads the current status **under a row lock** inside a
 transaction, so two admins clicking at once cannot skip or double-apply a step. Moves never go backwards.
 
+**Stock:** moving an order to `in_production` uses up the bill of materials of its items (`src/lib/workshop/online-stock.ts`) and saves what they cost to make on the order (`orders.cogs_cents`); moving it to `cancelled` after that gives the stock back exactly. Both happen inside the same transaction as the status change. Items with no costing (for example the clicker and keychain services) use nothing. See [workshop.md](./workshop.md).
+
 "Refunded" and "cancelled after payment" change the status and the books only. **Sending the money back is done by hand in GCash.**
 
 ## Step by step
@@ -35,7 +37,7 @@ transaction, so two admins clicking at once cannot skip or double-apply a step. 
    - Writes the order (`awaiting_payment`), item snapshots (name, chosen options, unit price, model file, uploaded image), and the
      first history row "Order placed". Clears the cart. Optionally saves the address.
    - Order number: `DC-YYYYMMDD-XXXXXX`. The date is the Philippine date; the six characters are random and avoid look-alikes (no 0/O/1/I). The column is unique and a collision is retried.
-   - Shipping is the flat fee from `src/lib/shipping.ts`. Total = subtotal + shipping.
+   - The address must be picked from the province / city / barangay lists; the server checks the three codes belong together and replaces the names with the data's own. Shipping is the fee from the owner's rate table for that province and the items' weight (`src/lib/shipping.ts`), saved with how it was worked out in `ship_address.shipping`. Total = subtotal + shipping. See [shipping.md](./shipping.md).
    - Email to the customer: "Order … received".
 2. **Customer pays by GCash and submits the reference** (`submitGcashReference`).
    - The amount stored is always the order total from the database; whatever the browser sends is ignored.

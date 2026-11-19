@@ -17,6 +17,10 @@ export type SavedAddress = {
   city: string;
   province: string;
   postalCode: string;
+  regionCode: string | null;
+  provinceCode: string | null;
+  cityCode: string | null;
+  barangayCode: string | null;
   isDefault: boolean;
 };
 

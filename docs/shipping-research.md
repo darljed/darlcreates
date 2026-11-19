@@ -1,8 +1,8 @@
 # Shipping: how to calculate it and how to integrate it (research)
 
-> Researched 2026-11-11. Status: **proposal, nothing built** (tracked as F-05). Rate numbers below come from public pages dated 2023 to January 2025, so treat them as a starting point and confirm against your own courier rate card before using them.
+> Researched 2026-11-11. Status: **built** as [shipping.md](./shipping.md) (own zone x weight table, owner-editable; pickup and courier APIs not built). Kept for the reasoning and sources. Rate numbers below come from public pages dated 2023 to January 2025, so treat them as a starting point and confirm against your own courier rate card before using them.
 
-Today checkout charges a flat ₱80 (`src/lib/shipping.ts`, `FLAT_SHIPPING_CENTS`). That is wrong for most orders: a keychain to Laguna costs the courier far less than a phone stand to Mindanao.
+Before this was built, checkout charged a flat ₱80 (`src/lib/shipping.ts`, `FLAT_SHIPPING_CENTS`). That is wrong for most orders: a keychain to Laguna costs the courier far less than a phone stand to Mindanao.
 
 ## Recommendation (short)
 

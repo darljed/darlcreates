@@ -90,6 +90,7 @@ export default async function AdminUserPage({ params }: PageProps<"/admin/users/
               addresses={d.addresses.map((a) => ({
                 id: a.id, label: a.label, recipient: a.recipient, phone: a.phone, line1: a.line1, line2: a.line2,
                 barangay: a.barangay, city: a.city, province: a.province, postalCode: a.postalCode, isDefault: a.isDefault === 1,
+                provinceCode: a.provinceCode, cityCode: a.cityCode, barangayCode: a.barangayCode,
               }))}
             />
           </Panel>

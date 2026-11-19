@@ -17,6 +17,7 @@ import {
   type LegalSlug,
   type SiteInfo,
 } from "./site-content-schema";
+import { parseShippingConfig, shippingConfigSchema, type ShippingConfig } from "./shipping";
 import { z } from "zod";
 
 /**
@@ -28,6 +29,7 @@ export const HOME_KEY = "home";
 export const SITE_KEY = "site";
 export const BRAND_KEY = "brand";
 export const COLOURS_KEY = "colours";
+export const SHIPPING_KEY = "shipping";
 export const legalKey = (slug: LegalSlug) => `legal:${slug}`;
 
 async function loadRaw(key: string): Promise<unknown> {
@@ -150,6 +152,18 @@ export async function loadColourInventory(key = COLOURS_KEY): Promise<ColourInve
 
 export async function saveColourInventory(input: unknown, userId: string | null, key = COLOURS_KEY): Promise<ColourInventory> {
   const data = colourInventorySchema.parse(input);
+  await upsert(key, data, userId);
+  return data;
+}
+
+// ---- shipping rates ----
+/** The shipping rate table (the built-in defaults until the owner saves one; a damaged document also falls back to them). */
+export async function loadShippingConfig(key = SHIPPING_KEY): Promise<ShippingConfig> {
+  return parseShippingConfig(await loadRaw(key));
+}
+
+export async function saveShippingConfig(input: unknown, userId: string | null, key = SHIPPING_KEY): Promise<ShippingConfig> {
+  const data = shippingConfigSchema.parse(input);
   await upsert(key, data, userId);
   return data;
 }

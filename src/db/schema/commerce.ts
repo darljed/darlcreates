@@ -46,6 +46,11 @@ export const addresses = pgTable("addresses", {
   city: text("city").notNull(),
   province: text("province").notNull(),
   postalCode: text("postal_code").notNull().default(""),
+  /** PSGC codes (10 digits) picked from the lists. Null on addresses saved before the pickers existed. The names above are the data's own names for these codes. */
+  regionCode: text("region_code"),
+  provinceCode: text("province_code"),
+  cityCode: text("city_code"),
+  barangayCode: text("barangay_code"),
   isDefault: integer("is_default").notNull().default(0),
 });
 
@@ -92,6 +97,10 @@ export const orders = pgTable("orders", {
   orNumber: text("or_number"),
   vatCents: integer("vat_cents").notNull().default(0),
   placedAt: timestamp("placed_at").defaultNow().notNull(),
+  /** Set when the order used up stock (it entered production). Cleared when the stock is given back. */
+  stockDeductedAt: timestamp("stock_deducted_at"),
+  /** What the stocked items cost to make, saved when stock was used. Null when nothing was costed. */
+  cogsCents: integer("cogs_cents"),
 });
 
 export const orderItems = pgTable("order_items", {

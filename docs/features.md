@@ -17,7 +17,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Customizer**: color swatches / size choices / text input / image (schema-
   driven), **live server-authoritative price**, color drives the 3D material
 - Cart (add/update qty/remove) with immutable config + price snapshots
-- Checkout: address capture, flat shipping, order placement (transactional)
+- Checkout: address picked from the official Philippine province / city / barangay lists, a shipping fee from the owner's zone x weight rate table (shown live, charged exactly), order placement (transactional). See [shipping.md](./shipping.md)
 - **GCash manual payment**: instructions + reference submission (append-only)
 - Order tracking: status timeline, shipment/tracking, order history
 - Reviews: delivered-order-gated submit + star rating (moderated before shown)
@@ -52,6 +52,7 @@ Status legend: ✅ done · 🚧 in progress · ⬜ planned
 - **Landing page CMS** (`/admin/content`): announcement bar, hero (+ image), highlights, featured products, FAQ, CTA band
 - **Store & footer** (`/admin/store`): store name, tagline, about, email, phone (tap to call), address, hours, explore links, social links, bottom line
 - **Legal pages** (`/admin/legal`): a tabbed workspace (Privacy / Terms, each with Write and Preview tabs; preview at desktop or phone width). Formatting toolbar (heading, bullets, link dialog that rejects unsafe URLs), word count, clickable section outline, unsaved-changes dot + guard, Discard, Ctrl/Cmd+S, "last saved by", how many customers accepted the current privacy version, and a confirm dialog before "ask every customer to accept again"
+- **Workshop** (admin, internal; [workshop.md](./workshop.md)): a price **Estimator** (filament lines, waste, machine time, labour, failure, fees, three margin prices, saved estimates with tags, "save as product"), **Inventory** (parts, purchase lots with weighted-average cost, adjustments, history, low-stock), product **Costing** (bill of materials + print cost, margin) on each product's page, **Off-site sales** (table + kanban) for sales taken outside the website, and a dashboard that shows revenue and profit **by source** (online vs off-site). Packaged sales and online orders entering production use up stock; cancelling gives it back.
 - **Design-your-own hub**: the clicker and name keychain services are shown in their own landing-page section, the footer, `/services` and call-to-action bands on the shop and the empty cart (not in the navbar). A service appears only once its product is set up.
 - **Name keychain designer** (`/keychain`): customers type a name and pick a style (name, name + icon, bag tag), one of 10 fonts, an icon, colours, plate shape, thickness (thin / standard / chunky) and keyring hole, see it in 3D, and order several names at once. Automatic price by length, lines, style, colours and thickness, all set by the owner. A standalone service like the clicker. See [keychain-designer.md](./keychain-designer.md).
 - **AI picture redraw** (clicker designer): optional per product; flat colours or a 2-colour portrait from the colour inventory, with before / after examples on the choice screen.

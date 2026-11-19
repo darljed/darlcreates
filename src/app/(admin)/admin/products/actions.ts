@@ -51,6 +51,8 @@ const productSchema = z.object({
   category: z.string().trim().toLowerCase().min(1).max(60).default("general"), // stored lower-case so "Toys" and "toys" are one category
   basePrice: z.string().min(1),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
+  /** Packed weight of one unit in grams; empty = use the shop default. */
+  weightGrams: z.preprocess((v) => (v === "" || v === undefined ? null : v), z.coerce.number().int().min(1).max(50_000).nullable()).default(null),
 });
 
 export async function createProductAction(input: unknown): Promise<Result> {
@@ -78,6 +80,7 @@ export async function createProductAction(input: unknown): Promise<Result> {
       category: parsed.data.category,
       basePriceCents,
       status: parsed.data.status,
+      weightGrams: parsed.data.weightGrams,
     })
     .returning({ id: products.id });
 
@@ -110,6 +113,7 @@ export async function updateProductAction(input: unknown): Promise<Result> {
       category: parsed.data.category,
       basePriceCents,
       status: parsed.data.status,
+      weightGrams: parsed.data.weightGrams,
       updatedAt: new Date(),
     })
     .where(eq(products.id, parsed.data.id));

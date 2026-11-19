@@ -106,7 +106,7 @@ Not environment variables: change them in code, then test and redeploy.
 
 | Value | Where | Current setting |
 |---|---|---|
-| Shipping fee | `src/lib/shipping.ts` `FLAT_SHIPPING_CENTS` | ₱80.00 flat (the one place; checkout display and order placement both use it) |
+| Shipping fee | Admin → Shipping (`site_content` document `shipping`; defaults in `src/lib/shipping.ts`) | Zone x weight rate table, packaging and default item weight, free-shipping amount, province zones. Starts from J&T public walk-in rates (Jan 2025); see [shipping.md](./shipping.md) |
 | Payment reference format | `src/lib/order-service.ts` | 6 to 32 characters, `A-Z 0-9 -`, after trimming spaces and upper-casing |
 | Order number | `src/lib/orders.ts` | `DC-YYYYMMDD-XXXXXX`, PH date, 6 random characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` |
 | Upload limits | `src/lib/uploads.ts` `UPLOAD_RULES` | 3D model 50 MB (`.stl`, `.3mf`); product photo, customer image and site image 5 MB (JPG, PNG, WebP). Logos have tighter per-slot limits in `src/lib/branding-schema.ts` |
