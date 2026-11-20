@@ -32,18 +32,19 @@ export async function describePage(path: string, search = ""): Promise<PageInfo>
   const clean = path.split("?")[0].slice(0, 200);
   const product = new RegExp(`^/admin/products/(${UUID})`, "i").exec(clean);
   if (product) {
-    const data = await toolByName("get_product")!.run!({ productId: product[1] } as never);
+    const data = (await toolByName("get_product")?.run?.({ productId: product[1] } as never)) ?? { error: "unavailable" };
     return { label: "Product page", text: `The product editor for this product (its id is ${product[1]}). Details:\n${JSON.stringify(data)}` };
   }
   const order = new RegExp(`^/admin/orders/(${UUID})`, "i").exec(clean);
   if (order) {
-    const data = await toolByName("get_order")!.run!({ orderId: order[1] } as never);
+    const data = (await toolByName("get_order")?.run?.({ orderId: order[1] } as never)) ?? { error: "unavailable" };
     const sub = /\/(acknowledgment|job-sheet|waybill)/.exec(clean)?.[1];
     return { label: "Order page", text: `The order page${sub ? ` (${sub} view)` : ""} for this order (its id is ${order[1]}). Details:\n${JSON.stringify(data)}` };
   }
   const hit = SECTIONS.find(([re]) => re.test(clean));
+  // the address comes from the browser and goes into the prompt: only known filter names, and only plain characters in their values
   const q = new URLSearchParams(search.slice(0, 300));
-  const filters = [...q.entries()].slice(0, 5).map(([k, v]) => `${k}=${v.slice(0, 40)}`).join(", ");
+  const filters = ["status", "q", "page", "tool", "category"].flatMap((k) => { const v = q.get(k); return v && /^[\w .@-]{1,40}$/.test(v) ? [`${k}=${v}`] : []; }).join(", ");
   if (hit) return { label: hit[1], text: `${hit[2]}${filters ? ` Filters in the address: ${filters}.` : ""}` };
   return { label: "Admin", text: "An admin page." };
 }

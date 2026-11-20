@@ -77,7 +77,7 @@ export async function runAgent(o: { messages: AgentTurn[]; path: string; search:
   try { page = await describePage(o.path, o.search); } catch { page = { label: "Admin", text: "An admin page (details could not be read)." }; }
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
   const messages: ChatMessage[] = [
-    { role: "system", content: `${SYSTEM}\n\nToday (Manila): ${today}\nThe owner is on: ${page.label} (${o.path.slice(0, 120)})\n${page.text}` },
+    { role: "system", content: `${SYSTEM}\n\nToday (Manila): ${today}\nThe owner is on: ${page.label} (${o.path.replace(/[^A-Za-z0-9/_-]/g, "").slice(0, 120)})\n${page.text}` },
     ...o.messages.slice(-16).map((m) => ({ role: m.role, content: m.content }) as ChatMessage),
   ];
   const tools = toolSpecs();

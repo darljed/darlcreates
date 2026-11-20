@@ -103,13 +103,18 @@ export function AgentDock() {
   };
   async function decide(p: Prop, approve: boolean) {
     patch(p.id, { state: "applying" });
-    if (approve) {
-      const r = await approveProposalAction({ id: p.id });
-      if (r.ok) { patch(p.id, { state: "applied", link: r.link }); toast.success("Applied"); router.refresh(); }
-      else { patch(p.id, { state: "failed", error: r.error }); toast.error(r.error); }
-    } else {
-      const r = await rejectProposalAction({ id: p.id });
-      patch(p.id, r.ok ? { state: "rejected" } : { state: "failed", error: r.error });
+    try {
+      if (approve) {
+        const r = await approveProposalAction({ id: p.id });
+        if (r.ok) { patch(p.id, { state: "applied", link: r.link }); toast.success("Applied"); router.refresh(); }
+        else { patch(p.id, { state: "failed", error: r.error }); toast.error(r.error); }
+      } else {
+        const r = await rejectProposalAction({ id: p.id });
+        patch(p.id, r.ok ? { state: "rejected" } : { state: "failed", error: r.error });
+      }
+    } catch {
+      // a network failure: the server may or may not have done it, so say so instead of guessing
+      patch(p.id, { state: "failed", error: "The connection failed. Reload the page and check whether it was applied before trying again." });
     }
   }
 

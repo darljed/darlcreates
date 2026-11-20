@@ -10,6 +10,7 @@ import { runAgent, turnSchema, type AgentReply } from "@/lib/ai/agent/run";
 const sent = new Map<string, number[]>();
 const PER_HOUR = 40;
 function takeSlot(userId: string, now = Date.now()): boolean {
+  if (sent.size > 200) for (const [k, v] of sent) if (v.every((t) => now - t >= 3_600_000)) sent.delete(k); // keep the map small
   const recent = (sent.get(userId) ?? []).filter((t) => now - t < 3_600_000);
   if (recent.length >= PER_HOUR) { sent.set(userId, recent); return false; }
   recent.push(now);

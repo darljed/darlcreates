@@ -34,7 +34,8 @@ to do it by hand. Add a tool only after deciding how it is previewed and what ha
 If the model *says* it proposed something without calling the tool, the reply is flagged ("I did not actually create a proposal").
 
 ## Privacy and safety
-- Read tools return no customer name, email, phone or address, and no payment proof. Only shop data goes to the AI provider.
+- Read tools return no customer name, email, phone, address, tracking number or payment proof. Only shop data goes to the AI provider.
+- The page address is cleaned before it reaches the model: only known filter names with plain-character values, and a path with symbols removed.
 - Tool results and page details are treated as data. Even a tricked model can only create proposals, never apply one.
 - Limits: 8 tool rounds per message, 16 earlier turns sent, 40 messages per admin per hour (in memory per server instance), tool output cut at 6,000 characters.
 - Cost is summed per reply (`costUsd`) from the provider.

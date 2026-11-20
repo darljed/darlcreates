@@ -94,7 +94,7 @@ const getOrder = tool({
   name: "get_order",
   kind: "read",
   description: "One online order by id or order number: lines, totals, payment status, shipment and status history. No customer name, contact or address is shown to you.",
-  params: z.object({ orderId: uuid.optional(), orderNo: z.string().max(40).optional() }),
+  params: z.object({ orderId: uuid.optional(), orderNo: z.string().max(40).optional() }).refine((v) => v.orderId !== undefined || v.orderNo !== undefined, "Give an order id or an order number"),
   run: async (a) => {
     let id = a.orderId;
     if (!id && a.orderNo) id = (await db.select({ id: orders.id }).from(orders).where(eq(orders.orderNo, a.orderNo)).limit(1))[0]?.id;
@@ -105,7 +105,7 @@ const getOrder = tool({
       id: o.id, orderNo: o.orderNo, status: o.status, placed: iso(o.placedAt), subtotalPesos: centsToPesos(o.subtotalCents), shippingPesos: centsToPesos(o.shippingCents), totalPesos: centsToPesos(o.totalCents),
       items: o.items.map((i) => ({ name: i.name, qty: i.qty, unitPricePesos: centsToPesos(i.unitPriceCents), choices: i.summary.map((s) => `${s.label}: ${s.value}`) })),
       payment: o.latestPayment && { status: o.latestPayment.status, amountPesos: centsToPesos(o.latestPayment.amountCents) },
-      shipment: o.shipment && { carrier: o.shipment.carrier, status: o.shipment.status, tracking: o.shipment.trackingNo },
+      shipment: o.shipment && { carrier: o.shipment.carrier, status: o.shipment.status }, // no tracking number: it can be used to look up the customer's delivery
       history: o.history.slice(-8).map((h) => ({ status: h.toStatus, at: iso(h.createdAt) })),
     };
   },
