@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, ChevronDown, Copy, Layers, Loader2, Move, Plus, Redo2, RotateCcw, Rotate3d, ShoppingBag, Trash2, Type, Undo2 } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, Layers, Loader2, Move, Plus, Redo2, RotateCcw, Rotate3d, ShoppingBag, Trash2, Type, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { ViewerLoading } from "@/components/three/viewer-loading";
@@ -21,6 +21,7 @@ import {
 } from "@/components/clicker/clicker-panels";
 import { fileToDataUrl, GRAPHIC_SIDE, readDataUrl, readRaster, readSvg } from "@/components/clicker/image-import";
 import { useClickerFonts } from "@/components/clicker/use-fonts";
+import { downloadStudioFile } from "@/components/admin/studio-download";
 import { addManyToCartAction } from "@/app/(shop)/cart/actions";
 import { redrawPictureAction } from "@/app/(shop)/clicker/actions";
 import { flatColourCount, keyOutPixels, thresholdPixels } from "@/lib/clicker/redraw-post";
@@ -141,11 +142,14 @@ export function ClickerDesigner({
   basePriceCents,
   optionId,
   config,
+  studio = false,
 }: {
   productId: string;
   basePriceCents: number;
   optionId: string;
   config: ClickerConfig;
+  /** Admin design studio: no cart; the bar offers the 3MF and STL downloads instead. */
+  studio?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -153,6 +157,7 @@ export function ClickerDesigner({
   const signedIn = Boolean(session?.user);
   const [adding, startAdd] = useTransition();
 
+  const draftId = studio ? `${productId}:studio` : productId;
   const counter = useRef(1);
   const [slots, setSlots] = useState<Slot[]>(() => [{ key: "c0", qty: 1, h: newHistory(firstSpec(config)) }]);
   const [active, setActive] = useState(0);
@@ -363,7 +368,7 @@ export function ClickerDesigner({
       const res = await redrawPictureAction({ productId, mode, image, retry });
       if (!res.ok) {
         if (res.needs) {
-          try { localStorage.setItem(draftKey(productId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
+          try { localStorage.setItem(draftKey(draftId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
           router.push(`${res.needs === "consent" ? "/consent" : "/sign-in"}?redirect=${encodeURIComponent(pathname)}`);
         }
         throw new Error(res.error);
@@ -427,7 +432,7 @@ export function ClickerDesigner({
     if (restored.current) return;
     restored.current = true;
     try {
-      const raw = localStorage.getItem(draftKey(productId));
+      const raw = localStorage.getItem(draftKey(draftId));
       if (!raw) return;
       const saved = JSON.parse(raw) as { slots?: { qty?: number; spec?: unknown }[] };
       const list: Slot[] = [];
@@ -445,20 +450,20 @@ export function ClickerDesigner({
     } catch {
       /* private mode or a damaged draft: start fresh */
     }
-  }, [productId, config.maxClickers]);
+  }, [draftId, config.maxClickers]);
 
   useEffect(() => {
     if (!restored.current) return;
     const t = setTimeout(() => {
       try {
         const json = JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) });
-        if (json.length < 2_000_000) localStorage.setItem(draftKey(productId), json);
+        if (json.length < 2_000_000) localStorage.setItem(draftKey(draftId), json);
       } catch {
         /* storage full or unavailable */
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [slots, productId]);
+  }, [slots, draftId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -480,7 +485,7 @@ export function ClickerDesigner({
       if (res.ok) {
         const n = "added" in res ? Number(res.added) : list.length;
         toast.success(n > 1 ? `Added ${n} clickers to cart` : "Added to cart", { action: { label: "Go to cart", onClick: () => router.push("/cart") } });
-        try { localStorage.removeItem(draftKey(productId)); sessionStorage.removeItem(pendingKey(productId)); } catch { /* ignore */ }
+        try { localStorage.removeItem(draftKey(draftId)); sessionStorage.removeItem(pendingKey(productId)); } catch { /* ignore */ }
         setSlots([{ key: `c${counter.current++}`, qty: 1, h: newHistory(defaultSpec(config)) }]);
         setActive(0);
         setSelected(null);
@@ -492,12 +497,12 @@ export function ClickerDesigner({
         toast.error(res.error ?? "Could not add to cart");
       }
     },
-    [productId, optionId, router, pathname, config],
+    [productId, draftId, optionId, router, pathname, config],
   );
 
-  async function onAdd() {
-    if (!signedIn) {
-      try { sessionStorage.setItem(pendingKey(productId), JSON.stringify({ tries: 0, at: Date.now() })); localStorage.setItem(draftKey(productId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
+  async function onAdd(format?: "3mf" | "stl") {
+    if (!signedIn && !studio) {
+      try { sessionStorage.setItem(pendingKey(productId), JSON.stringify({ tries: 0, at: Date.now() })); localStorage.setItem(draftKey(draftId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
       router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
@@ -526,6 +531,13 @@ export function ClickerDesigner({
       toast.error("That is a lot of detailed designs at once. Add them in smaller groups.");
       return;
     }
+    if (studio) {
+      const mine = ready[Math.min(active, ready.length - 1)].h.present;
+      startAdd(() => {
+        downloadStudioFile({ productId, kind: "clicker", format: format ?? "3mf", design: mine }).then(() => toast.success(format === "stl" ? "STL files downloaded (zip)" : "3MF downloaded"), (e: Error) => toast.error(e.message));
+      });
+      return;
+    }
     startAdd(() => {
       void addNow(ready);
     });
@@ -533,7 +545,7 @@ export function ClickerDesigner({
 
   // finish an add that was waiting for sign-in or consent
   useEffect(() => {
-    if (sessionLoading || !signedIn) return;
+    if (studio || sessionLoading || !signedIn) return;
     try {
       const raw = sessionStorage.getItem(pendingKey(productId));
       if (!raw) return;
@@ -541,7 +553,7 @@ export function ClickerDesigner({
       sessionStorage.removeItem(pendingKey(productId));
       if (typeof p.at === "number" && Date.now() - p.at < 30 * 60 * 1000) toast.info("Welcome back. Your clicker is ready: press Add to cart.");
     } catch { /* ignore */ }
-  }, [sessionLoading, signedIn, productId]);
+  }, [studio, sessionLoading, signedIn, productId]);
 
   const count = slots.reduce((n, s) => n + s.qty, 0);
   const iconBtn = "size-9";
@@ -797,12 +809,25 @@ export function ClickerDesigner({
             </p>
             <p className="text-2xl font-extrabold text-primary sm:text-3xl">{formatPHP(total)}</p>
           </div>
-          <Button size="lg" className="min-w-44 bg-primary text-primary-foreground sm:min-w-56" disabled={adding || Boolean(problem)} onClick={onAdd}>
+          {studio ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="lg" className="bg-primary text-primary-foreground" disabled={adding || Boolean(problem)} onClick={() => onAdd("3mf")}>
+                {adding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Download className="mr-2 size-4" />}
+                3MF (colours)
+              </Button>
+              <Button size="lg" variant="outline" disabled={adding || Boolean(problem)} onClick={() => onAdd("stl")}>
+                <Download className="mr-2 size-4" />
+                STL (zip)
+              </Button>
+            </div>
+          ) : (
+            <Button size="lg" className="min-w-44 bg-primary text-primary-foreground sm:min-w-56" disabled={adding || Boolean(problem)} onClick={() => onAdd()}>
             {adding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShoppingBag className="mr-2 size-4" />}
             {slots.length > 1 ? `Add all ${slots.length} to cart` : "Add to cart"}
           </Button>
+          )}
         </div>
-        <p className="hidden text-xs text-muted-foreground lg:block">Each clicker is printed to order from this exact design, with a real switch fitted. We check every design before we print it.</p>
+        {!studio && <p className="hidden text-xs text-muted-foreground lg:block">Each clicker is printed to order from this exact design, with a real switch fitted. We check every design before we print it.</p>}
       </div>
     </div>
   );

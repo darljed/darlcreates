@@ -46,6 +46,8 @@ export type ClickerPrint =
   | {
       ok: true;
       file: Uint8Array;
+      /** The same pieces as the 3MF holds, already placed on the plate (for the STL download). */
+      objects: PrintObject[];
       report: {
         pieces: { name: string; object: string; color: string; watertight: boolean; bounds: number[] }[];
         warnings: string[];
@@ -83,6 +85,7 @@ export async function buildClickerPrint(spec: ClickerSpec, title = "Custom click
   return {
     ok: true,
     file: clickerTo3mf(objects, title),
+    objects,
     report: {
       pieces: made.map((m) => ({ name: m.piece.name, object: m.part.object, color: m.piece.color, watertight: isWatertight(m.piece.mesh), bounds: meshBounds(m.piece.mesh) })),
       warnings: layout.warnings,
