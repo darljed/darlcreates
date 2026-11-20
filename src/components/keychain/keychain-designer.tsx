@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Copy, Loader2, Plus, Redo2, RotateCcw, ShoppingBag, Trash2, Undo2 } from "lucide-react";
+import { Copy, Download, Loader2, Plus, Redo2, RotateCcw, ShoppingBag, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import { PalettePicker } from "@/components/clicker/palette-picker";
 import { Slider } from "@/components/clicker/clicker-panels";
 import { useKeychainFonts } from "@/components/keychain/use-keychain-fonts";
 import type { KeychainViewMode } from "@/components/keychain/keychain-viewer";
+import { downloadStudioFile } from "@/components/admin/studio-download";
 import { addManyToCartAction } from "@/app/(shop)/cart/actions";
 import { useSession } from "@/lib/auth-client";
 import { formatPHP } from "@/lib/money";
@@ -73,13 +74,14 @@ const Section = ({ n, title, hint, children }: { n: number; title: string; hint?
 const choiceClass = (on: boolean) =>
   cn("rounded-lg border-2 px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary");
 
-export function KeychainDesigner({ productId, basePriceCents, optionId, config }: { productId: string; basePriceCents: number; optionId: string; config: KeychainConfig }) {
+export function KeychainDesigner({ productId, basePriceCents, optionId, config, studio = false }: { productId: string; basePriceCents: number; optionId: string; config: KeychainConfig; /** Admin design studio: no cart; the bar offers the 3MF and STL downloads instead. */ studio?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, isPending: sessionLoading } = useSession();
   const signedIn = Boolean(session?.user);
   const [adding, startAdd] = useTransition();
 
+  const draftId = studio ? `${productId}:studio` : productId;
   const counter = useRef(1);
   const [slots, setSlots] = useState<Slot[]>(() => [{ key: "k0", qty: 1, h: newHistory(defaultKeychain(config)) }]);
   const [active, setActive] = useState(0);
@@ -151,7 +153,7 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
     if (restored.current) return;
     restored.current = true;
     try {
-      const raw = localStorage.getItem(draftKey(productId));
+      const raw = localStorage.getItem(draftKey(draftId));
       if (!raw) return;
       const saved = JSON.parse(raw) as { slots?: { qty?: number; spec?: unknown }[] };
       const list: Slot[] = [];
@@ -168,19 +170,19 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
     } catch {
       /* private mode or a damaged draft: start fresh */
     }
-  }, [productId, config.maxKeychains]);
+  }, [draftId, config.maxKeychains]);
 
   useEffect(() => {
     if (!restored.current) return;
     const t = setTimeout(() => {
       try {
-        localStorage.setItem(draftKey(productId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) }));
+        localStorage.setItem(draftKey(draftId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) }));
       } catch {
         /* storage full or unavailable */
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [slots, productId]);
+  }, [slots, draftId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -202,7 +204,7 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
       if (res.ok) {
         const n = "added" in res ? Number(res.added) : list.length;
         toast.success(n > 1 ? `Added ${n} keychains to cart` : "Added to cart", { action: { label: "Go to cart", onClick: () => router.push("/cart") } });
-        try { localStorage.removeItem(draftKey(productId)); sessionStorage.removeItem(pendingKey(productId)); } catch { /* ignore */ }
+        try { localStorage.removeItem(draftKey(draftId)); sessionStorage.removeItem(pendingKey(productId)); } catch { /* ignore */ }
         setSlots([{ key: `k${counter.current++}`, qty: 1, h: newHistory(defaultKeychain(config)) }]);
         setActive(0);
         router.refresh();
@@ -213,12 +215,12 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
         toast.error(res.error ?? "Could not add to cart");
       }
     },
-    [productId, optionId, router, pathname, config],
+    [productId, draftId, optionId, router, pathname, config],
   );
 
-  async function onAdd() {
-    if (!signedIn) {
-      try { sessionStorage.setItem(pendingKey(productId), JSON.stringify({ tries: 0, at: Date.now() })); localStorage.setItem(draftKey(productId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
+  async function onAdd(format?: "3mf" | "stl") {
+    if (!signedIn && !studio) {
+      try { sessionStorage.setItem(pendingKey(productId), JSON.stringify({ tries: 0, at: Date.now() })); localStorage.setItem(draftKey(draftId), JSON.stringify({ slots: slots.map((s) => ({ qty: s.qty, spec: s.h.present })) })); } catch { /* ignore */ }
       router.push(`/sign-in?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
@@ -245,6 +247,13 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
       toast.error("That is a lot of keychains at once. Add them in smaller groups.");
       return;
     }
+    if (studio) {
+      const mine = ready[Math.min(active, ready.length - 1)].h.present;
+      startAdd(() => {
+        downloadStudioFile({ productId, kind: "keychain", format: format ?? "3mf", design: mine }).then(() => toast.success(format === "stl" ? "STL files downloaded (zip)" : "3MF downloaded"), (e: Error) => toast.error(e.message));
+      });
+      return;
+    }
     startAdd(() => {
       void addNow(ready);
     });
@@ -252,7 +261,7 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
 
   // finish an add that was waiting for sign-in or consent
   useEffect(() => {
-    if (sessionLoading || !signedIn) return;
+    if (studio || sessionLoading || !signedIn) return;
     try {
       const raw = sessionStorage.getItem(pendingKey(productId));
       if (!raw) return;
@@ -260,7 +269,7 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
       sessionStorage.removeItem(pendingKey(productId));
       if (typeof p.at === "number" && Date.now() - p.at < 30 * 60 * 1000) toast.info("Welcome back. Your keychain is ready: press Add to cart.");
     } catch { /* ignore */ }
-  }, [sessionLoading, signedIn, productId]);
+  }, [studio, sessionLoading, signedIn, productId]);
 
   // --- choices ---------------------------------------------------------------------------------------------------
   function pickStyle(style: StyleId) {
@@ -514,12 +523,25 @@ export function KeychainDesigner({ productId, basePriceCents, optionId, config }
             </p>
             <p className="text-2xl font-extrabold text-primary sm:text-3xl">{formatPHP(total)}</p>
           </div>
-          <Button size="lg" className="min-w-44 bg-primary text-primary-foreground sm:min-w-56" disabled={adding || Boolean(problem)} onClick={onAdd}>
+          {studio ? (
+            <div className="flex flex-wrap gap-2">
+              <Button size="lg" className="bg-primary text-primary-foreground" disabled={adding || Boolean(problem)} onClick={() => onAdd("3mf")}>
+                {adding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Download className="mr-2 size-4" />}
+                3MF (colours)
+              </Button>
+              <Button size="lg" variant="outline" disabled={adding || Boolean(problem)} onClick={() => onAdd("stl")}>
+                <Download className="mr-2 size-4" />
+                STL (zip)
+              </Button>
+            </div>
+          ) : (
+            <Button size="lg" className="min-w-44 bg-primary text-primary-foreground sm:min-w-56" disabled={adding || Boolean(problem)} onClick={() => onAdd()}>
             {adding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShoppingBag className="mr-2 size-4" />}
             {slots.length > 1 ? `Add all ${slots.length} to cart` : "Add to cart"}
           </Button>
+          )}
         </div>
-        <p className="hidden text-xs text-muted-foreground lg:block">Each keychain is 3D-printed to order from this exact design. We check every design before we print it.</p>
+        {!studio && <p className="hidden text-xs text-muted-foreground lg:block">Each keychain is 3D-printed to order from this exact design. We check every design before we print it.</p>}
       </div>
     </div>
   );

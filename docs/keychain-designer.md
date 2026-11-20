@@ -67,8 +67,11 @@ Defaults: steps 70 / 100 / 120 mm = 0 / 30 / 60, line 30, icon 20, bag tag 30, c
 - Fonts are limited to the bundled ones; thin script strokes may be dropped (the customer is told).
 - Emoji as colour pictures are not supported (only the icon presets), by design: one colour per piece.
 
+## Admin design studio
+Admin → Workshop → **Design studio** (`/admin/studio`) shows this designer, and the clicker designer, with `studio` on: no cart or sign-in, and the price bar offers **3MF (colours)** and **STL (zip)** for the design being edited. The browser posts the design to `POST /admin/studio/file`, which checks it with `checkKeychain` / `checkDesign` against the product's settings and builds the file. The STL zip holds one binary STL per print object and colour (an STL has no colours), already on the bed, with a README. Drafts are kept separately from the shop's (`:studio`). It needs a clicker or keychain product to exist (any status), because the product holds the limits.
+
 ## Tests
 `npx tsx scripts/test-keychain.ts [fuzz count]` covers fonts, icons, schema, the owner's limits, price rules, every style x plate x keyring position
 (closed solids, letters inside the plate, no overlaps, loop clear of the letters, hole through the plate), every font with real names, a pseudo-random
 walk of odd designs (default 80), the server check (including an understated length), the 3MF, the cart pricing path and (with the database)
-several keychains added to a cart at once. Browser: open `/keychain`, try the three styles, add to cart, place an order, download the 3MF in the admin order.
+several keychains added to a cart at once. `npx tsx scripts/test-studio.ts` checks the STL zip for a keychain and a clicker. Browser: open `/keychain`, try the three styles, add to cart, place an order, download the 3MF in the admin order.
