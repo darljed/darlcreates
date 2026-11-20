@@ -138,6 +138,13 @@ Last updated: 2026-11-18
 | `saveDraftAction`, `discardDraftAction` | same | Save the owner's edits; discard deletes the draft's files |
 | `createProductFromDraftAction` | same | The approval: creates an unpublished product via `createProductAction`, `attachModelAction`, `addPhotoAction` |
 
+## Admin agent Server Actions (admin only)
+| Action | File | Notes |
+|---|---|---|
+| `agentChatAction` | `(admin)/admin/agent/actions.ts` | One owner message + the chat so far + the page address. Returns the reply and any proposals (never applies one). 40 per hour per admin |
+| `approveProposalAction` | same | Applies a proposal after re-checking it against the live data (refuses if it changed); audited as `agent.apply:<tool>` |
+| `rejectProposalAction`, `pendingProposalsAction` | same | Close a proposal; list the ones still waiting (24 h) |
+
 ## Workshop Server Actions (admin only, all return `{ ok: true, ... }` or `{ ok: false, error }`, never throw)
 
 | Action | File | What it does |

@@ -85,7 +85,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/agent/actions.ts`, `(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -119,6 +119,10 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `ai/crypto.ts` | **Pure.** AES-256-GCM encrypt/decrypt for the saved AI keys |
 | `ai/settings.ts` | **Service (server).** Provider keys (saved wins over env), key status, model preferences, `IMAGE_MODEL` |
 | `ai/providers.ts` | **Service (server).** OpenRouter and Ollama Cloud: model lists, chat (OpenAI format), image generation |
+| `ai/agent/tools.ts` | **Service (server).** The agent's tools: read tools and write tools (preview + apply through the existing Server Actions) |
+| `ai/agent/run.ts` | **Service (server).** The agent loop: system prompt, tool calls, proposals, step limit, claim guard |
+| `ai/agent/apply.ts` | **Service (server).** Apply / reject a proposal with the stale-data check, expiry, audit |
+| `ai/agent/page-context.ts` | **Service (server).** Turns the admin page's address into what the agent is looking at |
 | `ai/draft-types.ts` | **Pure, client-safe.** Copy schema, scenes, the draft payload schema (the browser imports this, never `product-copy.ts`) |
 | `ai/product-copy.ts` | **Pure (server: reads model files).** Model facts, copy prompt/parser/banned-word check, image prompts |
 | `stl-export.ts` | **Pure.** `meshToStl` (binary STL) and `objectsToStlZip` (one STL per print object and colour, plus a README) for the design studio |
@@ -314,6 +318,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `shipping-editor.tsx` | Admin → Shipping: rate table, parcel settings, province zones, "try it" |
 | `studio-download.ts` | Design studio: posts a design to `/admin/studio/file` and saves the returned 3MF or STL zip |
 | `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model picker, test |
+| `../ai/agent-dock.tsx` | (in `components/ai`) The agent chat: floating button on every admin page, Ctrl/Cmd+J, proposal cards with Approve / Reject |
 | `../ai/ai-studio.tsx` | (in `components/ai`) The marketing generator: upload, copy, pictures, approve |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
@@ -381,6 +386,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-psgc.ts` | Location data: completeness, consistency, resolving and refusing codes, matching older addresses, zones |
 | `test-shipping.ts` | Shipping: the rate math, saved settings, real orders (fee, snapshot, forged locations refused) (needs the database) |
 | `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
+| `test-agent.ts` | Admin agent: tools, privacy of read tools, previews, loop with a scripted model, page context, approval guards (needs the database) |
 | `test-ai.ts` | AI studio: key encryption, saved settings (database), model-list parsing, copy parsing and banned words, model facts, fake-key failures |
 | `test-studio.ts` | Design studio: the STL zip for a keychain and a clicker (valid binary STLs per colour; no database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |

@@ -3,8 +3,7 @@
 > Last updated: 2026-11-18
 
 Admin tools that use AI models. Today: **AI settings** (provider keys and model choice) and the **marketing generator**
-(a product page and images drafted from a 3MF/STL and photos of the real print). The **agent** (chat that drafts changes to
-the shop for approval) is the next phase and reuses the same settings and the `ai_drafts` table.
+(a product page and images drafted from a 3MF/STL and photos of the real print). The **agent** (a chat on every admin page that proposes changes for your approval) is documented in [ai-agent.md](./ai-agent.md); it reuses the same settings and the `ai_drafts` table.
 
 ## The rule
 The AI only ever *drafts*. Nothing it makes reaches the shop until a person presses **Approve**, and even then the product is created

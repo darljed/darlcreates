@@ -84,7 +84,7 @@ const assert = (n: string, c: boolean, extra = "") => { if (!c) { failures++; co
     assert("getAiKey returns the saved key", (await getAiKey("ollama")) === "ollama-test-key-9999");
     const st = await getKeyStatus("ollama");
     assert("status shows source and last 4 only", st.configured && st.source === "saved" && st.last4 === "9999" && !JSON.stringify(st).includes("ollama-test"));
-    await saveAiPrefs({ copyProvider: "ollama", copyModel: "m1" }, u.id);
+    await saveAiPrefs({ copyProvider: "ollama", copyModel: "m1", agentProvider: "ollama", agentModel: "" }, u.id);
     assert("prefs round trip", (await getAiPrefs()).copyModel === "m1");
     await saveAiKey("ollama", null, u.id);
     assert("removing the key clears it", (await getAiKey("ollama")) === (process.env.OLLAMA_API_KEY ?? null));

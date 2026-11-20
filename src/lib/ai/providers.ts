@@ -64,10 +64,15 @@ export async function listModels(p: Provider): Promise<{ ok: true; models: Model
 // ---- chat ---------------------------------------------------------------------------------------------------------
 
 export type ChatPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ChatPart[] };
+export type ToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+export type ChatMessage =
+  | { role: "system" | "user"; content: string | ChatPart[] }
+  | { role: "assistant"; content: string | ChatPart[] | null; tool_calls?: ToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+export type ToolSpec = { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } };
 export type AiResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
-type Raw = { error?: { message?: string }; usage?: { cost?: number }; choices?: { message?: { content?: string | null; images?: { image_url?: { url?: string } }[] } }[] };
+type Raw = { error?: { message?: string }; usage?: { cost?: number }; choices?: { message?: { content?: string | null; tool_calls?: ToolCall[]; images?: { image_url?: { url?: string } }[] } }[] };
 
 function failure(status: number, json: Raw, what: string, apiKey: string): { ok: false; error: string } {
   // the provider's wording is shown to the admin, with the key (and anything shaped like one) taken out
@@ -78,14 +83,20 @@ function failure(status: number, json: Raw, what: string, apiKey: string): { ok:
   return { ok: false, error: `${what} failed (${status})${msg ? `: ${msg}` : ""}` };
 }
 
-/** One chat call. `json` asks for a JSON object back. */
-export async function chat(o: { provider: Provider; apiKey: string; model: string; messages: ChatMessage[]; json?: boolean; maxTokens?: number; timeoutMs?: number }): Promise<AiResult<{ text: string; costUsd: number | null }>> {
+/** One chat call. `json` asks for a JSON object back; `tools` lets the model ask for tool calls (see `toolCalls` in the answer). */
+export async function chat(o: { provider: Provider; apiKey: string; model: string; messages: ChatMessage[]; json?: boolean; tools?: ToolSpec[]; maxTokens?: number; timeoutMs?: number }): Promise<AiResult<{ text: string; toolCalls: ToolCall[]; costUsd: number | null }>> {
   let res: Response;
   try {
     res = await fetch(CHAT_URL[o.provider], {
       method: "POST",
       headers: { Authorization: `Bearer ${o.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: o.model, messages: o.messages, max_tokens: o.maxTokens ?? 2000, ...(o.json ? { response_format: { type: "json_object" } } : {}) }),
+      body: JSON.stringify({
+        model: o.model,
+        messages: o.messages,
+        max_tokens: o.maxTokens ?? 2000,
+        ...(o.json ? { response_format: { type: "json_object" } } : {}),
+        ...(o.tools?.length ? { tools: o.tools, tool_choice: "auto" } : {}),
+      }),
       signal: AbortSignal.timeout(o.timeoutMs ?? 90_000),
     });
   } catch {
@@ -93,9 +104,11 @@ export async function chat(o: { provider: Provider; apiKey: string; model: strin
   }
   const json = (await res.json().catch(() => ({}))) as Raw;
   if (!res.ok || json.error) return failure(res.status, json, "The model call", o.apiKey);
-  const text = json.choices?.[0]?.message?.content;
-  if (!text) return { ok: false, error: "The model returned an empty answer." };
-  return { ok: true, text, costUsd: json.usage?.cost ?? null };
+  const msg = json.choices?.[0]?.message;
+  const toolCalls = (msg?.tool_calls ?? []).filter((t) => t?.function?.name && typeof t.id === "string");
+  const text = msg?.content ?? "";
+  if (!text && !toolCalls.length) return { ok: false, error: "The model returned an empty answer." };
+  return { ok: true, text, toolCalls, costUsd: json.usage?.cost ?? null };
 }
 
 /** An image from OpenRouter (chat endpoint with image output). `refs` are data: URLs of reference pictures. */
