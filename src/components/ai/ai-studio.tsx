@@ -121,8 +121,9 @@ function Draft({ current, ready }: { current: Current; ready: Ready }) {
     const saved = await saveDraftAction({ draftId: id, copy, price });
     if (!saved.ok) return toast.error(saved.error);
     await run("create", () => createProductFromDraftAction({ draftId: id, photoKeys: allKeys.filter((k) => chosen.has(k)) }), (r) => {
-      const pid = (r as unknown as { productId: string }).productId;
-      toast.success("Product created as a draft.");
+      const { productId: pid, warnings } = r as unknown as { productId: string; warnings: string[] };
+      if (warnings.length) toast.warning(`Product created, but: ${warnings.join("; ")}. Fix it in the product editor.`, { duration: 15000 });
+      else toast.success("Product created as a draft.");
       router.push(`/admin/products/${pid}`);
     });
   };

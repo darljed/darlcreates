@@ -2,7 +2,7 @@
 
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { aiDrafts } from "@/db/schema";
@@ -35,6 +35,21 @@ async function saveDraft(id: string, payload: DraftPayload, title?: string) {
 
 const uuid = z.string().uuid();
 
+/** Photos as data: URLs for the model. Each is capped (the request body goes to the provider as one JSON); bigger ones are skipped. */
+const MAX_REF_BYTES = 3 * 1024 * 1024;
+async function photoRefs(keys: string[], max: number): Promise<{ refs: string[]; skipped: number }> {
+  const refs: string[] = [];
+  let skipped = 0;
+  for (const k of keys.slice(0, max)) {
+    const b = await bytesOf(k);
+    const t = b && sniffImageType(b);
+    if (!b || !t) continue;
+    if (b.length > MAX_REF_BYTES) { skipped++; continue; }
+    refs.push(`data:image/${t};base64,${Buffer.from(b).toString("base64")}`);
+  }
+  return { refs, skipped };
+}
+
 /** Step 1: the model and the real-print photos are already in storage; read the model's facts and open a draft. */
 export async function startDraftAction(input: unknown): Promise<Result<{ id: string }>> {
   const admin = await requireAdmin();
@@ -58,6 +73,7 @@ export async function startDraftAction(input: unknown): Promise<Result<{ id: str
   const facts = modelFacts(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, format, fileName);
   const payload: DraftPayload = { modelKey, photoKeys, notes, facts, copy: null, price: "", images: [], costUsd: 0, productId: null };
   const [row] = await db.insert(aiDrafts).values({ kind: "product", title: fileName, payload, createdBy: admin.id }).returning({ id: aiDrafts.id });
+  if (!row) return { ok: false, error: "Could not create the draft. Try again." };
   revalidatePath("/admin/ai");
   return { ok: true, id: row.id };
 }
@@ -77,12 +93,7 @@ export async function generateCopyAction(input: unknown): Promise<Result<{ copy:
   const notes = p.data.notes ?? d.payload.notes;
   const models = await listModels(prefs.copyProvider);
   const vision = models.ok && models.models.some((m) => m.id === prefs.copyModel && m.vision);
-  const refs: string[] = [];
-  if (vision) for (const k of d.payload.photoKeys.slice(0, 2)) {
-    const b = await bytesOf(k);
-    const t = b && sniffImageType(b);
-    if (b && t) refs.push(`data:image/${t};base64,${Buffer.from(b).toString("base64")}`);
-  }
+  const refs = vision ? (await photoRefs(d.payload.photoKeys, 2)).refs : [];
   const prompt = copyPrompt(d.payload.facts, notes, p.data.direction ? `Owner's direction for this rewrite: ${p.data.direction}` : "");
   const messages: ChatMessage[] = [{ role: "system", content: COPY_SYSTEM }, { role: "user", content: refs.length ? [{ type: "text", text: prompt + "\n\nThe attached photos show the real product." }, ...refs.map((url) => ({ type: "image_url" as const, image_url: { url } }))] : prompt }];
 
@@ -114,13 +125,8 @@ export async function generateImageAction(input: unknown): Promise<Result<{ key:
   const apiKey = await getAiKey("openrouter");
   if (!apiKey) return { ok: false, error: "Images need an OpenRouter API key (AI settings)." };
 
-  const refs: string[] = [];
-  for (const k of d.payload.photoKeys.slice(0, 3)) {
-    const b = await bytesOf(k);
-    const t = b && sniffImageType(b);
-    if (b && t) refs.push(`data:image/${t};base64,${Buffer.from(b).toString("base64")}`);
-  }
-  if (!refs.length) return { ok: false, error: "Could not read the photos." };
+  const { refs, skipped } = await photoRefs(d.payload.photoKeys, 3);
+  if (!refs.length) return { ok: false, error: skipped ? "The photos are larger than 3 MB each, which is too big to send to the AI. Upload smaller copies." : "Could not read the photos." };
 
   const name = d.payload.copy?.name ?? d.payload.facts.fileName.replace(/\.[a-z0-9]+$/i, "");
   const r = await generateImage({ apiKey, model: IMAGE_MODEL, prompt: imagePrompt(p.data.scene, name, p.data.extra), refs });
@@ -160,7 +166,7 @@ export async function saveDraftAction(input: unknown): Promise<Result> {
  * Approval: only now does anything reach the shop. Creates the product as a DRAFT (unpublished), attaches the model and the
  * chosen pictures (the same actions as the product editor, so every check runs again). Order = the order given.
  */
-export async function createProductFromDraftAction(input: unknown): Promise<Result<{ productId: string }>> {
+export async function createProductFromDraftAction(input: unknown): Promise<Result<{ productId: string; warnings: string[] }>> {
   await requireAdmin();
   const p = z.object({ draftId: uuid, photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(12) }).safeParse(input);
   if (!p.success) return { ok: false, error: "Invalid request." };
@@ -172,22 +178,34 @@ export async function createProductFromDraftAction(input: unknown): Promise<Resu
   const allowed = new Set([...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)]);
   if (p.data.photoKeys.some((k) => !allowed.has(k))) return { ok: false, error: "A picture does not belong to this draft." };
 
-  const created = await createProductAction({ name: copy.name, description: descriptionOf(copy), category: copy.category, basePrice: d.payload.price, status: "draft", weightGrams: "" });
-  if (!created.ok || !created.id) return { ok: false, error: created.ok ? "Could not create the product." : created.error };
-  const productId = created.id;
-  const notes: string[] = [];
+  // claim the draft first: two clicks (or two tabs) cannot both create a product
+  const claimed = await db.update(aiDrafts).set({ status: "applying", updatedAt: new Date() }).where(and(eq(aiDrafts.id, d.id), eq(aiDrafts.status, "draft"))).returning({ id: aiDrafts.id });
+  if (!claimed.length) return { ok: false, error: "This draft is already being approved." };
+  const release = () => db.update(aiDrafts).set({ status: "draft", updatedAt: new Date() }).where(eq(aiDrafts.id, d.id));
+
+  let productId: string;
+  try {
+    const created = await createProductAction({ name: copy.name, description: descriptionOf(copy), category: copy.category, basePrice: d.payload.price, status: "draft", weightGrams: "" });
+    if (!created.ok || !created.id) { await release(); return { ok: false, error: created.ok ? "Could not create the product." : created.error }; }
+    productId = created.id;
+  } catch (e) {
+    await release();
+    throw e;
+  }
+
+  // From here the product exists, so the draft is used up. A failed attachment is a warning on a created product, not a failure.
+  const warnings: string[] = [];
   const att = await attachModelAction({ productId, key: d.payload.modelKey });
-  if (!att.ok) notes.push(`model: ${att.error}`);
+  if (!att.ok) warnings.push(`model: ${att.error}`);
   for (const key of p.data.photoKeys) {
     const r = await addPhotoAction({ productId, key, alt: copy.name });
-    if (!r.ok) notes.push(`photo: ${r.error}`);
+    if (!r.ok) warnings.push(`photo: ${r.error}`);
   }
-  // pictures not chosen are cleaned up (AI images only; the real photos stay in storage where the owner uploaded them)
-  for (const i of d.payload.images) if (!p.data.photoKeys.includes(i.key)) await deleteObject(i.key).catch(() => {});
+  // AI images that were not chosen are cleaned up (the real photos stay in storage where the owner uploaded them)
+  for (const i of d.payload.images) if (!p.data.photoKeys.includes(i.key)) await deleteObject(i.key).catch((e) => console.warn("ai draft: could not delete", i.key, e));
   await db.update(aiDrafts).set({ status: "applied", appliedAt: new Date(), updatedAt: new Date(), payload: { ...d.payload, productId } }).where(eq(aiDrafts.id, d.id));
   revalidatePath("/admin/ai");
-  if (notes.length) return { ok: false, error: `The product was created but: ${notes.join("; ")}. Open it to fix: /admin/products/${productId}` };
-  return { ok: true, productId };
+  return { ok: true, productId, warnings };
 }
 
 export async function discardDraftAction(input: unknown): Promise<Result> {
@@ -196,7 +214,8 @@ export async function discardDraftAction(input: unknown): Promise<Result> {
   if (!p.success) return { ok: false, error: "Invalid request." };
   const d = await loadDraft(p.data.draftId);
   if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  for (const k of [d.payload.modelKey, ...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)]) await deleteObject(k).catch(() => {});
+  // these files were uploaded for this draft only (an applied draft cannot be discarded, and the product keeps its own copies' keys)
+  for (const k of [d.payload.modelKey, ...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)]) await deleteObject(k).catch((e) => console.warn("ai draft: could not delete", k, e));
   await db.update(aiDrafts).set({ status: "discarded", updatedAt: new Date() }).where(eq(aiDrafts.id, d.id));
   revalidatePath("/admin/ai");
   return { ok: true };

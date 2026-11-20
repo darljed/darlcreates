@@ -13,7 +13,7 @@ const assert = (n: string, c: boolean, extra = "") => { if (!c) { failures++; co
 (async () => {
   const { encryptSecret, decryptSecret } = await import("../src/lib/ai/crypto");
   const enc = encryptSecret("sk-test-1234567890");
-  assert("encrypt hides the key", !enc.includes("sk-test") && enc.startsWith("v1:"));
+  assert("encrypt hides the key", !enc.includes("sk-test") && enc.startsWith("v2:"));
   assert("decrypt round trip", decryptSecret(enc) === "sk-test-1234567890");
   assert("tampered value is unreadable", decryptSecret(enc.slice(0, -4) + "AAAA") === null);
   assert("two encryptions differ (random IV)", encryptSecret("x".repeat(10)) !== encryptSecret("x".repeat(10)));
@@ -96,6 +96,15 @@ const assert = (n: string, c: boolean, extra = "") => { if (!c) { failures++; co
       if (old) await db.insert(aiSettings).values(old);
     }
   }
+  // approval claim: of two simultaneous claims on one draft, only one wins
+  const { aiDrafts } = await import("../src/db/schema");
+  const { and } = await import("drizzle-orm");
+  const [dr] = await db.insert(aiDrafts).values({ kind: "product", title: "TEST-claim", payload: {}, createdBy: u.id }).returning({ id: aiDrafts.id });
+  try {
+    const claim = () => db.update(aiDrafts).set({ status: "applying" }).where(and(eq(aiDrafts.id, dr.id), eq(aiDrafts.status, "draft"))).returning({ id: aiDrafts.id });
+    const [c1, c2] = await Promise.all([claim(), claim()]);
+    assert("only one of two simultaneous claims wins", c1.length + c2.length === 1);
+  } finally { await db.delete(aiDrafts).where(eq(aiDrafts.id, dr.id)); }
   if (failures) { console.error(`${failures} failed`); process.exit(1); }
   console.log("all passed");
   process.exit(0);

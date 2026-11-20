@@ -11,7 +11,7 @@ The AI only ever *drafts*. Nothing it makes reaches the shop until a person pres
 **unpublished**. Every write goes through the same Server Actions the product editor uses, so the same checks run again.
 
 ## AI settings (`/admin/ai/settings`)
-- **Keys** for OpenRouter and Ollama Cloud. A key saved here is encrypted (AES-256-GCM, `lib/ai/crypto.ts`) before it is stored in `ai_settings`,
+- **Keys** for OpenRouter and Ollama Cloud. A key saved here is encrypted (AES-256-GCM with a key derived by scrypt, `lib/ai/crypto.ts`) before it is stored in `ai_settings`,
   is never sent back to the browser (the page only learns "set, ends in 1234") and wins over the `OPENROUTER_API_KEY` / `OLLAMA_API_KEY` env var.
   The encryption key comes from `AI_SETTINGS_SECRET`, or `BETTER_AUTH_SECRET` when that is not set. Changing the secret makes saved keys
   unreadable: enter them again. Saving or removing a key is written to `admin_audit`.
@@ -28,8 +28,8 @@ The AI only ever *drafts*. Nothing it makes reaches the shop until a person pres
 3. **Pictures**: hero, lifestyle and close-up, each made from your real photos (up to 3 are sent) with a prompt that says to keep the exact shape, colours and layer lines
    and add no text or logos. One image per request so a slow image cannot time out the page. Up to 9 AI images per draft. You tick which pictures to keep; the real photos
    are in the list too and the page warns when none is ticked (AI images must not be the only thing buyers see).
-4. **Approve**: enter the price, then "Approve and create product". It runs `createProductAction` (status **draft**), `attachModelAction` (which also reads a 3MF
-   for name slot and colours) and `addPhotoAction` for each ticked picture. Unticked AI images are deleted. "Discard" deletes the draft's uploaded files.
+4. **Approve**: the draft is claimed first (status `applying`), so a double click or a second tab cannot create two products. Enter the price, then "Approve and create product". It runs `createProductAction` (status **draft**), `attachModelAction` (which also reads a 3MF
+   for name slot and colours) and `addPhotoAction` for each ticked picture. If the product is created but the model or a picture fails to attach, you still get the product plus a warning (the draft is used up; fix it in the product editor). Unticked AI images are deleted. "Discard" deletes the draft's uploaded files.
 
 Drafts are rows in `ai_drafts` (`kind = product`), so closing the tab loses nothing; recent drafts are listed under the page.
 
@@ -43,6 +43,7 @@ Drafts are rows in `ai_drafts` (`kind = product`), so closing the tab loses noth
 `lib/ai/{crypto,settings,providers,product-copy}.ts`, `db/schema/ai.ts`, `components/ai/*`, `app/(admin)/admin/ai/**`. Tests: `npx tsx scripts/test-ai.ts`.
 
 ## Known limits
+- Photos over 3 MB are not sent to the AI (the request goes out as one JSON body); upload smaller copies.
 - A generated image is about 1.5 MB (PNG, 1024 px). The product editor's photo limit is 5 MB, so a much larger image would be refused at approval.
 - The image model is not switchable in the UI (decision: one model, consistent look).
 - No daily spend cap yet; the per-draft image cap (9) is the only limit.

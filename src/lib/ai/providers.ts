@@ -40,19 +40,24 @@ export function parseOllamaModels(json: unknown): ModelInfo[] {
 }
 
 const listCache = new Map<Provider, { at: number; models: ModelInfo[] }>();
+const listFailed = new Map<Provider, { at: number; error: string }>();
 /** The provider's models (public lists; cached 10 minutes). */
 export async function listModels(p: Provider): Promise<{ ok: true; models: ModelInfo[] } | { ok: false; error: string }> {
   const hit = listCache.get(p);
   if (hit && Date.now() - hit.at < 10 * 60_000) return { ok: true, models: hit.models };
+  const bad = listFailed.get(p); // a failure is remembered for 30 s, so an outage is not hammered
+  if (bad && Date.now() - bad.at < 30_000) return { ok: false, error: bad.error };
+  const fail = (error: string): { ok: false; error: string } => { listFailed.set(p, { at: Date.now(), error }); return { ok: false, error }; };
   try {
     const res = await fetch(p === "openrouter" ? `${BASE.openrouter}/models` : `${BASE.ollama}/api/tags`, { signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return { ok: false, error: `${p} answered ${res.status} when listing models.` };
+    if (!res.ok) return fail(`${p} answered ${res.status} when listing models.`);
     const models = (p === "openrouter" ? parseOpenRouterModels : parseOllamaModels)(await res.json());
-    if (!models.length) return { ok: false, error: "The provider returned no models." };
+    if (!models.length) return fail("The provider returned no models.");
     listCache.set(p, { at: Date.now(), models });
+    listFailed.delete(p);
     return { ok: true, models };
   } catch {
-    return { ok: false, error: "Could not reach the provider to list models." };
+    return fail("Could not reach the provider to list models.");
   }
 }
 
@@ -64,8 +69,9 @@ export type AiResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
 type Raw = { error?: { message?: string }; usage?: { cost?: number }; choices?: { message?: { content?: string | null; images?: { image_url?: { url?: string } }[] } }[] };
 
-function failure(status: number, json: Raw, what: string): { ok: false; error: string } {
-  const msg = json.error?.message?.slice(0, 200);
+function failure(status: number, json: Raw, what: string, apiKey: string): { ok: false; error: string } {
+  // the provider's wording is shown to the admin, with the key (and anything shaped like one) taken out
+  const msg = json.error?.message?.replaceAll(apiKey, "[key]").replace(/\b(sk|or|key)[-_][A-Za-z0-9_-]{8,}/g, "[key]").slice(0, 200);
   if (status === 401 || status === 403) return { ok: false, error: `The provider rejected the API key (${status}). Check it in AI settings.` };
   if (status === 402) return { ok: false, error: "The provider says the account is out of credit." };
   if (status === 429) return { ok: false, error: "The provider is rate limiting. Try again in a minute." };
@@ -86,7 +92,7 @@ export async function chat(o: { provider: Provider; apiKey: string; model: strin
     return { ok: false, error: "Could not reach the provider (network or timeout)." };
   }
   const json = (await res.json().catch(() => ({}))) as Raw;
-  if (!res.ok || json.error) return failure(res.status, json, "The model call");
+  if (!res.ok || json.error) return failure(res.status, json, "The model call", o.apiKey);
   const text = json.choices?.[0]?.message?.content;
   if (!text) return { ok: false, error: "The model returned an empty answer." };
   return { ok: true, text, costUsd: json.usage?.cost ?? null };
@@ -111,7 +117,7 @@ export async function generateImage(o: { apiKey: string; model: string; prompt: 
     return { ok: false, error: "Could not reach OpenRouter (network or timeout)." };
   }
   const json = (await res.json().catch(() => ({}))) as Raw;
-  if (!res.ok || json.error) return failure(res.status, json, "Image generation");
+  if (!res.ok || json.error) return failure(res.status, json, "Image generation", o.apiKey);
   const url = json.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   const m = url ? /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(url) : null;
   if (!m) return { ok: false, error: "The model did not return an image (it may have refused the request). Try again or change the instruction." };
