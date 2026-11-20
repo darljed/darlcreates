@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { isWatertight, meshBounds } from "../name-mesh";
 import { BudgetCache } from "../clicker/budget-cache";
-import { clickerTo3mf, moveMesh } from "../clicker/export-3mf";
+import { clickerTo3mf, moveMesh, type PrintObject } from "../clicker/export-3mf";
 import { extrudeParts, meshOfPart } from "../clicker/extrude";
 import { FIT } from "../clicker/fit";
 import { loadAllFonts } from "../clicker/server";
@@ -31,7 +31,7 @@ export async function checkKeychain(input: unknown, cfg: KeychainConfig): Promis
 
 export type KeychainPrint =
   | { ok: false; error: string }
-  | { ok: true; file: Uint8Array; report: { pieces: { name: string; color: string; watertight: boolean; bounds: number[] }[]; warnings: string[]; lengthMm: number; heightMm: number; filaments: string[] } };
+  | { ok: true; file: Uint8Array; objects: PrintObject[]; report: { pieces: { name: string; color: string; watertight: boolean; bounds: number[] }[]; warnings: string[]; lengthMm: number; heightMm: number; filaments: string[] } };
 
 /** The 3MF for a design: one object lying flat on the plate (plate, name, icon, frame), one part per colour piece. */
 export async function buildKeychainPrint(spec: KeychainSpec, title = "Name keychain"): Promise<KeychainPrint> {
@@ -43,9 +43,11 @@ export async function buildKeychainPrint(spec: KeychainSpec, title = "Name keych
   if (layout.widthMm + 2 * FIT.plateMarginMm > FIT.plateMm || layout.lengthMm + 2 * FIT.plateMarginMm > FIT.plateMm) return { ok: false, error: "This is too big to print on one plate." };
   const dx = FIT.plateMarginMm - layout.bounds.minX, dy = FIT.plateMarginMm - layout.bounds.minY;
   const pieces = solids.map((p) => ({ name: p.name, color: p.color, mesh: moveMesh(meshOfPart(p), dx, dy, 0) }));
+  const objects: PrintObject[] = [{ name: title, wallLoops: 2, pieces }];
   return {
     ok: true,
-    file: clickerTo3mf([{ name: title, wallLoops: 2, pieces }], title),
+    file: clickerTo3mf(objects, title),
+    objects,
     report: {
       pieces: pieces.map((p) => ({ name: p.name, color: p.color, watertight: isWatertight(p.mesh), bounds: meshBounds(p.mesh) })),
       warnings: layout.warnings,

@@ -48,6 +48,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/orders/[id]/job-sheet` | Print job sheet: per order line, the colour (name + hex) and filament of every part, name, sizes, clicker design, colours to load, and what to set by hand. Print or copy as text |
 | `/admin/orders/[id]/waybill` | Internal printable waybill (A6) for our own tracking: barcode, ship-to, pack list, tick boxes |
 | `/admin/orders/[id]/stl/[itemId]` | GET: redirect to a 120 s signed S3 link for an item's print file |
+| `/admin/studio` | Design studio: the clicker and keychain designers without a cart, for orders that came in off the site. `?tool=keychain|clicker` |
+| `/admin/studio/file` | POST: checks a studio design against the product's settings and returns the 3MF, or a ZIP of STLs (one per object and colour) |
 | `/admin/clicker-fit-test` | GET: the clicker fit-test plate as a 3MF (four pocket and four stem tolerances) |
 | `/admin/payments` | Pending GCash verification queue |
 | `/admin/reviews` | Approve / hide reviews |
@@ -112,6 +114,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `model-autoconfig.ts` | **Service (server).** After a 3MF upload: example text → name slot (+ cleaned model), filament colours → Colors option |
 | `threemf.ts` | **Service (pure, server).** Generic 3MF reading/editing, nothing name-specific: unzip with a size cap, plate items and objects, multi-object `threeMfSurface` (skips negative parts; remembers which triangles came from which plate object), the slicer's part list (`readConfigObjects`), colour groups (`colorGroups`), `annotateGroups` (names meshes for the viewer, hides negative parts), `setFilaments`, `addPartTo3mf` (raised = normal part, engraved = negative part), `plateObjectNear` |
 | `part-colors.ts` | **Pure.** Multi-colour models: a colour option can colour one part. `partColorsFor` (viewer), `defaultPartSelection`, `filamentAssignments` (print file), `wholeModelColor` |
+| `stl-export.ts` | **Pure.** `meshToStl` (binary STL) and `objectsToStlZip` (one STL per print object and colour, plus a README) for the design studio |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
 | `stream-bytes.ts` | **Pure.** A byte array as a streamed response body (Vercel limits buffered responses to 4.5 MB, not streamed ones) |
 | `config-summary.ts` | **Pure.** `summarizeConfig`: the readable summary of a customer's selection (re-exported by `cart.ts`) |
@@ -301,6 +304,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `shipping-checker.tsx` | "Check your fee" box on the public shipping page |
 | `services-section.tsx` | The services as cards (landing page, /services) or a slim call-to-action band (shop, empty cart) |
 | `shipping-editor.tsx` | Admin → Shipping: rate table, parcel settings, province zones, "try it" |
+| `studio-download.ts` | Design studio: posts a design to `/admin/studio/file` and saves the returned 3MF or STL zip |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -367,6 +371,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-psgc.ts` | Location data: completeness, consistency, resolving and refusing codes, matching older addresses, zones |
 | `test-shipping.ts` | Shipping: the rate math, saved settings, real orders (fee, snapshot, forged locations refused) (needs the database) |
 | `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
+| `test-studio.ts` | Design studio: the STL zip for a keychain and a clicker (valid binary STLs per colour; no database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
 | `poc-ai-vectorize.ts` | Experiment, not part of the app: asks OpenRouter image models to redraw sample pictures as flat-colour art, traces them with the app's tracer and writes comparison sheets to `/tmp/ai-poc/out` |

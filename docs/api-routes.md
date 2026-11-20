@@ -10,6 +10,7 @@ prices and state transitions.
 | Route | Auth | Purpose |
 |---|---|---|
 | `GET/POST /api/auth/[...all]` | public | BetterAuth (Google OAuth, session) |
+| `POST /admin/studio/file` | admin | Body `{productId, kind: clicker\|keychain, format: 3mf\|stl, design}`. Rebuilds and checks the design against the product's own settings (as the shop does), returns a 3MF, or a ZIP with one STL per object and colour. 422 with the reason when the design is refused. `Cache-Control: private, no-store` |
 | `GET /admin/orders/[id]/stl/[itemId]` | admin | Redirects to a 120s signed S3 URL for the item's STL snapshot. **If the product has a name slot and the customer typed a name, returns a 3MF built on the spot** (the original STL or 3MF + the name as one more part of its object; `Cache-Control: private, no-store`; 422 with the reason if the name cannot be printed). 404 no STL, 503 storage not configured |
 | `POST /api/uploads/presign` | admin | Validates kind/ext/size (`lib/uploads.ts`), returns a 5-min presigned PUT with `content-type` signed. Kinds: `model` (`.stl` or `.3mf`, ≤50 MB; stored under `models/`), `photo` (≤5 MB jpeg/png/webp), `site` (landing-page hero image and brand logos, same limits, admin only, key `site/…`), `customer` (same limits; **any signed-in user**, key `customer/<userId>/…`, 30 per hour). `model`/`photo` are admin-only. Content type is forced from the extension (`model/stl` / `model/3mf`) |
 | `GET /api/files/[...key]` | public for published | Stable URL for catalog files. Signs a fresh 5-min S3 URL per request and 302s to it. Only `photos/`,`stl/`,`models/`,`site/` keys; public only if the file belongs to a published product (or is the current landing hero image / an uploaded logo), else admin only. `site/` files are streamed (not redirected) with `Cache-Control: public, max-age=31536000, immutable` + `nosniff`; an unsaved admin preview is `private, no-store`. `customer/`,`proof/` never served here |
@@ -123,7 +124,7 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
-Last updated: 2026-11-17
+Last updated: 2026-11-18
 
 
 ## Workshop Server Actions (admin only, all return `{ ok: true, ... }` or `{ ok: false, error }`, never throw)
