@@ -127,6 +127,17 @@ Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unp
 Last updated: 2026-11-18
 
 
+## AI studio Server Actions (admin only; `{ ok: true, ... }` or `{ ok: false, error }`)
+| Action | File | Notes |
+|---|---|---|
+| `saveKeyAction`, `removeKeyAction` | `(admin)/admin/ai/settings/actions.ts` | Provider API key, encrypted at rest, never returned; audited |
+| `listModelsAction`, `savePrefsAction`, `testConnectionAction` | same | The provider's models, the chosen writing model, a one-token test call |
+| `startDraftAction` | `(admin)/admin/ai/actions.ts` | Checks the uploaded model and photos, reads the model's facts, opens an `ai_drafts` row |
+| `generateCopyAction` | same | Writes the listing copy with the chosen model (JSON, checked, one retry) |
+| `generateImageAction`, `removeImageAction` | same | One marketing image per call, from the real photos; max 9 per draft |
+| `saveDraftAction`, `discardDraftAction` | same | Save the owner's edits; discard deletes the draft's files |
+| `createProductFromDraftAction` | same | The approval: creates an unpublished product via `createProductAction`, `attachModelAction`, `addPhotoAction` |
+
 ## Workshop Server Actions (admin only, all return `{ ok: true, ... }` or `{ ok: false, error }`, never throw)
 
 | Action | File | What it does |

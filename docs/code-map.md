@@ -57,6 +57,8 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/users`, `/admin/users/[id]` | Customer list and account page (profile, addresses, sessions, controls, activity log) |
 | `/admin/content` | Landing-page editor |
 | `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
+| `/admin/ai` | AI studio: upload a 3MF/STL + real-print photos, draft copy and marketing images, approve to create a draft product |
+| `/admin/ai/settings` | AI settings: OpenRouter and Ollama Cloud keys (encrypted, write-only), model selector, test |
 | `/admin/estimator` | Workshop: the price estimator (cost + three prices), saved estimates, "save as product" |
 | `/admin/inventory` | Workshop: parts, purchase lots, stock adjustments and history |
 | `/admin/sales` | Workshop: the off-site sales (sales taken outside the website), table and kanban |
@@ -83,7 +85,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -114,6 +116,11 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `model-autoconfig.ts` | **Service (server).** After a 3MF upload: example text → name slot (+ cleaned model), filament colours → Colors option |
 | `threemf.ts` | **Service (pure, server).** Generic 3MF reading/editing, nothing name-specific: unzip with a size cap, plate items and objects, multi-object `threeMfSurface` (skips negative parts; remembers which triangles came from which plate object), the slicer's part list (`readConfigObjects`), colour groups (`colorGroups`), `annotateGroups` (names meshes for the viewer, hides negative parts), `setFilaments`, `addPartTo3mf` (raised = normal part, engraved = negative part), `plateObjectNear` |
 | `part-colors.ts` | **Pure.** Multi-colour models: a colour option can colour one part. `partColorsFor` (viewer), `defaultPartSelection`, `filamentAssignments` (print file), `wholeModelColor` |
+| `ai/crypto.ts` | **Pure.** AES-256-GCM encrypt/decrypt for the saved AI keys |
+| `ai/settings.ts` | **Service (server).** Provider keys (saved wins over env), key status, model preferences, `IMAGE_MODEL` |
+| `ai/providers.ts` | **Service (server).** OpenRouter and Ollama Cloud: model lists, chat (OpenAI format), image generation |
+| `ai/draft-types.ts` | **Pure, client-safe.** Copy schema, scenes, the draft payload schema (the browser imports this, never `product-copy.ts`) |
+| `ai/product-copy.ts` | **Pure (server: reads model files).** Model facts, copy prompt/parser/banned-word check, image prompts |
 | `stl-export.ts` | **Pure.** `meshToStl` (binary STL) and `objectsToStlZip` (one STL per print object and colour, plus a README) for the design studio |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
 | `stream-bytes.ts` | **Pure.** A byte array as a streamed response body (Vercel limits buffered responses to 4.5 MB, not streamed ones) |
@@ -194,7 +201,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `schema/catalog.ts` | `products`, `product_photos`, `product_options`, `product_option_values`, `reviews`, `review_photos` |
 | `schema/commerce.ts` | `addresses`, `carts`, `cart_items`, `orders`, `order_items`, `payments`, `shipments`, `order_status_history` |
 | `schema/workshop.ts` | `parts`, `stock_purchases`, `stock_movements`, `product_parts`, `estimates`, `manual_sales` |
-| `schema/site.ts` | `site_content` (26 tables in all) |
+| `schema/ai.ts` | `ai_settings` (encrypted provider keys, model choices), `ai_drafts` (AI work waiting for approval) |
+| `schema/site.ts` | `site_content` (28 tables in all) |
 | `schema/index.ts` | Re-exports |
 | `drizzle/0000_init.sql` … `0003_users_admin.sql` | Applied migrations; `drizzle/meta/` is drizzle-kit state |
 
@@ -305,6 +313,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `services-section.tsx` | The services as cards (landing page, /services) or a slim call-to-action band (shop, empty cart) |
 | `shipping-editor.tsx` | Admin → Shipping: rate table, parcel settings, province zones, "try it" |
 | `studio-download.ts` | Design studio: posts a design to `/admin/studio/file` and saves the returned 3MF or STL zip |
+| `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model picker, test |
+| `../ai/ai-studio.tsx` | (in `components/ai`) The marketing generator: upload, copy, pictures, approve |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -371,6 +381,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-psgc.ts` | Location data: completeness, consistency, resolving and refusing codes, matching older addresses, zones |
 | `test-shipping.ts` | Shipping: the rate math, saved settings, real orders (fee, snapshot, forged locations refused) (needs the database) |
 | `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
+| `test-ai.ts` | AI studio: key encryption, saved settings (database), model-list parsing, copy parsing and banned words, model facts, fake-key failures |
 | `test-studio.ts` | Design studio: the STL zip for a keychain and a clicker (valid binary STLs per colour; no database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
