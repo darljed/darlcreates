@@ -19,6 +19,9 @@ export const IMAGE_MODEL = "google/gemini-3.1-flash-image";
 export const prefsSchema = z.object({
   copyProvider: z.enum(PROVIDERS).default("openrouter"),
   copyModel: z.string().trim().max(120).default(""),
+  /** The agent needs a model that can call tools. Empty = use the copy model. */
+  agentProvider: z.enum(PROVIDERS).default("openrouter"),
+  agentModel: z.string().trim().max(120).default(""),
 });
 export type AiPrefs = z.infer<typeof prefsSchema>;
 

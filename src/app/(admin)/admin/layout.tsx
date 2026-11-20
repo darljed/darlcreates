@@ -1,3 +1,4 @@
+import { AgentDock } from "@/components/ai/agent-dock";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
@@ -74,6 +75,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       >
         {children}
       </InsetShell>
+      <AgentDock />
       <Toaster richColors position="top-center" />
     </>
   );

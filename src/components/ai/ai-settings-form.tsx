@@ -54,13 +54,14 @@ function KeyCard({ provider, status }: { provider: Provider; status: KeyStatus }
   );
 }
 
-export function AiSettingsForm({ status, prefs, imageModel }: { status: Record<Provider, KeyStatus>; prefs: { copyProvider: Provider; copyModel: string }; imageModel: string }) {
-  const [provider, setProvider] = useState<Provider>(prefs.copyProvider);
-  const [model, setModel] = useState(prefs.copyModel);
+type Prefs = { copyProvider: Provider; copyModel: string; agentProvider: Provider; agentModel: string };
+
+/** Provider + searchable model list. `needTools` hides nothing but marks models that cannot call tools. */
+function ModelPicker({ id, provider, model, onChange, status, needTools }: { id: string; provider: Provider; model: string; onChange: (provider: Provider, model: string) => void; status: Record<Provider, KeyStatus>; needTools?: boolean }) {
   const [models, setModels] = useState<ModelInfo[] | null>(null);
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pending, start] = useTransition();
+  const [testing, start] = useTransition();
 
   async function load(p: Provider) {
     setLoading(true);
@@ -71,45 +72,58 @@ export function AiSettingsForm({ status, prefs, imageModel }: { status: Record<P
   }
   const shown = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    const list = (models ?? []).filter((m) => !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
-    return list.slice(0, 300);
+    return (models ?? []).filter((m) => !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)).slice(0, 300);
   }, [models, filter]);
   const picked = models?.find((m) => m.id === model);
 
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label htmlFor={`${id}-prov`}>Provider</Label>
+          <select id={`${id}-prov`} className={selectClass + " w-48"} value={provider} onChange={(e) => { setModels(null); onChange(e.target.value as Provider, ""); }}>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">Ollama Cloud</option>
+          </select>
+        </div>
+        <Button type="button" variant="outline" onClick={() => load(provider)} disabled={loading}>{loading && <Loader2 className="mr-2 size-4 animate-spin" />}{models ? "Reload models" : "Load models"}</Button>
+        {!status[provider].configured && <p className="text-xs text-destructive">No key for {LABEL[provider]} yet.</p>}
+      </div>
+      {models && (
+        <div className="space-y-2">
+          <Input aria-label="Filter models" placeholder={`Filter ${models.length} models (name or id)`} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <select size={8} aria-label="Models" className={selectClass + " h-52"} value={model} onChange={(e) => onChange(provider, e.target.value)}>
+            {shown.filter((m) => !needTools || m.tools).map((m) => <option key={m.id} value={m.id}>{m.name}{m.vision ? " · sees images" : ""}{m.tools ? " · tools" : ""}{m.note ? ` · ${m.note}` : ""}</option>)}
+          </select>
+          {needTools && <p className="text-xs text-muted-foreground">Only models that can call tools are listed.</p>}
+        </div>
+      )}
+      <p className="text-sm">Chosen: <span className="font-mono text-xs">{model ? `${LABEL[provider]} / ${model}` : "none"}</span>{picked && !picked.vision && !needTools && <span className="ml-2 text-xs text-muted-foreground">(text only: it will not read your photos)</span>}</p>
+      <Button type="button" size="sm" variant="outline" disabled={testing || !model || !status[provider].configured} onClick={() => start(async () => { const r = await testConnectionAction({ provider, model }); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Test it</Button>
+    </div>
+  );
+}
+
+export function AiSettingsForm({ status, prefs, imageModel }: { status: Record<Provider, KeyStatus>; prefs: Prefs; imageModel: string }) {
+  const [p, setP] = useState<Prefs>(prefs);
+  const [pending, start] = useTransition();
   return (
     <div className="space-y-4">
       <KeyCard provider="openrouter" status={status.openrouter} />
       <KeyCard provider="ollama" status={status.ollama} />
 
-      <Panel title="Model for writing" description="Used for product copy now, and for the agent later. Pick the provider, load its models, then choose one. A model that can see pictures also reads your photos when it writes.">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="prov">Provider</Label>
-              <select id="prov" className={selectClass + " w-48"} value={provider} onChange={(e) => { setProvider(e.target.value as Provider); setModels(null); setModel(""); }}>
-                <option value="openrouter">OpenRouter</option>
-                <option value="ollama">Ollama Cloud</option>
-              </select>
-            </div>
-            <Button type="button" variant="outline" onClick={() => load(provider)} disabled={loading}>{loading && <Loader2 className="mr-2 size-4 animate-spin" />}{models ? "Reload models" : "Load models"}</Button>
-            {!status[provider].configured && <p className="text-xs text-destructive">No key for {LABEL[provider]} yet.</p>}
-          </div>
-          {models && (
-            <div className="space-y-2">
-              <Input aria-label="Filter models" placeholder={`Filter ${models.length} models (name or id)`} value={filter} onChange={(e) => setFilter(e.target.value)} />
-              <select size={8} aria-label="Models" className={selectClass + " h-52"} value={model} onChange={(e) => setModel(e.target.value)}>
-                {shown.map((m) => <option key={m.id} value={m.id}>{m.name}{m.vision ? " · sees images" : ""}{m.tools ? " · tools" : ""}{m.note ? ` · ${m.note}` : ""}</option>)}
-              </select>
-              {models.length > shown.length && <p className="text-xs text-muted-foreground">Showing the first {shown.length}. Type to narrow the list.</p>}
-            </div>
-          )}
-          <p className="text-sm">Chosen: <span className="font-mono text-xs">{model ? `${LABEL[provider]} / ${model}` : "none"}</span>{picked && !picked.vision && <span className="ml-2 text-xs text-muted-foreground">(text only: it will not read your photos)</span>}</p>
-          <div className="flex gap-2">
-            <Button disabled={pending || !model} onClick={() => start(async () => { const r = await savePrefsAction({ copyProvider: provider, copyModel: model }); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Save model</Button>
-            <Button variant="outline" disabled={pending || !model || !status[provider].configured} onClick={() => start(async () => { const r = await testConnectionAction({ provider, model }); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>Test it</Button>
-          </div>
-        </div>
+      <Panel title="Model for writing" description="Writes product copy in the AI studio. A model that can see pictures also reads your photos when it writes.">
+        <ModelPicker id="copy" provider={p.copyProvider} model={p.copyModel} status={status} onChange={(provider, model) => setP((x) => ({ ...x, copyProvider: provider, copyModel: model }))} />
       </Panel>
+
+      <Panel title="Model for the agent" description="The chat on every admin page (Ctrl/Cmd+J). It must be able to call tools. Leave empty to use the writing model.">
+        <ModelPicker id="agent" needTools provider={p.agentProvider} model={p.agentModel} status={status} onChange={(provider, model) => setP((x) => ({ ...x, agentProvider: provider, agentModel: model }))} />
+      </Panel>
+
+      <div className="flex items-center gap-3">
+        <Button disabled={pending || !p.copyModel} onClick={() => start(async () => { const r = await savePrefsAction(p); if (r.ok) toast.success(r.message); else toast.error(r.error); })}>{pending && <Loader2 className="mr-2 size-4 animate-spin" />}Save models</Button>
+        <p className="text-xs text-muted-foreground">Saves both choices.</p>
+      </div>
 
       <Panel title="Model for images" description="Fixed, so every product looks consistent.">
         <p className="text-sm"><span className="font-mono text-xs">OpenRouter / {imageModel}</span>: Google&apos;s image model that edits from your real photos and keeps the product&apos;s shape and colours. About $0.06 per image. Needs the OpenRouter key.</p>

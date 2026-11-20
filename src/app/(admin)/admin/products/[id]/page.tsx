@@ -42,7 +42,9 @@ export default async function EditProductPage({
     <div className="max-w-3xl space-y-5">
       <div>
         <PageHeader title={product.name} />
+        {/* keyed by its data, so a change made elsewhere (the agent, another tab) shows up instead of being overwritten by a stale form */}
         <ProductForm
+          key={JSON.stringify([product.name, product.description, product.category, product.basePriceCents, product.weightGrams, product.status])}
           initial={{
             id: product.id,
             name: product.name,
