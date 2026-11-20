@@ -186,6 +186,7 @@ Verified against the code on 2026-11-09 (not from memory).
 |---|---|---|
 | F-16 | **3MF as personalized-order output** | Upload + preview of 3MF is done (see Resolved F-16a). Still open: *generating* a 3MF per personalized order (base + name as separate parts). Depends on F-17. |
 | F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder). **Proof of concept built 2026-11-11: [name-on-model.md](./name-on-model.md)** (G-79 to G-85 are what is left) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
+| F-18 | **AI agent (phase 2 of the AI studio)** | A chat in the admin that drafts changes (products, prices, stock, sales log) as proposals in `ai_drafts` (`kind = agent`); a person reviews and approves, and only then are the changes applied through the existing Server Actions. Tool registry over the services, also exposed as an MCP server. Never exposed to the agent: payment verification, refunds, roles, deletes. Uses the keys and model choice from AI settings. Phase 1 (settings + marketing generator) is built: [ai-studio.md](./ai-studio.md). Also open: a daily AI spend cap, and a draft stuck in `applying` after a crash has no screen to release it |
 
 ## D. Resolved
 

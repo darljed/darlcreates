@@ -135,6 +135,10 @@ export async function generateImageAction(input: unknown): Promise<Result<{ key:
   await putObject(key, r.bytes, r.mime);
   // re-read so two images finishing together do not overwrite each other
   const fresh = (await loadDraft(d.id)) ?? d;
+  if (fresh.payload.images.length >= MAX_IMAGES_PER_DRAFT) {
+    await deleteObject(key).catch(() => {});
+    return { ok: false, error: `This draft already has ${MAX_IMAGES_PER_DRAFT} generated images. Remove one first.` };
+  }
   await saveDraft(d.id, { ...fresh.payload, images: [...fresh.payload.images, { key, scene: p.data.scene, extra: p.data.extra }], costUsd: fresh.payload.costUsd + (r.costUsd ?? 0) });
   return { ok: true, key };
 }
