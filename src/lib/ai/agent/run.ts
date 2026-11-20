@@ -49,7 +49,7 @@ async function proposeWrite(tool: Tool, args: Record<string, unknown>, page: str
 }
 
 const clip = (v: unknown) => {
-  const s = typeof v === "string" ? v : JSON.stringify(v);
+  const s = typeof v === "string" ? v : (JSON.stringify(v) ?? "null");
   return s.length > MAX_TOOL_CHARS ? `${s.slice(0, MAX_TOOL_CHARS)}… (cut)` : s;
 };
 

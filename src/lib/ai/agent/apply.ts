@@ -30,7 +30,7 @@ const setStatus = (id: string, status: string, payload?: Payload) =>
 export async function applyProposal(id: string, actorId: string): Promise<{ ok: true; link?: string } | { ok: false; error: string }> {
   const row = await load(id);
   if (!row) return { ok: false, error: "Proposal not found." };
-  if (row.status !== "draft") return { ok: false, error: row.status === "applied" ? "This was already applied." : "This proposal can no longer be applied." };
+  if (row.status !== "draft") return { ok: false, error: row.status === "applied" ? "This was already applied." : row.status === "applying" ? "This proposal is already being applied." : "This proposal can no longer be applied." };
   if (Date.now() - row.createdAt.getTime() > PROPOSAL_TTL_MS) { await setStatus(id, "expired"); return { ok: false, error: "This proposal is more than a day old. Ask the agent again." }; }
   const payload = row.payload as Payload;
   const tool = toolByName(payload.tool);
