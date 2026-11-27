@@ -49,7 +49,7 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
     ? await db
         .select({ productId: productPhotos.productId, key: productPhotos.s3Key })
         .from(productPhotos)
-        .where(inArray(productPhotos.productId, rows.map((p) => p.id)))
+        .where(and(inArray(productPhotos.productId, rows.map((p) => p.id)), eq(productPhotos.hidden, false)))
         .orderBy(asc(productPhotos.sort))
     : [];
   const firstPhoto = new Map<string, string>();
@@ -111,7 +111,8 @@ export type FullProduct = {
   stlKey: string | null;
   /** Packed weight of one unit in grams, or null (the shop default applies). */
   weightGrams: number | null;
-  photos: { id: string; key: string; alt: string }[];
+  /** `hidden` = taken off the shop in the image gallery (admin sees hidden ones; the storefront does not). */
+  photos: { id: string; key: string; alt: string; hidden: boolean }[];
   options: ProductOptionInput[];
   /** How colours are chosen: custom, presets or both (see lib/presets.ts). Use `effectiveMode` with `presets` to get what customers see. */
   designMode: string;
@@ -139,8 +140,8 @@ export async function getProductById(id: string, opts: ReadOptions = {}): Promis
   return (await getProductsByIds([id], opts)).get(id) ?? null;
 }
 
-/** `raw`: every colour the product has, ignoring the shop's colour inventory (admin screens, old orders). */
-type ReadOptions = { raw?: boolean };
+/** `raw`: every colour the product has, ignoring the shop's colour inventory (admin screens, old orders). `allPhotos`: include photos hidden in the image gallery (admin only). */
+type ReadOptions = { raw?: boolean; allPhotos?: boolean };
 
 /**
  * Several products with their photos, options and values, in ONE round of four queries run together (the database may be
@@ -152,7 +153,9 @@ export async function getProductsByIds(ids: string[] | SQLWrapper, opts: ReadOpt
   if (Array.isArray(unique) && unique.length === 0) return new Map();
   const [rows, photos, optRows, vals, inventory, presetRows] = await Promise.all([
     db.select().from(products).where(inArray(products.id, unique)),
-    db.select().from(productPhotos).where(inArray(productPhotos.productId, unique)).orderBy(asc(productPhotos.sort)),
+    opts.allPhotos
+      ? db.select().from(productPhotos).where(inArray(productPhotos.productId, unique)).orderBy(asc(productPhotos.sort))
+      : db.select().from(productPhotos).where(and(inArray(productPhotos.productId, unique), eq(productPhotos.hidden, false))).orderBy(asc(productPhotos.sort)),
     db.select().from(productOptions).where(inArray(productOptions.productId, unique)).orderBy(asc(productOptions.sort)),
     db
       .select({ v: productOptionValues })
@@ -207,7 +210,7 @@ function assemble(
       status: p.status,
       stlKey: p.stlKey,
       weightGrams: p.weightGrams,
-      photos: photos.filter((ph) => ph.productId === p.id).map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
+      photos: photos.filter((ph) => ph.productId === p.id).map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt, hidden: ph.hidden })),
       options,
       designMode: p.designMode,
       presets,

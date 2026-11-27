@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { aiDrafts } from "@/db/schema";
+import { aiDrafts, aiImages } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { deleteObject } from "@/lib/storage";
 import { KEY_PATTERNS } from "@/lib/uploads";
@@ -140,7 +140,7 @@ export async function saveDraftAction(input: unknown): Promise<Result> {
  * double click or a second tab cannot do it twice.
  */
 export async function applyDraftAction(input: unknown): Promise<Result<{ productId: string; created: boolean; warnings: string[]; snapshot: Snapshot | null }>> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const p = z.object({ draftId: uuid, photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(18) }).safeParse(input);
   if (!p.success) return { ok: false, error: "Invalid request." };
   const d = await loadDraft(p.data.draftId);
@@ -190,6 +190,14 @@ export async function applyDraftAction(input: unknown): Promise<Result<{ product
   for (const key of pictures) {
     const r = await addPhotoAction({ productId, key, alt: copy?.name ?? existing?.name ?? "" });
     if (r.ok) added.push(key); else warnings.push(`photo: ${r.error}`);
+  }
+  // the chat's mockups enter the image gallery too, so the product has one history of its generated pictures
+  const chatMockups = added
+    .map((key) => ({ key, img: d.payload.images.find((i) => i.key === key) }))
+    .filter((e): e is { key: string; img: NonNullable<typeof e.img> } => Boolean(e.img));
+  if (chatMockups.length) {
+    await db.insert(aiImages).values(chatMockups.map(({ key, img }) => ({ productId, s3Key: key, scene: img.scene === "hero" ? "studio" : img.scene, direction: img.extra, model: img.model || "chat mockup", createdBy: admin.id })));
+    revalidatePath("/admin/ai/images");
   }
   const note = created
     ? `Created "${copy!.name}" as an unpublished draft${((w) => (w.length ? ` with ${w.join(" and ")}` : ""))([d.payload.modelKey ? "its 3D file" : "", added.length ? `${added.length} picture${added.length > 1 ? "s" : ""}` : ""].filter(Boolean))}. Next: ask me to suggest designs and options for it, or to check the price.`

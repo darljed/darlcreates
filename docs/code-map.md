@@ -59,6 +59,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
 | `/admin/ai` | Product studio: one chat per product (`?product=<id>`, or `?draft=<id>` for a product not created yet): listing, mockups, price, designs and options |
 | `/admin/ai/settings` | AI settings: OpenRouter and Ollama Cloud keys (encrypted, write-only), model selector, test |
+| `/admin/ai` | Product studio's right side has two tabs: "Listing & pictures" (the review panels) and "AI images" (the product's generated pictures), see [image-gallery.md](../docs/image-gallery.md) |
 | `/admin/estimator` | Workshop: the price estimator (cost + three prices), saved estimates, "save as product" |
 | `/admin/inventory` | Workshop: parts, purchase lots, stock adjustments and history |
 | `/admin/sales` | Workshop: the off-site sales (sales taken outside the website), table and kanban |
@@ -85,7 +86,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(admin)/admin/agent/actions.ts`, `(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/preset-actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/agent/actions.ts`, `(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/image-actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/preset-actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -120,6 +121,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `ai/settings.ts` | **Service (server).** Provider keys (saved wins over env), key status, model preferences (writing, agent, image), the default `IMAGE_MODEL` |
 | `ai/providers.ts` | **Service (server).** OpenRouter and Ollama Cloud: text and image model lists, chat (OpenAI format), image generation (also image-only models) |
 | `ai/studio.ts` | **Service (server).** The Product studio chat: one chat per product, locked read-modify-write of the draft, snapshot with proposal cards, file checks, the assistant loop (listing, mockups, and the product and option tools forced to the chat's product) |
+| `ai/image-presets.ts` | **Pure.** The image prompts and the image gallery's presets (Cover / Studio / Lifestyle / Detail / Custom), the scene prompts with the real-product guard, and the cover prompt that overlays the product's name (browser-safe; re-exported by `ai/product-copy.ts`) |
+| `ai/image-studio.ts` | **Service (server).** The image gallery: generation from presets with the product's real photos (Cover / Studio / Lifestyle / Detail / Custom, prompts in `ai/product-copy.ts`), `productGallery` (tiles with what is on the product), place on / take off the product (`product_photos.hidden`), set cover, delete (refused while on the product), alt text from the chat model; costs recorded per picture |
 | `ai/agent/tools.ts` | **Service (server).** The agent's tools: read tools and write tools (preview + apply through the existing Server Actions) |
 | `ai/agent/options-tools.ts` | **Service (server).** Tools for one product's customization (the Product studio chat, also offered to the agent): read the options, designs and shop colours; propose designs, design mode, colours per option, option and choice edits, new size / text / colour options. Words are matched to real ids; apply runs the product editor's Server Actions |
 | `ai/agent/run.ts` | **Service (server).** The agent loop: system prompt, tool calls, proposals, step limit, claim guard |
@@ -325,6 +328,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model pickers (writing, agent, image) with the active model marked, test |
 | `../ai/agent-dock.tsx` | (in `components/ai`) The agent chat: floating button on every admin page, Ctrl/Cmd+J, proposal cards with Approve / Reject |
 | `../ai/ai-studio.tsx` | (in `components/ai`) The Product studio: product picker, the chat (attachments, mockups, proposal cards with Approve / Reject / Approve all, the image model dropdown in the message box), and the review side (the product's designs with a 3D preview, the listing, pictures, Create / Apply) |
+| `../ai/image-gallery.tsx` | (in `components/ai`) The Product studio's "AI images" tab: preset chips + one-line extra direction + compact model select + Generate / Generate set, and the grid of generated pictures with badges (preset, cost, on / off / cover) and per-tile icon buttons (add / remove, cover, regenerate, alt text, delete — via the app dialog) |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -395,6 +399,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-agent.ts` | Admin agent: tools, privacy of read tools, previews, loop with a scripted model, page context, approval guards (needs the database) |
 | `test-options-agent.ts` | The option tools: registry, previews against a real product (words to real options and colours, refusals), the agent loop limited to them (proposals only, other tools refused), stale-data refusal (needs the database) |
 | `test-ai-studio.ts` | Product studio chat: image-model list parsing, old drafts still load, the loop with a fake model and fake image model, refusals and limits, one chat per product (product tools only once it exists, always on its product, cards on the turn), locked writes (needs the database) |
+| `test-image-studio.ts` | Image gallery: the preset prompts (cover with the name overlay, the others keep the real product), one generation with fake image model and storage (gallery row records cost and model, vision guard, per-product cap), the standard set, and the on/off-the-product, cover, alt-text and delete actions against `product_photos` (needs the database) |
 | `test-ai.ts` | AI settings and helpers: key encryption, saved settings (database), model-list parsing, copy parsing and banned words, model facts, fake-key failures |
 | `test-studio.ts` | Design studio: the STL zip for a keychain and a clicker (valid binary STLs per colour; no database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |

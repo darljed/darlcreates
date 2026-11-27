@@ -31,7 +31,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   const { tool: t } = await searchParams;
   const tool: Tool = t === "clicker" ? "clicker" : "keychain";
   const id = await toolProductId(tool);
-  const product = id ? await getProductById(id, { raw: true }) : null;
+  const product = id ? await getProductById(id, { raw: true, allPhotos: true }) : null;
   const clicker = product && tool === "clicker" ? clickerOptionOf(product.options) : null;
   const keychain = product && tool === "keychain" ? keychainOptionOf(product.options) : null;
 

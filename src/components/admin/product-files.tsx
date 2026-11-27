@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Box, ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadToS3 } from "@/lib/upload-client";
+import { cn } from "@/lib/utils";
 import {
   addPhotoAction,
   attachModelAction,
@@ -24,7 +25,7 @@ export function ProductFiles({
 }: {
   productId: string;
   stlKey: string | null;
-  photos: { id: string; url: string; alt: string }[];
+  photos: { id: string; url: string; alt: string; hidden?: boolean }[];
 }) {
   const router = useRouter();
   const stlInput = useRef<HTMLInputElement>(null);
@@ -137,8 +138,13 @@ export function ProductFiles({
               <img
                 src={p.url}
                 alt={p.alt || "Product photo"}
-                className="size-24 rounded-lg border object-cover"
+                className={cn("size-24 rounded-lg border object-cover", p.hidden && "opacity-50")}
               />
+              {p.hidden && (
+                <span aria-hidden className="absolute inset-x-0 bottom-1 mx-auto w-fit rounded bg-amber-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  hidden
+                </span>
+              )}
               <button
                 type="button"
                 aria-label="Remove photo"

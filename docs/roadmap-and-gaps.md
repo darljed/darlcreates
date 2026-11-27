@@ -194,6 +194,7 @@ Verified against the code on 2026-11-09 (not from memory).
 
 | ID | Resolved | Notes |
 |---|---|---|
+| F-21 | 2026-11-27 | **Image gallery: AI product pictures without chat.** `/admin/ai/images` per product: preset chips (Cover with the product's name overlaid / Studio / Lifestyle / Detail / Custom + extra direction + image model), "Generate set" (Cover+Studio+Lifestyle), a grid with on/off-the-product (`product_photos.hidden`, reversible), set as cover (lowest sort), regenerate, AI alt text, delete (refused while on the product, removes the stored file), per-picture USD costs and a 40-per-product cap (`ai_images`, migration 0010). Chat-applied mockups enter the same gallery. All default catalog reads filter `hidden = false`; admin reads use `{ allPhotos: true }`. Doc: [image-gallery.md](./image-gallery.md). Test: `test-image-studio.ts`. |
 | G-25 | 2026-11-09 | `tasks.md` updated with real status. |
 | G-01 | 2026-11-09 | Admin STL/photo upload: `POST /api/uploads/presign` (admin-only, validated, content-type signed) + `ProductFiles` UI; `attachStlAction` verifies the object exists via HEAD. Test: `scripts/test-uploads.ts`. |
 | G-02 | 2026-11-09 | `addPhotoAction` / `deletePhotoAction` + photo grid in the product editor. |

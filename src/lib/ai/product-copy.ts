@@ -1,8 +1,9 @@
 /**
- * The marketing generator's pure parts: what we know about a model file, the prompts for the copy and the images, and
- * checking what the AI sent back. No network, no database, so scripts can test it.
+ * The marketing generator's pure parts: what we know about a model file and the prompts for the copy, and
+ * checking what the AI sent back. No network, no database, so scripts can test it. (The image prompts and the image
+ * gallery's presets live in ai/image-presets.ts, re-exported here.)
  */
-import { copySchema, type ProductCopy, type Scene } from "./draft-types";
+import { copySchema, type ProductCopy } from "./draft-types";
 export * from "./draft-types";
 import { meshBounds } from "../name-mesh";
 import { readBaseSurface, open3mf, projectFilaments } from "../name-3mf";
@@ -70,21 +71,6 @@ export function descriptionOf(copy: ProductCopy): string {
   return text.length <= 2000 ? text : `${copy.description}`.slice(0, 2000);
 }
 
-// ---- the images ---------------------------------------------------------------------------------------------------
+// ---- the images (and the image gallery's presets), in ai/image-presets.ts ----
 
-const KEEP = "The attached photo(s) show the REAL 3D-printed product. Keep its exact shape, proportions, colours, surface texture and layer lines. Do not add, remove or restyle any feature. Do not add text, logos, watermarks, price tags or people's faces.";
-const SCENE_PROMPT: Record<Scene, string> = {
-  hero: "Create a clean e-commerce hero photo of this exact product on a seamless light backdrop with soft studio lighting and a gentle natural shadow. The product is centred and fills about 70% of the frame.",
-  lifestyle: "Create a realistic lifestyle photo showing this exact product in natural use or on display in a fitting everyday setting (a desk, a bag, a shelf, a hand). Soft daylight, shallow depth of field, the product is the clear subject.",
-  detail: "Create a macro close-up of this exact product that shows its printed texture and finish in sharp focus, with a softly blurred neutral background.",
-};
-
-export function imagePrompt(scene: Scene, name: string, extra = ""): string {
-  return [`${SCENE_PROMPT[scene]} The product is "${name}".`, KEEP, extra.trim() ? `Extra direction from the owner: ${extra.trim().slice(0, 300)}` : ""].filter(Boolean).join("\n\n");
-}
-
-/** A mockup described in the owner's (or the chat assistant's) own words. The real product must still stay unchanged. */
-export function customImagePrompt(direction: string, name: string): string {
-  return [`${direction.trim().slice(0, 500)}\n\nThe product is "${name}".`, KEEP].join("\n\n");
-}
-
+export * from "./image-presets";

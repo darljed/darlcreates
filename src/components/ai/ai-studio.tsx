@@ -28,6 +28,8 @@ import { MAX_IMAGES_PER_DRAFT, MAX_PHOTOS_PER_DRAFT, type ProductCopy } from "@/
 import type { ConfigSelection, ProductOptionInput } from "@/lib/pricing";
 import type { ModelInfo } from "@/lib/ai/providers";
 import type { ProposalView, Snapshot } from "@/lib/ai/studio";
+import type { GalleryImage } from "@/lib/ai/image-studio";
+import { ImageGalleryPanel } from "@/components/ai/image-gallery";
 import { applyDraftAction, discardDraftAction, removeImageAction, saveDraftAction, studioSendAction, studioSnapshotAction } from "@/app/(admin)/admin/ai/actions";
 import { approveProposalAction, rejectProposalAction } from "@/app/(admin)/admin/agent/actions";
 import { useConfirm } from "@/components/confirm-provider";
@@ -50,7 +52,7 @@ const IDEAS_PRODUCT = ["Suggest 4 ready-made designs that look good together", "
 const shortModel = (id: string) => id.split("/").pop() ?? id;
 const keysOf = (s: Snapshot | null) => (s ? [...s.payload.images.map((i) => i.key), ...s.payload.photoKeys] : []);
 
-export function AiStudio({ current, productId, product, products, ready, imageModels, defaultImageModel, chatModel }: {
+export function AiStudio({ current, productId, product, products, ready, imageModels, defaultImageModel, chatModel, gallery, realPhotoCount: realPhotos }: {
   current: Snapshot | null;
   /** The product this chat is for (an existing product with no chat yet has `current` null). */
   productId: string | null;
@@ -61,6 +63,9 @@ export function AiStudio({ current, productId, product, products, ready, imageMo
   defaultImageModel: string;
   /** The model that runs the chat ("OpenRouter / google/…"), or null when none is chosen. */
   chatModel: string | null;
+  /** The right-hand "AI images" tab: this product's generated pictures and how many real photos the generator uses. */
+  gallery: GalleryImage[];
+  realPhotoCount: number;
 }) {
   const router = useRouter();
   const [snap, setSnap] = useState<Snapshot | null>(current);
@@ -74,6 +79,8 @@ export function AiStudio({ current, productId, product, products, ready, imageMo
   const [busy, setBusy] = useState<string | null>(null);
   const [cardBusy, setCardBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  /** What the right-hand review column shows: the listing and pictures, or the product's generated pictures. */
+  const [rightTab, setRightTab] = useState<"proposal" | "images">("proposal");
   const photoInput = useRef<HTMLInputElement>(null);
   const modelInput = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -295,6 +302,16 @@ export function AiStudio({ current, productId, product, products, ready, imageMo
 
         {/* ---- review ---- */}
         <div className="space-y-4 lg:col-span-2">
+          {linked && (
+            <div className="flex w-fit gap-1 rounded-lg border bg-muted/40 p-1" role="tablist" aria-label="The studio's right side">
+              <button type="button" role="tab" aria-selected={rightTab === "proposal"} onClick={() => setRightTab("proposal")} className={cn("rounded-md px-3 py-1.5 text-sm font-medium", rightTab === "proposal" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>Listing &amp; pictures</button>
+              <button type="button" role="tab" aria-selected={rightTab === "images"} onClick={() => setRightTab("images")} className={cn("rounded-md px-3 py-1.5 text-sm font-medium", rightTab === "images" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}>AI images{gallery.length ? ` (${gallery.length})` : ""}</button>
+            </div>
+          )}
+          {linked && rightTab === "images" ? (
+            <ImageGalleryPanel productId={linked} gallery={gallery} photoCount={realPhotos} imageModels={imageModels} defaultImageModel={defaultImageModel} ready={{ openrouterKey: ready.imagesKey }} />
+          ) : (
+            <>
           {product && (
             <Panel title="Ready-made designs" description={`Customers: ${product.designModeLabel}`}>
               <div className="space-y-3">
@@ -384,6 +401,8 @@ export function AiStudio({ current, productId, product, products, ready, imageMo
             </div>
             {!linked && payload && !payload.modelKey && <p className="mt-2 text-xs text-amber-700">No 3D file is attached yet. The product will be created without one (and without designs).</p>}
           </Panel>
+            </>
+          )}
         </div>
       </div>
     </div>

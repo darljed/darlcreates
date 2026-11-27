@@ -62,6 +62,8 @@ export const productPhotos = pgTable("product_photos", {
   s3Key: text("s3_key").notNull(),
   alt: text("alt").notNull().default(""),
   sort: integer("sort").notNull().default(0),
+  /** Taken off the shop (image-studio/gallery toggle) but kept, so it can be put back with one click. */
+  hidden: boolean("hidden").notNull().default(false),
 });
 
 /**
