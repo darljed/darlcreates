@@ -49,9 +49,9 @@ Sending is best-effort: a failed send is logged and never blocks an order, payme
 
 | Variable | What it is | Read in | If missing |
 |---|---|---|---|
-| `OLLAMA_API_KEY` | Ollama Cloud key for the AI studio's writing model. Can instead be saved in Admin → AI settings (the saved key wins) | `src/lib/ai/settings.ts` | The Ollama provider is unavailable until a key is saved |
+| `OLLAMA_API_KEY` | Ollama Cloud key for the Product studio's writing model. Can instead be saved in Admin → AI settings (the saved key wins) | `src/lib/ai/settings.ts` | The Ollama provider is unavailable until a key is saved |
 | `AI_SETTINGS_SECRET` | Secret that encrypts the AI keys saved in the database (AES-256-GCM). Falls back to `BETTER_AUTH_SECRET` | `src/lib/ai/crypto.ts` | Saving a key fails when neither secret is set. Changing it makes saved keys unreadable (enter them again) |
-| `OPENROUTER_API_KEY` | OpenRouter key; the clicker designer sends a customer's picture to OpenRouter image models to redraw it (flat colours or a 2-colour portrait). The AI studio uses it too unless a key is saved in Admin → AI settings. Server only, never sent to the browser | `src/lib/clicker/redraw.ts`, `scripts/poc-ai-vectorize.ts`, `scripts/make-redraw-examples.ts` | The feature is hidden from customers, whatever the product's switch says. Each redraw costs about $0.01 to $0.07 |
+| `OPENROUTER_API_KEY` | OpenRouter key; the clicker designer sends a customer's picture to OpenRouter image models to redraw it (flat colours or a 2-colour portrait). The Product studio uses it too unless a key is saved in Admin → AI settings. Server only, never sent to the browser | `src/lib/clicker/redraw.ts`, `scripts/poc-ai-vectorize.ts`, `scripts/make-redraw-examples.ts` | The feature is hidden from customers, whatever the product's switch says. Each redraw costs about $0.01 to $0.07 |
 
 ### Shown to customers (build-time, public)
 

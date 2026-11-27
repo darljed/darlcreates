@@ -33,7 +33,8 @@ function pageKind(path: string): { label: string; ideas: string[] } {
   return { label: "this page", ideas: ["What can you do on this page?"] };
 }
 
-function Diff({ p }: { p: Prop }) {
+/** A proposal's before → after, field by field. Also used by the product studio's proposal cards. */
+export function Diff({ p }: { p: Pick<Prop, "before" | "after"> }) {
   const keys = Object.keys(p.after);
   const show = (v: unknown) => (v === null || v === undefined ? "none" : typeof v === "string" ? v : JSON.stringify(v));
   return (

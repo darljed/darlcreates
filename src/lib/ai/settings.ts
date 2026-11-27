@@ -7,13 +7,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import { aiSettings } from "@/db/schema";
 import { decryptSecret, encryptSecret } from "./crypto";
+import { MODEL_ID } from "./draft-types";
 
 export const PROVIDERS = ["openrouter", "ollama"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 export const PROVIDER_LABEL: Record<Provider, string> = { openrouter: "OpenRouter", ollama: "Ollama Cloud" };
 const ENV_KEY: Record<Provider, string> = { openrouter: "OPENROUTER_API_KEY", ollama: "OLLAMA_API_KEY" };
 
-/** The one model that makes marketing images (OpenRouter). Fixed on purpose, see docs/ai-studio.md. */
+/** The image model used until the owner picks another (OpenRouter), see docs/ai-studio.md. */
 export const IMAGE_MODEL = "google/gemini-3.1-flash-image";
 
 export const prefsSchema = z.object({
@@ -22,6 +23,8 @@ export const prefsSchema = z.object({
   /** The agent needs a model that can call tools. Empty = use the copy model. */
   agentProvider: z.enum(PROVIDERS).default("openrouter"),
   agentModel: z.string().trim().max(120).default(""),
+  /** The default image model for mockups in the Product studio (OpenRouter only). */
+  imageModel: z.string().trim().max(120).regex(MODEL_ID).default(IMAGE_MODEL),
 });
 export type AiPrefs = z.infer<typeof prefsSchema>;
 

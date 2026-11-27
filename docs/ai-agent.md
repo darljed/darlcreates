@@ -1,6 +1,6 @@
 # Admin agent
 
-> Last updated: 2026-11-18
+> Last updated: 2026-11-23
 
 A chat on **every admin page** (floating button bottom right, or **Ctrl/Cmd + J**). It knows which page you are on, can look
 things up, and can **propose** changes. A proposal shows exactly what would change (before and after) and nothing happens until you press
@@ -49,3 +49,6 @@ If the model *says* it proposed something without calling the tool, the reply is
 - A draft left in `applying` by a server crash is not shown anywhere (rare).
 - A model may ask for the same change twice; each is its own proposal.
 - Only the tab's chat is kept, not a history across days.
+
+## The option tools
+The agent also has the Product studio's option tools (`lib/ai/agent/options-tools.ts`: designs, design mode, colours per option, option and choice edits, new options); see [ai-studio.md](./ai-studio.md). The Product studio runs its own loop (`lib/ai/studio.ts`) and stores each write as an agent proposal (`proposeWrite`), so its cards are approved here too and may also appear under "Waiting for your review" in the dock. `runAgent` takes `tools` to narrow the agent to some tools (a tool outside the list is refused even if the model names it).

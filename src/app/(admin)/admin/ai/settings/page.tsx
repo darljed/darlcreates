@@ -9,8 +9,8 @@ export default async function AiSettingsPage() {
   const [openrouter, ollama, prefs] = await Promise.all([getKeyStatus("openrouter"), getKeyStatus("ollama"), getAiPrefs()]);
   return (
     <div className="space-y-3">
-      <PageHeader title="AI settings" description="API keys for OpenRouter and Ollama Cloud, and which model writes the copy. Keys are encrypted and cannot be read back." />
-      <AiSettingsForm status={{ openrouter, ollama }} prefs={prefs} imageModel={IMAGE_MODEL} />
+      <PageHeader title="AI settings" description="API keys for OpenRouter and Ollama Cloud, and which models write and draw. Keys are encrypted and cannot be read back." />
+      <AiSettingsForm status={{ openrouter, ollama }} prefs={prefs} defaultImageModel={IMAGE_MODEL} />
     </div>
   );
 }

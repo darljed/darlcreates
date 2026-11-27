@@ -124,19 +124,28 @@ Admin: `/admin`, `/admin/users`, `/admin/users/[id]`, `/admin/content`, `/admin/
 
 Admin Server Actions use `updateTag(tag)` (expires immediately, so a deleted/unpublished item never lingers as a dead link). Customer review submission and anything where a slightly stale page is fine uses `revalidateTag(tag, "max")` (stale-while-revalidate). Route Handlers can't call `updateTag`; `/api/revalidate` uses `revalidateTag(tag, { expire: 0 })`.
 
-Last updated: 2026-11-18
+Last updated: 2026-11-22
 
 
-## AI studio Server Actions (admin only; `{ ok: true, ... }` or `{ ok: false, error }`)
+## Design preset Server Actions (admin only; `(admin)/admin/products/preset-actions.ts`)
+| Action | Notes |
+|---|---|
+| `savePresetAction` | Create or edit a design: Zod name (1 to 40 characters, unique per product), one colour choice per colour option (checked against the product's own colours, hex stored with the part key), at most 24 per product. Expires the product caches |
+| `deletePresetAction`, `setPresetActiveAction` | Delete a design, or hide / show it for customers |
+| `saveDesignModeAction` | `custom` / `presets` / `both`. Presets or both need at least one visible design. The cart and checkout enforce presets-only on the server (`presetProblem`): hand-picked colours are refused |
+
+`createProductAction` and `updateProductAction` also take `tags` (a list or a comma-separated string, cleaned by `normalizeTags`); on update, leaving it out keeps the current tags (the admin agent edits without it).
+
+## Product studio and AI settings Server Actions (admin only; `{ ok: true, ... }` or `{ ok: false, error }`)
 | Action | File | Notes |
 |---|---|---|
 | `saveKeyAction`, `removeKeyAction` | `(admin)/admin/ai/settings/actions.ts` | Provider API key, encrypted at rest, never returned; audited |
-| `listModelsAction`, `savePrefsAction`, `testConnectionAction` | same | The provider's models, the chosen writing model, a one-token test call |
-| `startDraftAction` | `(admin)/admin/ai/actions.ts` | Checks the uploaded model and photos, reads the model's facts, opens an `ai_drafts` row |
-| `generateCopyAction` | same | Writes the listing copy with the chosen model (JSON, checked, one retry) |
-| `generateImageAction`, `removeImageAction` | same | One marketing image per call, from the real photos; max 9 per draft |
-| `saveDraftAction`, `discardDraftAction` | same | Save the owner's edits; discard deletes the draft's files |
-| `createProductFromDraftAction` | same | The approval: creates an unpublished product via `createProductAction`, `attachModelAction`, `addPhotoAction` |
+| `listModelsAction`, `listImageModelsAction`, `savePrefsAction`, `testConnectionAction` | same | The provider's text models, OpenRouter's image models, the chosen writing / agent / image models, a one-token test call |
+| `studioSendAction` | `(admin)/admin/ai/actions.ts` | One chat message: finds the chat (`draftId`), or a product's one chat (`productId`), or starts a chat for a new product; checks and attaches the files (photos; a 3D file only before the product exists), saves the message, runs the assistant (`propose_listing`, `make_mockup`, and once the product exists `get_product` plus the option tools, always on the chat's product). Returns the draft snapshot (with its proposal cards) even on failure |
+| `studioSnapshotAction` | same | The draft as it is now, after a card was approved or rejected |
+| `removeImageAction` | same | Delete one picture from the chat: a mockup or an uploaded photo (from storage, the photo list and the chat). A picture already added to the product is refused |
+| `saveDraftAction`, `discardDraftAction` | same | Save the owner's edits to the listing and price; discard deletes the draft's files |
+| `applyDraftAction` | same | New product: creates it unpublished via `createProductAction` (with tags), `attachModelAction`, `addPhotoAction`; the chat stays open on the product. Existing product: `updateProductAction` with the proposed listing (status and weight kept; empty price keeps the current one) and `addPhotoAction` for ticked pictures not added before. Claims the chat while it runs |
 
 ## Admin agent Server Actions (admin only)
 | Action | File | Notes |

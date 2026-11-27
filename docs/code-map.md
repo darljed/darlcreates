@@ -1,6 +1,6 @@
 # Code map
 
-> Last updated: 2026-11-18. Every route, library file, component, script and top-level config, with one line on what it is for.
+> Last updated: 2026-11-22. Every route, library file, component, script and top-level config, with one line on what it is for.
 > `npx tsx scripts/test-docs.ts` fails if a file, route, table, env var, Server Action, cache tag or npm script is missing here or in the linked docs, so keep this page current when you add code.
 
 Linked docs: env vars → [configuration.md](./configuration.md) · tables → [database.md](./database.md) · actions, routes and cache tags → [api-routes.md](./api-routes.md) · UI rules → [design-system.md](./design-system.md).
@@ -57,7 +57,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/admin/users`, `/admin/users/[id]` | Customer list and account page (profile, addresses, sessions, controls, activity log) |
 | `/admin/content` | Landing-page editor |
 | `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
-| `/admin/ai` | AI studio: upload a 3MF/STL + real-print photos, draft copy and marketing images, approve to create a draft product |
+| `/admin/ai` | Product studio: one chat per product (`?product=<id>`, or `?draft=<id>` for a product not created yet): listing, mockups, price, designs and options |
 | `/admin/ai/settings` | AI settings: OpenRouter and Ollama Cloud keys (encrypted, write-only), model selector, test |
 | `/admin/estimator` | Workshop: the price estimator (cost + three prices), saved estimates, "save as product" |
 | `/admin/inventory` | Workshop: parts, purchase lots, stock adjustments and history |
@@ -85,7 +85,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 
 ### Server Action files (all start with `"use server"`; list in [api-routes.md](./api-routes.md))
 
-`(admin)/admin/agent/actions.ts`, `(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
+`(admin)/admin/agent/actions.ts`, `(admin)/admin/ai/actions.ts`, `(admin)/admin/ai/settings/actions.ts`, `(admin)/admin/colours/actions.ts`, `(shop)/clicker/actions.ts`, `(shop)/cart/actions.ts`, `(shop)/checkout/actions.ts`, `(shop)/consent/actions.ts`, `(shop)/products/[slug]/review-actions.ts`, `(portal)/orders/actions.ts`, `(portal)/account/actions.ts`, `(admin)/admin/orders/actions.ts`, `(admin)/admin/products/actions.ts`, `(admin)/admin/products/preset-actions.ts`, `(admin)/admin/products/costing-actions.ts`, `(admin)/admin/estimator/actions.ts`, `(admin)/admin/inventory/actions.ts`, `(admin)/admin/sales/actions.ts`, `(admin)/admin/shipping/actions.ts`, `(admin)/admin/users/actions.ts`, `(admin)/admin/content/actions.ts`.
 
 ## Libraries (`src/lib`)
 
@@ -104,9 +104,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `branding-schema.ts` | **Pure.** The six logo slots, where each is used, size and type rules |
 | `branding-verify.ts` | Server proof that an uploaded logo is acceptable (exists, size, magic bytes, pixel shape) |
 | `business.ts` | Business identity for customer documents; env-overridable |
-| `cart-service.ts` | **Service.** Add to cart: normalize choices to the product schema, recompute price, verify customer image |
+| `cart-service.ts` | **Service.** Add to cart: normalize choices to the product schema, recompute price, presets-only check, verify customer image |
 | `cart.ts` | Cart reads: get or create the active cart, lines with signed image links, config summary, subtotal, item count |
-| `catalog.ts` | Cached storefront product reads (`products`, `product:<slug>` tags) |
+| `catalog.ts` | Cached storefront product reads (`products`, `product:<slug>` tags); a product carries its tags, design mode and resolved presets |
 | `color-name.ts` | **Pure.** Plain-English name for a hex colour ("Pink", "Dark green"), used to label swatches made from filament colours |
 | `customer-images.ts` | Proof that a customer-uploaded image is theirs, exists, is small enough and is a real image |
 | `email.ts` | Order emails (placed, verified, rejected, shipped); logs instead of sending when SMTP is not set |
@@ -117,13 +117,15 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `threemf.ts` | **Service (pure, server).** Generic 3MF reading/editing, nothing name-specific: unzip with a size cap, plate items and objects, multi-object `threeMfSurface` (skips negative parts; remembers which triangles came from which plate object), the slicer's part list (`readConfigObjects`), colour groups (`colorGroups`), `annotateGroups` (names meshes for the viewer, hides negative parts), `setFilaments`, `addPartTo3mf` (raised = normal part, engraved = negative part), `plateObjectNear` |
 | `part-colors.ts` | **Pure.** Multi-colour models: a colour option can colour one part. `partColorsFor` (viewer), `defaultPartSelection`, `filamentAssignments` (print file), `wholeModelColor` |
 | `ai/crypto.ts` | **Pure.** AES-256-GCM encrypt/decrypt for the saved AI keys |
-| `ai/settings.ts` | **Service (server).** Provider keys (saved wins over env), key status, model preferences, `IMAGE_MODEL` |
-| `ai/providers.ts` | **Service (server).** OpenRouter and Ollama Cloud: model lists, chat (OpenAI format), image generation |
+| `ai/settings.ts` | **Service (server).** Provider keys (saved wins over env), key status, model preferences (writing, agent, image), the default `IMAGE_MODEL` |
+| `ai/providers.ts` | **Service (server).** OpenRouter and Ollama Cloud: text and image model lists, chat (OpenAI format), image generation (also image-only models) |
+| `ai/studio.ts` | **Service (server).** The Product studio chat: one chat per product, locked read-modify-write of the draft, snapshot with proposal cards, file checks, the assistant loop (listing, mockups, and the product and option tools forced to the chat's product) |
 | `ai/agent/tools.ts` | **Service (server).** The agent's tools: read tools and write tools (preview + apply through the existing Server Actions) |
+| `ai/agent/options-tools.ts` | **Service (server).** Tools for one product's customization (the Product studio chat, also offered to the agent): read the options, designs and shop colours; propose designs, design mode, colours per option, option and choice edits, new size / text / colour options. Words are matched to real ids; apply runs the product editor's Server Actions |
 | `ai/agent/run.ts` | **Service (server).** The agent loop: system prompt, tool calls, proposals, step limit, claim guard |
 | `ai/agent/apply.ts` | **Service (server).** Apply / reject a proposal with the stale-data check, expiry, audit |
 | `ai/agent/page-context.ts` | **Service (server).** Turns the admin page's address into what the agent is looking at |
-| `ai/draft-types.ts` | **Pure, client-safe.** Copy schema, scenes, the draft payload schema (the browser imports this, never `product-copy.ts`) |
+| `ai/draft-types.ts` | **Pure, client-safe.** Copy schema, scenes, limits, the draft payload schema incl. the chat (the browser imports this, never `product-copy.ts`) |
 | `ai/product-copy.ts` | **Pure (server: reads model files).** Model facts, copy prompt/parser/banned-word check, image prompts |
 | `stl-export.ts` | **Pure.** `meshToStl` (binary STL) and `objectsToStlZip` (one STL per print object and colour, plus a README) for the design studio |
 | `name-3mf.ts` | **Service (server).** Print file for a named item: STL or 3MF base + the name as a part; reads 3MF packages; detects and strips the designer's text element; `checkFit`; `nameProblem` for add-to-cart |
@@ -173,7 +175,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `orders.ts` | Status labels, `ORDER_TRANSITIONS`, order-number generator, revenue filter |
 | `pricing.ts` | **Pure.** Server-authoritative price and validation for customization choices |
 | `privacy.ts` | **Service.** Consent record, data export, account anonymization (RA 10173) |
-| `product-filter.ts` | **Pure.** Shop search and category filter |
+| `product-filter.ts` | **Pure.** Shop search (name, description, category, tags), category and tag filters, counts |
+| `presets.ts` | **Pure.** Design presets: resolve a stored design against the product's colour options, the mode customers get (custom / presets / both, with fall-back), match a selection to a design, the presets-only check, admin choices to stored colours |
+| `tags.ts` | **Pure.** Product tags: clean one tag, normalize a list (lower-case, no repeats, at most 8, 30 characters) |
 | `reviews.ts` | Approved reviews and ratings (cached `reviews:<id>`); who may review |
 | `job-sheet.ts` | **Pure.** Builds the print job sheet of an order line (saved on `order_items.print_sheet` at checkout) and its plain-text copy |
 | `code128.ts` | **Pure.** Code 128 barcode (subset B) as SVG bar geometry, for the waybill |
@@ -202,7 +206,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `index.ts` | Drizzle client (reused across dev reloads); options come from `options.ts` |
 | `options.ts` | **Pure.** Connection options for the URL and host: direct (pool of 10) vs PgBouncer pooler (no prepared statements) vs Vercel (1 connection per instance) |
 | `schema/auth.ts` | `users`, `sessions`, `accounts`, `verifications` (BetterAuth) and `admin_audit` |
-| `schema/catalog.ts` | `products`, `product_photos`, `product_options`, `product_option_values`, `reviews`, `review_photos` |
+| `schema/catalog.ts` | `products` (with `tags`, `design_mode`), `product_photos`, `product_options`, `product_option_values`, `product_presets`, `reviews`, `review_photos` |
 | `schema/commerce.ts` | `addresses`, `carts`, `cart_items`, `orders`, `order_items`, `payments`, `shipments`, `order_status_history` |
 | `schema/workshop.ts` | `parts`, `stock_purchases`, `stock_movements`, `product_parts`, `estimates`, `manual_sales` |
 | `schema/ai.ts` | `ai_settings` (encrypted provider keys, model choices), `ai_drafts` (AI work waiting for approval) |
@@ -241,7 +245,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `print-button.tsx` | "Print / Save as PDF" |
 | `product-browser.tsx` | Search box, category chips and grid |
 | `product-card.tsx` | Product tile |
-| `product-customizer.tsx` | Option pickers with live price, add to cart |
+| `confirm-provider.tsx` | `useConfirm()`: the app's confirmation dialog (await it; mounted once in the root layout). Used instead of `window.confirm` everywhere |
+| `product-customizer.tsx` | Option pickers with live price, ready-made design cards (presets), add to cart |
 | `product-gallery.tsx` | 3D tile plus photo thumbnails |
 | `product-reviews.tsx` | Review list and submit form |
 | `sign-in-card.tsx` | Sign-in card |
@@ -317,9 +322,9 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `services-section.tsx` | The services as cards (landing page, /services) or a slim call-to-action band (shop, empty cart) |
 | `shipping-editor.tsx` | Admin → Shipping: rate table, parcel settings, province zones, "try it" |
 | `studio-download.ts` | Design studio: posts a design to `/admin/studio/file` and saves the returned 3MF or STL zip |
-| `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model picker, test |
+| `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model pickers (writing, agent, image) with the active model marked, test |
 | `../ai/agent-dock.tsx` | (in `components/ai`) The agent chat: floating button on every admin page, Ctrl/Cmd+J, proposal cards with Approve / Reject |
-| `../ai/ai-studio.tsx` | (in `components/ai`) The marketing generator: upload, copy, pictures, approve |
+| `../ai/ai-studio.tsx` | (in `components/ai`) The Product studio: product picker, the chat (attachments, mockups, proposal cards with Approve / Reject / Approve all, the image model dropdown in the message box), and the review side (the product's designs with a 3D preview, the listing, pictures, Create / Apply) |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
@@ -332,7 +337,8 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `order-admin-controls.tsx` | Status buttons and shipping form |
 | `payment-actions.tsx` | Verify / reject buttons |
 | `product-files.tsx` | Model and photo uploads |
-| `product-form.tsx` | Product create / edit form |
+| `product-form.tsx` | Product create / edit form (name, description, category, tags, price, status, weight) |
+| `preset-editor.tsx` | Product editor: design presets (make, edit, hide, delete) and how customers choose colours |
 | `revenue-chart.tsx` | 30-day revenue chart, stacked by source (online / off-site) |
 | `review-moderation.tsx` | Approve / hide buttons |
 | `schema-builder.tsx` | Customization option builder: add, edit (label, required, price, length) and delete options and choices, add every shop colour, auto-detect from the 3D model |
@@ -387,7 +393,9 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-shipping.ts` | Shipping: the rate math, saved settings, real orders (fee, snapshot, forged locations refused) (needs the database) |
 | `test-workshop.ts` | Workshop: the costing model, inventory ledger, product costing, the off-site sales, online-order stock, estimates, summaries (needs the database) |
 | `test-agent.ts` | Admin agent: tools, privacy of read tools, previews, loop with a scripted model, page context, approval guards (needs the database) |
-| `test-ai.ts` | AI studio: key encryption, saved settings (database), model-list parsing, copy parsing and banned words, model facts, fake-key failures |
+| `test-options-agent.ts` | The option tools: registry, previews against a real product (words to real options and colours, refusals), the agent loop limited to them (proposals only, other tools refused), stale-data refusal (needs the database) |
+| `test-ai-studio.ts` | Product studio chat: image-model list parsing, old drafts still load, the loop with a fake model and fake image model, refusals and limits, one chat per product (product tools only once it exists, always on its product, cards on the turn), locked writes (needs the database) |
+| `test-ai.ts` | AI settings and helpers: key encryption, saved settings (database), model-list parsing, copy parsing and banned words, model facts, fake-key failures |
 | `test-studio.ts` | Design studio: the STL zip for a keychain and a clicker (valid binary STLs per colour; no database) |
 | `test-keychain.ts` | Name keychain: icons, schema, owner limits, price, every style x plate x keyring, every font, random designs, server check, 3MF, cart (needs the database) |
 | `test-clicker.ts` | Clicker designer: schema, shapes, geometry (closed solids, no overlap, sample measurements), name keys, 4-colour rule, keyring, plate, price, fit-test plate, two-object 3MF, cart integration |
@@ -403,6 +411,7 @@ Run with `npx tsx scripts/<name>.ts`. Usage and what each test covers: [testing.
 | `test-pricing.ts` | Price engine |
 | `test-privacy.ts` | Consent, export, deletion, addresses |
 | `test-product-filter.ts` | Shop search and filter |
+| `test-presets.ts` | Design presets and tags: resolving, modes and fall-back, matching, job sheet line, tag cleaning, search by tag, and the cart refusing hand-picked colours on a presets-only product (needs the database) |
 | `test-seo.ts` | SEO helpers, JSON-LD, robots rules, private pages are noindex |
 | `test-uploads.ts` | Upload rules and S3 round trip |
 | `test-user-admin.ts` | User management |
