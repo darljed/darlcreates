@@ -22,6 +22,7 @@ import { createProductAction, updateProductAction } from "@/app/(admin)/admin/pr
 import { saveProductCostingAction } from "@/app/(admin)/admin/products/costing-actions";
 import { adjustStockAction, recordPurchaseAction } from "@/app/(admin)/admin/inventory/actions";
 import { createSaleAction } from "@/app/(admin)/admin/sales/actions";
+import { OPTION_TOOLS } from "./options-tools";
 
 export type Preview = { summary: string; before: Record<string, unknown> | null; after: Record<string, unknown> };
 export type ApplyResult = { ok: true; link?: string } | { ok: false; error: string };
@@ -179,7 +180,7 @@ const updateProduct = tool({
 const createProduct = tool({
   name: "create_product",
   kind: "write",
-  description: "Propose a new product. It is always created as an unpublished draft (no model or photos; those are added in the product editor or the AI studio). Needs the owner's approval.",
+  description: "Propose a new product. It is always created as an unpublished draft (no model or photos; those are added in the product editor or the Product studio). Needs the owner's approval.",
   params: z.object({ name: z.string().trim().min(2).max(120), description: z.string().trim().max(2000), category: z.string().trim().min(1).max(60), pricePesos: pesos, weightGrams: z.number().int().min(1).max(50_000).optional() }),
   preview: async (a) => ({ summary: `Create draft product "${a.name}" at ₱${a.pricePesos}`, before: null, after: { name: a.name, description: a.description, category: a.category.toLowerCase(), pricePesos: a.pricePesos, status: "draft", weightGrams: a.weightGrams ?? null } }),
   apply: async (a) => {
@@ -276,5 +277,6 @@ const createSale = tool({
   },
 });
 
-export const TOOLS: Tool[] = [listProducts, getProduct, listOrders, getOrder, salesSummary, listParts, updateProduct, createProduct, setCosting, recordPurchase, adjustStock, createSale];
+/** Everything the admin agent may use. The 3D options tools are listed too, so a proposal from the Product studio tab is approved the same way. */
+export const TOOLS: Tool[] = [listProducts, getProduct, listOrders, getOrder, salesSummary, listParts, updateProduct, createProduct, setCosting, recordPurchase, adjustStock, createSale, ...OPTION_TOOLS];
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name) ?? null;

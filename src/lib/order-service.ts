@@ -19,6 +19,7 @@ import { computeUnitPrice, firstImageKey, type ConfigSelection } from "./pricing
 import { quoteFor, shippingItems } from "./shipping-server";
 import { resolveLocation } from "./psgc-server";
 import { consumeOnlineOrderStock, restockOnlineOrder } from "./workshop/online-stock";
+import { matchPreset, presetProblem } from "./presets";
 
 /**
  * Order business logic with NO framework dependencies (no next/*, no cookies/headers),
@@ -119,6 +120,9 @@ export async function placeOrder(
       line.config,
     );
     if (errors.length) return { ok: false, error: `"${product.name}": ${errors[0]}` };
+    // a design that was in the cart but is no longer offered (preset removed or its colour gone) cannot be ordered
+    const noPreset = presetProblem(product.designMode, product.presets, line.config);
+    if (errors.length === 0 && noPreset) return { ok: false, error: `"${product.name}": ${noPreset} The design you chose is no longer offered.` };
     resolved.push({
       productId: product.id,
       name: product.name,
@@ -126,7 +130,7 @@ export async function placeOrder(
       config: line.config,
       unitPriceCents,
       stlKey: product.stlKey,
-      printSheet: buildJobSheet({ options: product.options, config: line.config, modelKey: product.stlKey }),
+      printSheet: buildJobSheet({ options: product.options, config: line.config, modelKey: product.stlKey, preset: matchPreset(product.presets, line.config)?.name ?? null }),
     });
   }
 

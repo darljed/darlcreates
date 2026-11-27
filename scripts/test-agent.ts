@@ -85,7 +85,7 @@ const PREFIX = "TEST-AGENT-";
 
     // ---- the loop with a scripted model
     console.log("agent loop (fake model)");
-    await saveAiPrefs({ copyProvider: "openrouter", copyModel: "fake/model", agentProvider: "openrouter", agentModel: "" }, u.id);
+    await saveAiPrefs({ copyProvider: "openrouter", copyModel: "fake/model", agentProvider: "openrouter", agentModel: "", imageModel: "google/gemini-3.1-flash-image" }, u.id);
     type Chat = typeof import("../src/lib/ai/providers").chat;
     const seen: unknown[] = [];
     let n = 0;

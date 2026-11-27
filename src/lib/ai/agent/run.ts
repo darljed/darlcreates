@@ -8,7 +8,7 @@ import { aiDrafts } from "@/db/schema";
 import { chat, listModels, type ChatMessage, type ToolSpec } from "../providers";
 import { getAiKey, getAiPrefs } from "../settings";
 import { describePage } from "./page-context";
-import { TOOLS, toolByName, type Preview, type Tool } from "./tools";
+import { TOOLS, type Preview, type Tool } from "./tools";
 
 export const MAX_STEPS = 8;
 const MAX_TOOL_CHARS = 6000;
@@ -40,7 +40,8 @@ export function toolSpecs(tools: Tool[] = TOOLS): ToolSpec[] {
 
 type ChatFn = typeof chat;
 
-async function proposeWrite(tool: Tool, args: Record<string, unknown>, page: string, actorId: string): Promise<{ ok: true; out: ProposalOut } | { ok: false; error: string }> {
+/** Store a write tool call as a proposal (its preview is the before/after). Shared with the product studio chat. */
+export async function proposeWrite(tool: Tool, args: Record<string, unknown>, page: string, actorId: string): Promise<{ ok: true; out: ProposalOut } | { ok: false; error: string }> {
   const prev = (await tool.preview!(args as never)) as Preview | { error: string };
   if ("error" in prev) return { ok: false, error: prev.error };
   const [row] = await db.insert(aiDrafts).values({ kind: "agent", title: prev.summary.slice(0, 200), payload: { tool: tool.name, args, preview: prev, page }, createdBy: actorId }).returning({ id: aiDrafts.id });
@@ -54,12 +55,16 @@ const clip = (v: unknown) => {
 };
 
 /** A model sometimes says it made a proposal without calling the tool. The owner must not wait for something that does not exist. */
-const CLAIMS = /\b(i('| ha)ve (proposed|prepared|updated|changed|set|created)|(is|are) waiting for your (approval|review)|has been (updated|changed|created|applied)|i('ve| have) made)\b/i;
+export const CLAIMS = /\b(i('| ha)ve (just |now )?(proposed|prepared|updated|changed|set|created|generated|made|added|produced|drawn|rendered|saved)|i (just )?(proposed|generated|created|made|added|produced|prepared|drew|rendered|saved)|(is|are) (now )?waiting for your (approval|review)|(has|have) (now )?been (updated|changed|created|applied|generated|added|made|saved|drawn))\b/i;
 export function guardClaims(text: string, proposalCount: number): string {
   return proposalCount === 0 && CLAIMS.test(text) ? `${text}\n\n(Note: I did not actually create a proposal, so nothing is waiting for your approval. Please ask me again.)` : text;
 }
 
-export async function runAgent(o: { messages: AgentTurn[]; path: string; search: string; actorId: string; chatFn?: ChatFn }): Promise<AgentReply> {
+/**
+ * `tools` narrows the agent to some tools (the tests use it); a tool outside `tools` is refused even if the model names it.
+ */
+export async function runAgent(o: { messages: AgentTurn[]; path: string; search: string; actorId: string; chatFn?: ChatFn; tools?: Tool[] }): Promise<AgentReply> {
+  const allowed = o.tools ?? TOOLS;
   const prefs = await getAiPrefs();
   const provider = prefs.agentModel ? prefs.agentProvider : prefs.copyProvider;
   const model = prefs.agentModel || prefs.copyModel;
@@ -80,7 +85,7 @@ export async function runAgent(o: { messages: AgentTurn[]; path: string; search:
     { role: "system", content: `${SYSTEM}\n\nToday (Manila): ${today}\nThe owner is on: ${page.label} (${o.path.replace(/[^A-Za-z0-9/_-]/g, "").slice(0, 120)})\n${page.text}` },
     ...o.messages.slice(-16).map((m) => ({ role: m.role, content: m.content }) as ChatMessage),
   ];
-  const tools = toolSpecs();
+  const tools = toolSpecs(allowed);
   const proposals: ProposalOut[] = [];
   const steps: string[] = [];
   let cost = 0;
@@ -93,7 +98,7 @@ export async function runAgent(o: { messages: AgentTurn[]; path: string; search:
 
     messages.push({ role: "assistant", content: r.text || null, tool_calls: r.toolCalls });
     for (const tc of r.toolCalls) {
-      const tool = toolByName(tc.function.name);
+      const tool = allowed.find((t) => t.name === tc.function.name) ?? null;
       let result: unknown;
       if (!tool) result = { error: `Unknown tool ${tc.function.name}` };
       else {

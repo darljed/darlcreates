@@ -7,7 +7,7 @@ to **Resolved** with the date and commit. Keep `Last updated` current.
 **Severity:** 🔴 blocks launch/real use · 🟠 should fix before launch · 🟡 polish / later
 **Status:** ⬜ open · 🚧 in progress · ✅ resolved
 
-Last updated: 2026-11-18
+Last updated: 2026-11-22
 
 ---
 
@@ -187,6 +187,8 @@ Verified against the code on 2026-11-09 (not from memory).
 | F-16 | **3MF as personalized-order output** | Upload + preview of 3MF is done (see Resolved F-16a). Still open: *generating* a 3MF per personalized order (base + name as separate parts). Depends on F-17. |
 | F-17 | **Personalize an existing product** (e.g. add a name to a stand/holder). **Proof of concept built 2026-11-11: [name-on-model.md](./name-on-model.md)** (G-79 to G-85 are what is left) | Distinct from Phase 2 generators. Staged plan in `docs/personalization-and-3mf.md`: owner adds name manually -> live 3D name preview -> auto-generated print file (3MF, name as a separate part). Needs owner answers (emboss vs engrave, same color or not, which products first). |
 | F-18 | **Admin agent: more tools and streaming** | The agent is built ([ai-agent.md](./ai-agent.md)): page-aware chat, 6 read and 6 write tools, approval with a stale-data check. Open: stream replies; an MCP server over the same tools; tools for site content, reviews and shipping rates (each needs its own preview); a daily AI spend cap; a screen to release a draft stuck in `applying` after a crash |
+| F-20 | **Pre-printed stock per design** | Design presets let the owner print ahead ([features.md](./features.md)), but nothing counts finished units: an order does not deduct a pre-printed unit and the owner cannot see "what to print next". Needs a per-design stock count (a `preset_stock` ledger like `stock_movements`), a deduct on order, and a low-stock view. Also open: tags on product cards and on the product page. |
+| F-19 | **Studio mockups from a 3D file alone** | The studio chat makes mockups only from real photos ([ai-studio.md](./ai-studio.md)). To mock up a product before it is printed, render the STL/3MF to a picture (the viewer already does this in the browser) and send it as the reference. Also open: streaming replies, a daily AI spend cap. |
 
 ## D. Resolved
 

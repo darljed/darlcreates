@@ -21,7 +21,7 @@ const SECTIONS: [RegExp, string, string][] = [
   [/^\/admin\/inventory/, "Inventory", "Parts, stock levels and purchases."],
   [/^\/admin\/sales/, "Off-site sales", "The log of sales made outside the website."],
   [/^\/admin\/ai\/settings/, "AI settings", "Provider keys and model choices."],
-  [/^\/admin\/ai/, "AI studio", "The marketing generator: product copy and images from a 3MF/STL."],
+  [/^\/admin\/ai/, "Product studio", "The product studio: one chat per product for its listing, mockups, price, designs and options."],
   [/^\/admin\/users/, "Users", "Customer accounts."],
   [/^\/admin\/(content|branding|store|legal)/, "Site content", "Landing page, branding, store info or legal pages."],
 ];
