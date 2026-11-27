@@ -27,12 +27,15 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
 import { fontChoices, slotOf, withFont, withNameColor } from "@/lib/name-mesh";
 import { defaultPartSelection, partColorsFor, wholeModelColor } from "@/lib/part-colors";
+import { matchPreset, presetProblem, type DesignMode } from "@/lib/presets";
 import { useNameBuild } from "@/components/use-name-build";
 import { addManyToCartAction, addToCartAction } from "@/app/(shop)/cart/actions";
 
 /** Most names in one order (the server enforces the same limit: MAX_NAMES_PER_ADD in cart-service.ts). */
 const MAX_NAMES = 20;
 type Row = { key: string; selection: ConfigSelection; qty: number };
+/** A ready-made design the customer can pick: the colour of every part, and the swatches to show on its card. */
+export type ShopPreset = { id: string; name: string; selection: ConfigSelection; swatches: { label: string; hex: string }[] };
 
 export function ProductCustomizer({
   productId,
@@ -41,6 +44,8 @@ export function ProductCustomizer({
   options,
   stlUrl,
   photos,
+  designMode = "custom",
+  presets = [],
 }: {
   productId: string;
   productName: string;
@@ -48,6 +53,9 @@ export function ProductCustomizer({
   options: ProductOptionInput[];
   stlUrl: string | null;
   photos: GalleryPhoto[];
+  /** What customers may do about colours, already checked against the designs that can be shown (see effectiveMode). */
+  designMode?: DesignMode;
+  presets?: ShopPreset[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,7 +74,11 @@ export function ProductCustomizer({
 
   const nextKey = useRef(0);
   const newKey = () => `r${++nextKey.current}`;
-  const defaults = useMemo(() => defaultPartSelection(options), [options]);
+  // with ready-made designs the first one starts selected, so what the model shows is what would be ordered
+  const defaults = useMemo(() => ({ ...defaultPartSelection(options), ...(designMode !== "custom" ? (presets[0]?.selection ?? {}) : {}) }), [options, designMode, presets]);
+  const usesPresets = designMode !== "custom" && presets.length > 0;
+  // "both": the swatches stay hidden while a design is picked, until the customer asks to make their own (per name row)
+  const [ownColours, setOwnColours] = useState<Record<string, boolean>>({});
   // a product without a name list keeps everything in `shared`; the designer's part colours start preselected either way
   const [shared, setShared] = useState<ConfigSelection>(() => (nameOpt ? {} : defaults));
   const [rows, setRows] = useState<Row[]>(() => [{ key: "r0", selection: nameOpt ? defaults : {}, qty: 1 }]);
@@ -152,7 +164,13 @@ export function ProductCustomizer({
     [rows, basePriceCents, options, fullOf],
   );
   const totalCents = priced.reduce((sum, p, i) => sum + p.unitPriceCents * rows[i].qty, 0);
-  const firstError = priced.map((p, i) => (p.errors[0] ? (rows.length > 1 ? `Name ${i + 1}: ${p.errors[0]}` : p.errors[0]) : null)).find(Boolean) ?? null;
+  const firstError =
+    priced
+      .map((p, i) => {
+        const e = p.errors[0] ?? presetProblem(designMode, presets, fullOf(rows[i]));
+        return e ? (rows.length > 1 ? `Name ${i + 1}: ${e}` : e) : null;
+      })
+      .find(Boolean) ?? null;
 
   // The name shown on the 3D model is the active one: show it as it is typed, and block names that cannot be printed.
   const activeFull = row ? fullOf(row) : {};
@@ -284,6 +302,44 @@ export function ProductCustomizer({
     );
   }
 
+  /** Picking a design sets every colour at once. */
+  function pickPreset(scope: string, p: ShopPreset, set: (sel: ConfigSelection) => void) {
+    set(p.selection);
+    setOwnColours((o) => ({ ...o, [scope]: false }));
+  }
+  /** Are the colour swatches shown for this selection? Always in custom mode; in "both" when no design is picked or they asked for their own. */
+  const swatchesShown = (scope: string, full: ConfigSelection) => !usesPresets || (designMode === "both" && (Boolean(ownColours[scope]) || !matchPreset(presets, full)));
+  /** The design cards. `scope` is "shared" or a name row's key. */
+  function presetCards(scope: string, full: ConfigSelection, set: (sel: ConfigSelection) => void) {
+    if (!usesPresets) return null;
+    const picked = matchPreset(presets, full);
+    const own = designMode === "both" && swatchesShown(scope, full);
+    const card = "flex min-w-24 flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+    return (
+      <div role="group" aria-label="Ready-made designs" className="space-y-1.5">
+        <p className="text-xs font-semibold">{designMode === "presets" ? "Choose a design" : "Choose a design, or make your own"}<span className="ml-1 text-primary">*</span></p>
+        <div className="flex flex-wrap gap-2">
+          {presets.map((p) => {
+            const on = !own && picked?.id === p.id;
+            return (
+              <button key={p.id} type="button" aria-pressed={on} onClick={() => pickPreset(scope, p, set)} className={cn(card, on ? "border-primary bg-primary/10" : "border-border hover:border-primary")}>
+                <span className="flex" aria-hidden>
+                  {p.swatches.map((sw, i) => <span key={i} title={sw.label} className="-ml-1.5 size-6 rounded-full border-2 border-background first:ml-0" style={{ backgroundColor: sw.hex }} />)}
+                </span>
+                {p.name}
+              </button>
+            );
+          })}
+          {designMode === "both" && (
+            <button type="button" aria-pressed={own} onClick={() => setOwnColours((o) => ({ ...o, [scope]: true }))} className={cn(card, "justify-center", own ? "border-primary bg-primary/10" : "border-dashed border-border hover:border-primary")}>
+              Make your own
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const optionLabel = (opt: ProductOptionInput) => (
     <Label className="text-base font-bold">
       {opt.label}
@@ -325,13 +381,16 @@ export function ProductCustomizer({
 
       {/* Customizer form */}
       <div className="space-y-6">
+        {!nameOpt && presetCards("shared", shared, (sel) => setShared((s) => ({ ...s, ...sel })))}
         {!nameOpt &&
-          options.map((opt) => (
-            <div key={opt.id} className="space-y-2">
-              {optionLabel(opt)}
-              {picker(opt, shared[opt.id], (patch) => setShare(opt.id, patch), "opt")}
-            </div>
-          ))}
+          options
+            .filter((opt) => opt.type !== "color" || swatchesShown("shared", shared))
+            .map((opt) => (
+              <div key={opt.id} className="space-y-2">
+                {optionLabel(opt)}
+                {picker(opt, shared[opt.id], (patch) => setShare(opt.id, patch), "opt")}
+              </div>
+            ))}
 
         {nameOpt && (
           <>
@@ -433,8 +492,9 @@ export function ProductCustomizer({
                         </div>
                       </div>
                     )}
+                    {presetCards(r.key, full, (sel) => setRows((rs) => rs.map((x) => (x.key === r.key ? { ...x, selection: { ...x.selection, ...sel } } : x))))}
                     {options
-                      .filter((o) => o.type === "color")
+                      .filter((o) => o.type === "color" && swatchesShown(r.key, full))
                       .map((opt) => (
                         <div key={opt.id} className="space-y-1.5">
                           <p className="text-xs font-semibold">

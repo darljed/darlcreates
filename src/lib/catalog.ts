@@ -8,6 +8,7 @@ import {
   productOptions,
   productOptionValues,
   productPhotos,
+  productPresets,
 } from "@/db/schema";
 import { and, asc, eq, inArray, sql, type SQLWrapper } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
@@ -15,6 +16,7 @@ import type { ProductOptionInput } from "./pricing";
 import { applyInventory, type ColourInventory } from "./colour-inventory-schema";
 import { loadColourInventory } from "./site-content-store";
 import { COLOURS_TAG } from "./site-content";
+import { presetColourSchema, resolvePresets, type PresetRow, type ResolvedPreset } from "./presets";
 
 export type ProductListItem = {
   id: string;
@@ -22,6 +24,8 @@ export type ProductListItem = {
   name: string;
   description: string;
   category: string;
+  /** Lower-case labels, shown as filters on the shop. */
+  tags: string[];
   basePriceCents: number;
   photoKey: string | null;
   /** ms since epoch, so the landing page can show the newest products. */
@@ -56,6 +60,7 @@ export async function listPublishedProducts(): Promise<ProductListItem[]> {
     name: p.name,
     description: p.description,
     category: p.category,
+    tags: p.tags,
     basePriceCents: p.basePriceCents,
     photoKey: firstPhoto.get(p.id) ?? null,
     createdAtMs: p.createdAt.getTime(),
@@ -100,6 +105,7 @@ export type FullProduct = {
   name: string;
   description: string;
   category: string;
+  tags: string[];
   basePriceCents: number;
   status: string;
   stlKey: string | null;
@@ -107,6 +113,10 @@ export type FullProduct = {
   weightGrams: number | null;
   photos: { id: string; key: string; alt: string }[];
   options: ProductOptionInput[];
+  /** How colours are chosen: custom, presets or both (see lib/presets.ts). Use `effectiveMode` with `presets` to get what customers see. */
+  designMode: string;
+  /** Every preset, resolved against the colours offered NOW (`available` says if customers can pick it). */
+  presets: ResolvedPreset[];
 };
 
 /** A single product by slug with its full customization schema + photos. */
@@ -140,7 +150,7 @@ export async function getProductsByIds(ids: string[] | SQLWrapper, opts: ReadOpt
   // `ids` may also be a subquery of product ids, so a caller that does not know them yet (the cart) needs no earlier round
   const unique = Array.isArray(ids) ? [...new Set(ids)] : ids;
   if (Array.isArray(unique) && unique.length === 0) return new Map();
-  const [rows, photos, optRows, vals, inventory] = await Promise.all([
+  const [rows, photos, optRows, vals, inventory, presetRows] = await Promise.all([
     db.select().from(products).where(inArray(products.id, unique)),
     db.select().from(productPhotos).where(inArray(productPhotos.productId, unique)).orderBy(asc(productPhotos.sort)),
     db.select().from(productOptions).where(inArray(productOptions.productId, unique)).orderBy(asc(productOptions.sort)),
@@ -151,8 +161,9 @@ export async function getProductsByIds(ids: string[] | SQLWrapper, opts: ReadOpt
       .where(inArray(productOptions.productId, unique))
       .orderBy(asc(productOptionValues.sort)),
     opts.raw ? Promise.resolve(null) : loadColourInventory(), // only the colours in stock are offered
+    db.select().from(productPresets).where(inArray(productPresets.productId, unique)).orderBy(asc(productPresets.sort)),
   ]);
-  return assemble(rows, photos, optRows, vals.map((r) => r.v), inventory);
+  return assemble(rows, photos, optRows, vals.map((r) => r.v), inventory, presetRows);
 }
 
 function assemble(
@@ -161,6 +172,7 @@ function assemble(
   opts: (typeof productOptions.$inferSelect)[],
   vals: (typeof productOptionValues.$inferSelect)[],
   inventory: ColourInventory | null,
+  presetRows: (typeof productPresets.$inferSelect)[],
 ): Map<string, FullProduct> {
   const out = new Map<string, FullProduct>();
   for (const p of rows) {
@@ -178,18 +190,27 @@ function assemble(
           .map((v) => ({ id: v.id, label: v.label, value: v.value, priceDeltaCents: v.priceDeltaCents })),
       }));
     const options = applyInventory(built, inventory);
+    const presets = resolvePresets(
+      options,
+      presetRows
+        .filter((r) => r.productId === p.id)
+        .map((r): PresetRow => ({ id: r.id, name: r.name, active: r.active, sort: r.sort, colours: presetColourSchema.array().catch([]).parse(r.colours) })),
+    );
     out.set(p.id, {
       id: p.id,
       slug: p.slug,
       name: p.name,
       description: p.description,
       category: p.category,
+      tags: p.tags,
       basePriceCents: p.basePriceCents,
       status: p.status,
       stlKey: p.stlKey,
       weightGrams: p.weightGrams,
       photos: photos.filter((ph) => ph.productId === p.id).map((ph) => ({ id: ph.id, key: ph.s3Key, alt: ph.alt })),
       options,
+      designMode: p.designMode,
+      presets,
     });
   }
   return out;

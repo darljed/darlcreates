@@ -25,7 +25,8 @@ Living documentation. Update it in the same unit of work as any code change.
 | [name-on-model.md](./name-on-model.md) | Phase 2 proof of concept: the customer's name on the 3D model, and the 3MF print file built from it |
 | [personalization-and-3mf.md](./personalization-and-3mf.md) | Proposal: 3MF support + adding a name to an existing product (levels 1-3, owner questions) |
 | [clicker-designer.md](./clicker-designer.md) | The clicker designer: what customers can do, how the model and print file are built, owner settings, limits |
-| [ai-studio.md](./ai-studio.md) | AI settings (keys, model choice) and the marketing generator that drafts a product page and images from a 3MF/STL and real photos |
+| [ai-agent.md](./ai-agent.md) | The admin agent: a page-aware chat on every admin page that looks things up and proposes changes you approve |
+| [ai-studio.md](./ai-studio.md) | AI settings (keys; writing, agent and image models) and the studio chat that drafts a product page and mockups from a 3MF/STL and real photos, plus side-by-side image model tests |
 | [workshop.md](./workshop.md) | The workshop (admin): estimator and costing model, inventory, product costing, the sales log, and how orders use up stock |
 | [keychain-designer.md](./keychain-designer.md) | The name keychain designer: three styles, fonts and icons, how the plate and print file are built, owner prices and limits |
 | [clicker-redesign-plan.md](./clicker-redesign-plan.md) | Research on the reference clicker makers and the plan to rebuild the clicker as a mechanical-switch fidget clicker (for review) |
@@ -38,4 +39,4 @@ When you fix a gap: move its row to **Resolved** in `roadmap-and-gaps.md`, updat
 the relevant doc, and bump `Last updated`. `npx tsx scripts/test-docs.ts` fails when code is added without being documented
 (env vars, files, routes, tables, actions, cache tags, npm scripts).
 
-Last updated: 2026-11-12
+Last updated: 2026-11-22

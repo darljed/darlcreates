@@ -10,6 +10,7 @@ import { editPurchaseAction, listMovementsAction, listPurchasesAction, voidPurch
 import { formatPHP } from "@/lib/money";
 import type { PartWithCost, PurchaseRow } from "@/lib/workshop/types";
 import { fmtQty, parseNum } from "./form-bits";
+import { useConfirm } from "@/components/confirm-provider";
 
 /** Purchase lots (edit / void) and recent stock movements for one part, in a dialog. Render only while open. */
 type Movement = { id: string; delta: number; reason: string; note: string | null; createdAt: string };
@@ -75,8 +76,9 @@ export function PartHistoryDialog({ part, onClose }: { part: PartWithCost; onClo
     await changed("Purchase updated");
   }
 
+  const confirm = useConfirm();
   async function voidLot(id: string) {
-    if (!window.confirm("Void this purchase? Its quantity is taken out of stock.")) return;
+    if (!(await confirm({ title: "Void this purchase?", description: "Its quantity is taken out of stock. The purchase stays in the history as voided.", confirmLabel: "Void purchase", destructive: true }))) return;
     setBusy(true);
     const res = await voidPurchaseAction(id);
     setBusy(false);

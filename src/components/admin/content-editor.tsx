@@ -18,6 +18,7 @@ import { uploadToS3 } from "@/lib/upload-client";
 import { fileUrl } from "@/lib/storage-url";
 import { ICON_NAMES, type HomeContent } from "@/lib/site-content-schema";
 import { resetHomeContentAction, saveHomeContentAction } from "@/app/(admin)/admin/content/actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export function ContentEditor({ initial }: { initial: HomeContent }) {
   const router = useRouter();
@@ -43,8 +44,9 @@ export function ContentEditor({ initial }: { initial: HomeContent }) {
     });
   }
 
-  function reset() {
-    if (!window.confirm("Restore the original landing page text? Your edits will be lost.")) return;
+  const confirm = useConfirm();
+  async function reset() {
+    if (!(await confirm({ title: "Restore the original landing page text?", description: "Your edits will be lost.", confirmLabel: "Restore", destructive: true }))) return;
     start(async () => {
       const res = await resetHomeContentAction();
       if (res.ok) {

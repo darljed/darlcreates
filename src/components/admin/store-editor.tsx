@@ -15,6 +15,7 @@ import { Panel } from "@/components/shell/ui";
 import { Field, RowTools, swap } from "@/components/admin/editor-bits";
 import type { SiteInfo } from "@/lib/site-content-schema";
 import { resetSiteInfoAction, saveSiteInfoAction } from "@/app/(admin)/admin/content/actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type LinkList = "links" | "social";
 
@@ -40,8 +41,9 @@ export function StoreEditor({ initial }: { initial: SiteInfo }) {
     });
   }
 
-  function reset() {
-    if (!window.confirm("Restore the original store info and footer? Your edits will be lost.")) return;
+  const confirm = useConfirm();
+  async function reset() {
+    if (!(await confirm({ title: "Restore the original store info and footer?", description: "Your edits will be lost.", confirmLabel: "Restore", destructive: true }))) return;
     start(async () => {
       const res = await resetSiteInfoAction();
       if (res.ok) window.location.reload();

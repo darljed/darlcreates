@@ -1,215 +1,204 @@
 "use server";
 
-import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { aiDrafts } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
-import { deleteObject, getObject, headObject, peekBytes, putObject } from "@/lib/storage";
-import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf, sniffImageType } from "@/lib/uploads";
-import { chat, generateImage, listModels, type ChatMessage } from "@/lib/ai/providers";
-import { getAiKey, getAiPrefs, IMAGE_MODEL } from "@/lib/ai/settings";
-import { COPY_SYSTEM, MAX_IMAGES_PER_DRAFT, SCENES, copyPrompt, copySchema, descriptionOf, draftSchema, imagePrompt, modelFacts, parseCopy, type DraftPayload } from "@/lib/ai/product-copy";
-import { addPhotoAction, attachModelAction, createProductAction } from "../products/actions";
+import { deleteObject } from "@/lib/storage";
+import { KEY_PATTERNS } from "@/lib/uploads";
+import { centavosToPesos } from "@/lib/money";
+import { getProductById } from "@/lib/catalog";
+import { getAiPrefs } from "@/lib/ai/settings";
+import { MAX_PHOTOS_PER_DRAFT, MODEL_ID, copySchema, descriptionOf, draftSchema, type DraftPayload } from "@/lib/ai/product-copy";
+import { addTurn, checkAttachments, findProductChat, loadDraft, runStudio, snapshotOf, updateDraft, type Snapshot } from "@/lib/ai/studio";
+import { addPhotoAction, attachModelAction, createProductAction, updateProductAction } from "../products/actions";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
-
-async function bytesOf(key: string): Promise<Uint8Array | null> {
-  const o = await getObject(key);
-  return o ? new Uint8Array(await new Response(o.stream).arrayBuffer()) : null;
-}
-
-async function loadDraft(id: string): Promise<{ id: string; status: string; payload: DraftPayload } | null> {
-  const [row] = await db.select().from(aiDrafts).where(eq(aiDrafts.id, id)).limit(1);
-  if (!row || row.kind !== "product") return null;
-  const p = draftSchema.safeParse(row.payload);
-  return p.success ? { id: row.id, status: row.status, payload: p.data } : null;
-}
-
-async function saveDraft(id: string, payload: DraftPayload, title?: string) {
-  await db.update(aiDrafts).set({ payload, updatedAt: new Date(), ...(title !== undefined ? { title } : {}) }).where(eq(aiDrafts.id, id));
-  revalidatePath("/admin/ai");
-}
+/** A studio call always hands back the draft as it is now (when there is one), even when it failed, so the screen shows what was saved. */
+type StudioResult<T = object> = ({ ok: true; snapshot: Snapshot } & T) | { ok: false; error: string; snapshot: Snapshot | null };
 
 const uuid = z.string().uuid();
 
-/** Photos as data: URLs for the model. Each is capped (the request body goes to the provider as one JSON); bigger ones are skipped. */
-const MAX_REF_BYTES = 3 * 1024 * 1024;
-async function photoRefs(keys: string[], max: number): Promise<{ refs: string[]; skipped: number }> {
-  const refs: string[] = [];
-  let skipped = 0;
-  for (const k of keys.slice(0, max)) {
-    const b = await bytesOf(k);
-    const t = b && sniffImageType(b);
-    if (!b || !t) continue;
-    if (b.length > MAX_REF_BYTES) { skipped++; continue; }
-    refs.push(`data:image/${t};base64,${Buffer.from(b).toString("base64")}`);
-  }
-  return { refs, skipped };
+async function snapshotOrNull(id: string): Promise<Snapshot | null> {
+  const d = await loadDraft(id);
+  return d ? snapshotOf(d) : null;
 }
 
-/** Step 1: the model and the real-print photos are already in storage; read the model's facts and open a draft. */
-export async function startDraftAction(input: unknown): Promise<Result<{ id: string }>> {
-  const admin = await requireAdmin();
-  const p = z.object({ modelKey: z.string().regex(KEY_PATTERNS.model), photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(6), notes: z.string().max(1500).default("") }).safeParse(input);
-  if (!p.success) return { ok: false, error: "Invalid upload." };
-  const { modelKey, photoKeys, notes } = p.data;
-
-  const size = await headObject(modelKey);
-  if (size === null) return { ok: false, error: "The model upload was not found in storage." };
-  if (size > UPLOAD_RULES.model.maxBytes) return { ok: false, error: "Model file too large." };
-  const format = modelFormatOf(modelKey);
-  if (format === "3mf" && !looksLikeZip(await peekBytes(modelKey, 4))) return { ok: false, error: "That does not look like a valid 3MF file." };
-  for (const k of photoKeys) {
-    if ((await headObject(k)) === null) return { ok: false, error: "A photo upload was not found in storage." };
-    if (!sniffImageType(await peekBytes(k, 12))) return { ok: false, error: "A photo is not a JPEG, PNG or WebP picture." };
-  }
-
-  const bytes = await bytesOf(modelKey);
-  if (!bytes) return { ok: false, error: "Could not read the model." };
-  const fileName = modelKey.split("/").pop()?.replace(/^[A-Za-z0-9_-]{12}-/, "") ?? modelKey;
-  const facts = modelFacts(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, format, fileName);
-  const payload: DraftPayload = { modelKey, photoKeys, notes, facts, copy: null, price: "", images: [], costUsd: 0, productId: null };
-  const [row] = await db.insert(aiDrafts).values({ kind: "product", title: fileName, payload, createdBy: admin.id }).returning({ id: aiDrafts.id });
-  if (!row) return { ok: false, error: "Could not create the draft. Try again." };
-  revalidatePath("/admin/ai");
-  return { ok: true, id: row.id };
-}
-
-/** Step 2: the copy. Retries once when the answer is not usable JSON or says something the shop never says. */
-export async function generateCopyAction(input: unknown): Promise<Result<{ copy: DraftPayload["copy"] }>> {
-  await requireAdmin();
-  const p = z.object({ draftId: uuid, notes: z.string().max(1500).optional(), direction: z.string().max(400).optional() }).safeParse(input);
-  if (!p.success) return { ok: false, error: "Invalid request." };
-  const d = await loadDraft(p.data.draftId);
-  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  const prefs = await getAiPrefs();
-  if (!prefs.copyModel) return { ok: false, error: "Choose a model for the copy in AI settings first." };
-  const key = await getAiKey(prefs.copyProvider);
-  if (!key) return { ok: false, error: "Add the API key for the chosen provider in AI settings first." };
-
-  const notes = p.data.notes ?? d.payload.notes;
-  const models = await listModels(prefs.copyProvider);
-  const vision = models.ok && models.models.some((m) => m.id === prefs.copyModel && m.vision);
-  const refs = vision ? (await photoRefs(d.payload.photoKeys, 2)).refs : [];
-  const prompt = copyPrompt(d.payload.facts, notes, p.data.direction ? `Owner's direction for this rewrite: ${p.data.direction}` : "");
-  const messages: ChatMessage[] = [{ role: "system", content: COPY_SYSTEM }, { role: "user", content: refs.length ? [{ type: "text", text: prompt + "\n\nThe attached photos show the real product." }, ...refs.map((url) => ({ type: "image_url" as const, image_url: { url } }))] : prompt }];
-
-  let cost = 0, last = "";
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const r = await chat({ provider: prefs.copyProvider, apiKey: key, model: prefs.copyModel, messages, json: true, maxTokens: 4000 });
-    if (!r.ok) return { ok: false, error: r.error };
-    cost += r.costUsd ?? 0;
-    const parsed = parseCopy(r.text);
-    if (parsed.ok) {
-      await saveDraft(d.id, { ...d.payload, notes, copy: parsed.copy, costUsd: d.payload.costUsd + cost }, parsed.copy.name);
-      return { ok: true, copy: parsed.copy };
-    }
-    last = parsed.error;
-    messages.push({ role: "assistant", content: r.text }, { role: "user", content: `That answer was not usable: ${parsed.error} Answer again with only the JSON object.` });
-  }
-  return { ok: false, error: `The model's answer was not usable twice (${last}). Try another model.` };
-}
-
-/** One marketing image, made from the real photos. Called once per image so each call stays short. */
-export async function generateImageAction(input: unknown): Promise<Result<{ key: string }>> {
-  await requireAdmin();
-  const p = z.object({ draftId: uuid, scene: z.enum(SCENES), extra: z.string().max(300).default("") }).safeParse(input);
-  if (!p.success) return { ok: false, error: "Invalid request." };
-  const d = await loadDraft(p.data.draftId);
-  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  if (d.payload.images.length >= MAX_IMAGES_PER_DRAFT) return { ok: false, error: `This draft already has ${MAX_IMAGES_PER_DRAFT} generated images. Remove one first.` };
-  if (!d.payload.photoKeys.length) return { ok: false, error: "Add at least one photo of the real print first. The images are made from your photos." };
-  const apiKey = await getAiKey("openrouter");
-  if (!apiKey) return { ok: false, error: "Images need an OpenRouter API key (AI settings)." };
-
-  const { refs, skipped } = await photoRefs(d.payload.photoKeys, 3);
-  if (!refs.length) return { ok: false, error: skipped ? "The photos are larger than 3 MB each, which is too big to send to the AI. Upload smaller copies." : "Could not read the photos." };
-
-  const name = d.payload.copy?.name ?? d.payload.facts.fileName.replace(/\.[a-z0-9]+$/i, "");
-  const r = await generateImage({ apiKey, model: IMAGE_MODEL, prompt: imagePrompt(p.data.scene, name, p.data.extra), refs });
-  if (!r.ok) return { ok: false, error: r.error };
-  const key = `photos/ai-${nanoid(12)}.${r.mime === "image/jpeg" ? "jpg" : r.mime.slice(6)}`;
-  await putObject(key, r.bytes, r.mime);
-  // re-read so two images finishing together do not overwrite each other
-  const fresh = (await loadDraft(d.id)) ?? d;
-  if (fresh.payload.images.length >= MAX_IMAGES_PER_DRAFT) {
-    await deleteObject(key).catch(() => {});
-    return { ok: false, error: `This draft already has ${MAX_IMAGES_PER_DRAFT} generated images. Remove one first.` };
-  }
-  await saveDraft(d.id, { ...fresh.payload, images: [...fresh.payload.images, { key, scene: p.data.scene, extra: p.data.extra }], costUsd: fresh.payload.costUsd + (r.costUsd ?? 0) });
-  return { ok: true, key };
-}
-
-export async function removeImageAction(input: unknown): Promise<Result> {
-  await requireAdmin();
-  const p = z.object({ draftId: uuid, key: z.string().regex(KEY_PATTERNS.photo) }).safeParse(input);
-  if (!p.success) return { ok: false, error: "Invalid request." };
-  const d = await loadDraft(p.data.draftId);
-  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  if (!d.payload.images.some((i) => i.key === p.data.key)) return { ok: false, error: "That image is not part of this draft." };
-  await deleteObject(p.data.key).catch(() => {});
-  await saveDraft(d.id, { ...d.payload, images: d.payload.images.filter((i) => i.key !== p.data.key) });
-  return { ok: true };
-}
-
-/** Save the owner's edits to the copy and the price. */
-export async function saveDraftAction(input: unknown): Promise<Result> {
-  await requireAdmin();
-  const p = z.object({ draftId: uuid, copy: copySchema, price: z.string().max(20), notes: z.string().max(1500).optional() }).safeParse(input);
-  if (!p.success) return { ok: false, error: "The copy is not valid: " + (p.error.issues[0]?.message ?? "check the fields") };
-  const d = await loadDraft(p.data.draftId);
-  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  await saveDraft(d.id, { ...d.payload, copy: p.data.copy, price: p.data.price, notes: p.data.notes ?? d.payload.notes }, p.data.copy.name);
-  return { ok: true };
+/** A product the studio may work on: exists, and is not a clicker or keychain designer (those have their own setup). */
+async function studioProduct(id: string) {
+  const p = await getProductById(id, { raw: true });
+  if (!p) return null;
+  if (p.options.some((o) => o.type === "text" && (o.constraints.clicker || o.constraints.keychain))) return null;
+  return p;
 }
 
 /**
- * Approval: only now does anything reach the shop. Creates the product as a DRAFT (unpublished), attaches the model and the
- * chosen pictures (the same actions as the product editor, so every check runs again). Order = the order given.
+ * One chat message. Finds (or opens) the chat: `draftId` for a chat already open, else `productId` for an existing product's
+ * one chat, else a new chat for a product that does not exist yet. Attaches the files that came with the message (already
+ * uploaded to storage), saves the message, then lets the assistant answer. The assistant only proposes.
  */
-export async function createProductFromDraftAction(input: unknown): Promise<Result<{ productId: string; warnings: string[] }>> {
+export async function studioSendAction(input: unknown): Promise<StudioResult> {
+  const admin = await requireAdmin();
+  const p = z.object({
+    draftId: uuid.nullable(),
+    productId: uuid.nullable().default(null),
+    text: z.string().trim().max(4000),
+    photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(MAX_PHOTOS_PER_DRAFT).default([]),
+    modelKey: z.string().regex(KEY_PATTERNS.model).nullable().default(null),
+    imageModel: z.string().regex(MODEL_ID).optional(),
+  }).safeParse(input);
+  if (!p.success) return { ok: false, error: "Invalid message.", snapshot: null };
+  const { text, photoKeys, modelKey } = p.data;
+  if (!text && !photoKeys.length && !modelKey) return { ok: false, error: "Write a message or attach a file.", snapshot: null };
+
+  let draftId = p.data.draftId;
+  let current: DraftPayload;
+  if (draftId) {
+    const d = await loadDraft(draftId);
+    if (!d || d.status !== "draft") return { ok: false, error: "This chat is closed. Start a new one.", snapshot: null };
+    current = d.payload;
+  } else if (p.data.productId) {
+    if (!(await studioProduct(p.data.productId))) return { ok: false, error: "That product cannot be used here (it does not exist, or it is a designer with its own setup).", snapshot: null };
+    const open = await findProductChat(p.data.productId);
+    draftId = open?.id ?? null;
+    current = open?.payload ?? draftSchema.parse({ productId: p.data.productId });
+  } else {
+    current = draftSchema.parse({});
+  }
+  // an existing product's 3D file is its own: changing it re-detects the parts, which belongs in the product editor
+  if (modelKey && current.productId) return { ok: false, error: "This product already exists. Change its 3D file in the product editor (that also re-detects its parts).", snapshot: draftId ? await snapshotOrNull(draftId) : null };
+  const fresh = [...new Set(photoKeys)].filter((k) => !current.photoKeys.includes(k));
+  if (current.photoKeys.length + fresh.length > MAX_PHOTOS_PER_DRAFT) return { ok: false, error: `A chat can hold ${MAX_PHOTOS_PER_DRAFT} photos. Use fewer.`, snapshot: draftId ? await snapshotOrNull(draftId) : null };
+  const checked = await checkAttachments(fresh, modelKey);
+  if (!checked.ok) return { ok: false, error: checked.error, snapshot: draftId ? await snapshotOrNull(draftId) : null };
+
+  if (!draftId) {
+    const name = current.productId ? (await getProductById(current.productId, { raw: true }))?.name : null;
+    const [row] = await db.insert(aiDrafts).values({ kind: "product", title: name ?? "New product", payload: current, createdBy: admin.id }).returning({ id: aiDrafts.id });
+    if (!row) return { ok: false, error: "Could not start the chat. Try again.", snapshot: null };
+    draftId = row.id;
+  }
+  let replaced: string | null = null;
+  const saved = await updateDraft(draftId, (d) => {
+    if (modelKey && d.modelKey && d.modelKey !== modelKey) replaced = d.modelKey;
+    const next: DraftPayload = { ...d, photoKeys: [...d.photoKeys, ...fresh.filter((k) => !d.photoKeys.includes(k))], ...(modelKey ? { modelKey, facts: checked.facts } : {}) };
+    return addTurn(next, { role: "user", text, photos: fresh, model: modelKey });
+  });
+  if (!saved) return { ok: false, error: "This chat is closed. Start a new one.", snapshot: null };
+  if (replaced) await deleteObject(replaced).catch((e) => console.warn("product studio: could not delete the replaced model", replaced, e));
+
+  const prefs = await getAiPrefs();
+  const run = await runStudio({ draftId, imageModel: p.data.imageModel ?? prefs.imageModel, actorId: admin.id });
+  const snapshot = await snapshotOrNull(draftId);
+  if (!snapshot) return { ok: false, error: "Draft not found.", snapshot: null };
+  return run.ok ? { ok: true, snapshot } : { ok: false, error: run.error, snapshot };
+}
+
+/** The draft as it is now (after a proposal card was approved, to show its new status). */
+export async function studioSnapshotAction(input: unknown): Promise<Snapshot | null> {
   await requireAdmin();
-  const p = z.object({ draftId: uuid, photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(12) }).safeParse(input);
+  const p = z.object({ draftId: uuid }).safeParse(input);
+  return p.success ? snapshotOrNull(p.data.draftId) : null;
+}
+
+/** Delete a picture from the chat: a mockup or an uploaded photo. A picture already added to the product stays (remove it in the product editor). */
+export async function removeImageAction(input: unknown): Promise<StudioResult> {
+  await requireAdmin();
+  const p = z.object({ draftId: uuid, key: z.string().regex(KEY_PATTERNS.photo) }).safeParse(input);
+  if (!p.success) return { ok: false, error: "Invalid request.", snapshot: null };
+  const d = await loadDraft(p.data.draftId);
+  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found.", snapshot: null };
+  const key = p.data.key;
+  if (!d.payload.images.some((i) => i.key === key) && !d.payload.photoKeys.includes(key)) return { ok: false, error: "That picture is not part of this chat.", snapshot: await snapshotOf(d) };
+  if (d.payload.attached.includes(key)) return { ok: false, error: "That picture is on the product now. Remove it in the product editor.", snapshot: await snapshotOf(d) };
+  await deleteObject(key).catch(() => {});
+  const next = await updateDraft(d.id, (x) => ({
+    ...x,
+    images: x.images.filter((i) => i.key !== key),
+    photoKeys: x.photoKeys.filter((k) => k !== key),
+    chat: x.chat.map((t) => ({ ...t, images: t.images.filter((k) => k !== key), photos: t.photos.filter((k) => k !== key) })),
+  }));
+  return next ? { ok: true, snapshot: await snapshotOf(next) } : { ok: false, error: "Draft not found.", snapshot: null };
+}
+
+/** Save the owner's edits to the listing proposal and the price. */
+export async function saveDraftAction(input: unknown): Promise<Result> {
+  await requireAdmin();
+  const p = z.object({ draftId: uuid, copy: copySchema, price: z.string().max(20) }).safeParse(input);
+  if (!p.success) return { ok: false, error: "The copy is not valid: " + (p.error.issues[0]?.message ?? "check the fields") };
+  const d = await updateDraft(p.data.draftId, (x) => ({ ...x, copy: p.data.copy, price: p.data.price }), p.data.copy.name);
+  return d ? { ok: true } : { ok: false, error: "Draft not found." };
+}
+
+/**
+ * Apply what the chat prepared. A NEW product: creates it as a draft (unpublished) with the listing, the 3D file (which
+ * detects its colour parts) and the ticked pictures; the chat then continues on that product (designs, options, price).
+ * An EXISTING product: updates its listing (if one is proposed) and adds the ticked pictures not added before.
+ * Every write goes through the product editor's own actions, so every check runs again. The draft is claimed first, so a
+ * double click or a second tab cannot do it twice.
+ */
+export async function applyDraftAction(input: unknown): Promise<Result<{ productId: string; created: boolean; warnings: string[]; snapshot: Snapshot | null }>> {
+  await requireAdmin();
+  const p = z.object({ draftId: uuid, photoKeys: z.array(z.string().regex(KEY_PATTERNS.photo)).max(18) }).safeParse(input);
   if (!p.success) return { ok: false, error: "Invalid request." };
   const d = await loadDraft(p.data.draftId);
-  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found or already used." };
-  const copy = d.payload.copy;
-  if (!copy) return { ok: false, error: "Generate or write the copy first." };
-  if (!d.payload.price.trim()) return { ok: false, error: "Enter a price first." };
+  if (!d || d.status !== "draft") return { ok: false, error: "Draft not found or already in use." };
   const allowed = new Set([...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)]);
-  if (p.data.photoKeys.some((k) => !allowed.has(k))) return { ok: false, error: "A picture does not belong to this draft." };
+  if (p.data.photoKeys.some((k) => !allowed.has(k))) return { ok: false, error: "A picture does not belong to this chat." };
+  const pictures = p.data.photoKeys.filter((k) => !d.payload.attached.includes(k));
+  const copy = d.payload.copy;
+  const existing = d.payload.productId ? await studioProduct(d.payload.productId) : null;
+  if (d.payload.productId && !existing) return { ok: false, error: "The product of this chat no longer exists." };
+  if (!existing) {
+    if (!copy) return { ok: false, error: "There is no listing yet. Ask the assistant to write one, or fill it in." };
+    if (!d.payload.price.trim()) return { ok: false, error: "Enter a price first." };
+  } else if (!copy && !pictures.length) return { ok: false, error: "Nothing to apply: no listing change and no new picture ticked." };
 
-  // claim the draft first: two clicks (or two tabs) cannot both create a product
+  // claim the chat, so two clicks (or two tabs) cannot both apply it; it is released again either way
   const claimed = await db.update(aiDrafts).set({ status: "applying", updatedAt: new Date() }).where(and(eq(aiDrafts.id, d.id), eq(aiDrafts.status, "draft"))).returning({ id: aiDrafts.id });
-  if (!claimed.length) return { ok: false, error: "This draft is already being approved." };
+  if (!claimed.length) return { ok: false, error: "This is already being applied." };
   const release = () => db.update(aiDrafts).set({ status: "draft", updatedAt: new Date() }).where(eq(aiDrafts.id, d.id));
 
+  const warnings: string[] = [];
   let productId: string;
+  let created = false;
   try {
-    const created = await createProductAction({ name: copy.name, description: descriptionOf(copy), category: copy.category, basePrice: d.payload.price, status: "draft", weightGrams: "" });
-    if (!created.ok || !created.id) { await release(); return { ok: false, error: created.ok ? "Could not create the product." : created.error }; }
-    productId = created.id;
+    if (!existing) {
+      const r = await createProductAction({ name: copy!.name, description: descriptionOf(copy!), category: copy!.category, tags: copy!.tags, basePrice: d.payload.price, status: "draft", weightGrams: "" });
+      if (!r.ok || !r.id) { await release(); return { ok: false, error: r.ok ? "Could not create the product." : r.error }; }
+      productId = r.id;
+      created = true;
+      if (d.payload.modelKey) {
+        const att = await attachModelAction({ productId, key: d.payload.modelKey });
+        if (!att.ok) warnings.push(`model: ${att.error}`);
+      } else warnings.push("no 3D file was attached to the chat; add one in the product editor");
+    } else {
+      productId = existing.id;
+      if (copy) {
+        const r = await updateProductAction({ id: existing.id, name: copy.name, description: descriptionOf(copy), category: copy.category, tags: copy.tags, basePrice: d.payload.price.trim() || String(centavosToPesos(existing.basePriceCents)), status: existing.status, weightGrams: existing.weightGrams ?? "" });
+        if (!r.ok) { await release(); return { ok: false, error: r.error }; }
+      }
+    }
   } catch (e) {
     await release();
     throw e;
   }
-
-  // From here the product exists, so the draft is used up. A failed attachment is a warning on a created product, not a failure.
-  const warnings: string[] = [];
-  const att = await attachModelAction({ productId, key: d.payload.modelKey });
-  if (!att.ok) warnings.push(`model: ${att.error}`);
-  for (const key of p.data.photoKeys) {
-    const r = await addPhotoAction({ productId, key, alt: copy.name });
-    if (!r.ok) warnings.push(`photo: ${r.error}`);
+  // from here the product holds the changes; a picture that fails is a warning, not a failure
+  const added: string[] = [];
+  for (const key of pictures) {
+    const r = await addPhotoAction({ productId, key, alt: copy?.name ?? existing?.name ?? "" });
+    if (r.ok) added.push(key); else warnings.push(`photo: ${r.error}`);
   }
-  // AI images that were not chosen are cleaned up (the real photos stay in storage where the owner uploaded them)
-  for (const i of d.payload.images) if (!p.data.photoKeys.includes(i.key)) await deleteObject(i.key).catch((e) => console.warn("ai draft: could not delete", i.key, e));
-  await db.update(aiDrafts).set({ status: "applied", appliedAt: new Date(), updatedAt: new Date(), payload: { ...d.payload, productId } }).where(eq(aiDrafts.id, d.id));
+  const note = created
+    ? `Created "${copy!.name}" as an unpublished draft${((w) => (w.length ? ` with ${w.join(" and ")}` : ""))([d.payload.modelKey ? "its 3D file" : "", added.length ? `${added.length} picture${added.length > 1 ? "s" : ""}` : ""].filter(Boolean))}. Next: ask me to suggest designs and options for it, or to check the price.`
+    : `Applied to the product: ${[copy ? "the listing" : "", added.length ? `${added.length} picture${added.length > 1 ? "s" : ""}` : ""].filter(Boolean).join(" and ")}.`;
+  await db.update(aiDrafts).set({ status: "draft", updatedAt: new Date(), ...(created ? { appliedAt: new Date() } : {}) }).where(eq(aiDrafts.id, d.id));
+  const next = await updateDraft(d.id, (x) => addTurn({ ...x, productId, copy: null, price: "", attached: [...x.attached, ...added] }, { role: "assistant", text: warnings.length ? `${note}\n\nTo check: ${warnings.join("; ")}.` : note }), copy?.name);
   revalidatePath("/admin/ai");
-  return { ok: true, productId, warnings };
+  revalidatePath(`/admin/products/${productId}`);
+  return { ok: true, productId, created, warnings, snapshot: next ? await snapshotOf(next) : null };
 }
 
 export async function discardDraftAction(input: unknown): Promise<Result> {
@@ -218,8 +207,10 @@ export async function discardDraftAction(input: unknown): Promise<Result> {
   if (!p.success) return { ok: false, error: "Invalid request." };
   const d = await loadDraft(p.data.draftId);
   if (!d || d.status !== "draft") return { ok: false, error: "Draft not found." };
-  // these files were uploaded for this draft only (an applied draft cannot be discarded, and the product keeps its own copies' keys)
-  for (const k of [d.payload.modelKey, ...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)]) await deleteObject(k).catch((e) => console.warn("ai draft: could not delete", k, e));
+  // only files nothing else uses: never a picture on the product, and never the 3D file once a product exists (it may be the product's own)
+  const keep = new Set(d.payload.attached);
+  const files = [d.payload.productId ? null : d.payload.modelKey, ...d.payload.photoKeys, ...d.payload.images.map((i) => i.key)].filter((k): k is string => Boolean(k) && !keep.has(k as string));
+  for (const k of files) await deleteObject(k).catch((e) => console.warn("product studio: could not delete", k, e));
   await db.update(aiDrafts).set({ status: "discarded", updatedAt: new Date() }).where(eq(aiDrafts.id, d.id));
   revalidatePath("/admin/ai");
   return { ok: true };

@@ -19,6 +19,7 @@ import { checkDesign } from "./clicker/server";
 import { MAX_ADD_JSON } from "./clicker/spec";
 import { keychainOptionOf } from "./keychain/of-product";
 import { checkKeychain } from "./keychain/server";
+import { presetProblem } from "./presets";
 
 /** Framework-free so it can be tested with the real DB/S3. The action wrapper does auth + revalidation. */
 export const addToCartSchema = z.object({
@@ -38,6 +39,10 @@ async function prepareLine(userId: string, product: Product, rawSelection: Confi
 
   const { unitPriceCents, errors } = computeUnitPrice(product.basePriceCents, product.options, config);
   if (errors.length) return { ok: false, error: errors[0] };
+
+  // A presets-only product takes nothing but a ready-made design: the browser hides the colour pickers, this is the real check
+  const noPreset = presetProblem(product.designMode, product.presets, config);
+  if (noPreset) return { ok: false, error: noPreset };
 
   // A clicker design must be one we can print: right sizes, offered colours, text the font can draw
   const clicker = clickerOptionOf(product.options);

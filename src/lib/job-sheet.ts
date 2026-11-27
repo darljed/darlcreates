@@ -29,6 +29,8 @@ export type JobSheet = {
   clicker: { summary: string; kind: string; sizeMm: string; shape: string; switches: number; keyring: boolean; base: SheetColour; cap: SheetColour | null; layers: string[]; colours: SheetColour[]; keys: string[] } | null;
   /** The name keychain design (made to order). Optional: sheets saved before keychains existed do not have it. */
   keychain?: { summary: string; style: string; name: string; font: string; lengthMm: string; thicknessMm: string; ring: string; parts: { part: string; colour: SheetColour }[] } | null;
+  /** The ready-made design the customer picked (its name), so the owner can take a pre-printed one. Optional: older sheets do not have it. */
+  preset?: string | null;
   /** The distinct colours to load, with the filament number the print file gives them (null: not set by the file). */
   filaments: { hex: string; colour: string; filament: number | null; usedBy: string[] }[];
   /** Things to do by hand because the print file cannot do them. */
@@ -39,9 +41,9 @@ const lc = (s: string) => s.toLowerCase();
 const named = (hex: string, label?: string): SheetColour => ({ hex: lc(hex), name: label || colorName(hex) });
 
 /** Build the sheet for one order line from the product's options and the customer's saved selection. */
-export function buildJobSheet(opts: { options: ProductOptionInput[]; config: ConfigSelection; modelKey: string | null }): JobSheet {
+export function buildJobSheet(opts: { options: ProductOptionInput[]; config: ConfigSelection; modelKey: string | null; preset?: string | null }): JobSheet {
   const { options, config } = opts;
-  const out: JobSheet = { v: 1, model: opts.modelKey ? (opts.modelKey.split("/").pop() ?? opts.modelKey) : null, choices: [], parts: [], name: null, clicker: null, keychain: null, filaments: [], warnings: [] };
+  const out: JobSheet = { v: 1, preset: opts.preset ?? null, model: opts.modelKey ? (opts.modelKey.split("/").pop() ?? opts.modelKey) : null, choices: [], parts: [], name: null, clicker: null, keychain: null, filaments: [], warnings: [] };
   const fil = new Map<string, { hex: string; colour: string; filament: number | null; usedBy: string[] }>();
   const addFilament = (hex: string, colour: string, filament: number | null, by: string) => {
     const k = lc(hex);
@@ -156,6 +158,7 @@ export function buildJobSheet(opts: { options: ProductOptionInput[]; config: Con
 export function sheetText(title: string, qty: number, s: JobSheet): string {
   const L: string[] = [`${qty}× ${title}`];
   if (s.model) L.push(`Model file: ${s.model}`);
+  if (s.preset) L.push(`Design preset: ${s.preset}`);
   for (const c of s.choices) L.push(`${c.label}: ${c.value}${c.hex ? ` (${c.hex})` : ""}`);
   if (s.parts.length) {
     L.push("Parts:");

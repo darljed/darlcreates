@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { parsePesoInput } from "@/lib/money";
+import { normalizeTags } from "@/lib/tags";
 import { deleteObject, headObject, peekBytes } from "@/lib/storage";
 import { KEY_PATTERNS, UPLOAD_RULES, looksLikeZip, modelFormatOf } from "@/lib/uploads";
 import { productPhotos } from "@/db/schema";
@@ -49,6 +50,8 @@ const productSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(2000).optional().default(""),
   category: z.string().trim().toLowerCase().min(1).max(60).default("general"), // stored lower-case so "Toys" and "toys" are one category
+  /** Tags as a list or a comma-separated string. Left out = unchanged on update (the agent edits without it), none on create. */
+  tags: z.union([z.string(), z.array(z.string())]).optional().transform((v) => (v === undefined ? undefined : normalizeTags(v))),
   basePrice: z.string().min(1),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
   /** Packed weight of one unit in grams; empty = use the shop default. */
@@ -78,6 +81,7 @@ export async function createProductAction(input: unknown): Promise<Result> {
       name: parsed.data.name,
       description: parsed.data.description,
       category: parsed.data.category,
+      tags: parsed.data.tags ?? [],
       basePriceCents,
       status: parsed.data.status,
       weightGrams: parsed.data.weightGrams,
@@ -111,6 +115,7 @@ export async function updateProductAction(input: unknown): Promise<Result> {
       name: parsed.data.name,
       description: parsed.data.description,
       category: parsed.data.category,
+      ...(parsed.data.tags !== undefined ? { tags: parsed.data.tags } : {}),
       basePriceCents,
       status: parsed.data.status,
       weightGrams: parsed.data.weightGrams,

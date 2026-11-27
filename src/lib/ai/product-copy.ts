@@ -83,3 +83,8 @@ export function imagePrompt(scene: Scene, name: string, extra = ""): string {
   return [`${SCENE_PROMPT[scene]} The product is "${name}".`, KEEP, extra.trim() ? `Extra direction from the owner: ${extra.trim().slice(0, 300)}` : ""].filter(Boolean).join("\n\n");
 }
 
+/** A mockup described in the owner's (or the chat assistant's) own words. The real product must still stay unchanged. */
+export function customImagePrompt(direction: string, name: string): string {
+  return [`${direction.trim().slice(0, 500)}\n\nThe product is "${name}".`, KEEP].join("\n\n");
+}
+

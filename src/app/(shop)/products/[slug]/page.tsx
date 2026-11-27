@@ -1,3 +1,4 @@
+import { effectiveMode } from "@/lib/presets";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -132,6 +133,8 @@ async function ProductContent({
             options={product.options}
             stlUrl={stlUrl}
             photos={photos}
+            designMode={effectiveMode(product.designMode, product.presets)}
+            presets={product.presets.filter((d) => d.available).map((d) => ({ id: d.id, name: d.name, selection: d.selection, swatches: d.swatches }))}
           />
         )}
 
