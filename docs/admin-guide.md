@@ -1,6 +1,6 @@
 # Admin guide (for the owner)
 
-> Last updated: 2026-11-18. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
+> Last updated: 2026-11-22. Plain-language guide to `/admin`. Technical detail: [order-lifecycle.md](./order-lifecycle.md), [security.md](./security.md).
 
 Sign in with Google using the owner account. Only accounts with the admin role see `/admin`. The sidebar has: Dashboard, Orders, Payments, Reviews, Products, Colours, Users, Landing page, Logos & branding, Store & footer, Legal pages. Your name and email at the bottom of the sidebar open My account, View storefront and Sign out.
 
@@ -44,7 +44,7 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 
 ## Products
 
-- **New product**: name, description, category, base price (₱) and status.
+- **New product**: name, description, category, tags, base price (₱) and status. **Tags** are short labels ("gift", "desk"), comma separated, up to 8. Customers can search and filter the shop by them.
   - *Draft*: only you see it. *Published*: in the shop. *Archived*: removed from the shop but kept for old orders.
 - **Print model**: upload an STL or 3MF (up to 50 MB). Customers see it in 3D. Only you can download the file.
 - **Photos**: up to 5 MB each. The first photo is the shop thumbnail; delete from the photo grid.
@@ -52,6 +52,7 @@ Customers can review a product only after the order is *Delivered*. New reviews 
 - **Delete product**: the red button on the product page or the bin icon in the list. Photos, model, options and reviews go with it and it leaves customers' carts. A product that has been ordered cannot be deleted: set it to Archived.
 - **Clicker designer** is a *service*, listed under Services at the top of Products. It is reached from "Design a clicker" (/clicker), is not in the product grid and cannot be deleted.
 - **Auto-detect from 3D model** (3MF): finds each part that can be coloured (e.g. "Ball colour") and offers every colour of your Colours list on each. Use the pencil to rename an option or choice, change its price or required flag; the cross deletes a choice; "Add all colours" fills in any colour a option lacks. Auto-detect replaces the product's colour options, including your edits to them.
+- **Design presets** (on a product with colour options): make ready-made designs, for example "Ocean" = blue body and white lid. Under *How customers choose colours* pick **custom only**, **a ready-made design only** or **either**. With "design only" you can print a few designs ahead and pack them when an order arrives; the order sheet says "Design preset: Ocean". *Hide* takes a design off sale without deleting it. If a design uses a colour that is out of stock in the Colours list, it is not shown to customers until the colour is back. If you use "detect from 3D model" again, designs keep working as long as the colours are still offered. You can also chat these changes in the **Product studio** (link above the designs): each change is a card you approve.
 - Changing a product never changes orders already placed. They keep what the customer bought and paid.
 - Changes appear on the storefront right away.
 

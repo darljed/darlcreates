@@ -4,6 +4,7 @@ import "./globals.css";
 import { fileUrl } from "@/lib/storage-url";
 import { getBranding, getSiteInfo } from "@/lib/site-content";
 import { PwaRegister } from "@/components/pwa-register";
+import { ConfirmProvider } from "@/components/confirm-provider";
 
 const sans = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -20,7 +21,11 @@ const mono = JetBrains_Mono({
 export async function generateMetadata(): Promise<Metadata> {
   const [{ logos }, { store, seo }] = await Promise.all([getBranding(), getSiteInfo()]);
   const url = (a: { key: string } | null) => (a ? (fileUrl(a.key) ?? undefined) : undefined);
-  const og = logos.og;
+  // Admin-uploaded image wins; otherwise the bundled public/og-card.png (1200x630).
+  const og = logos.og ?? null;
+  const ogImage = og
+    ? { url: url(og)!, width: og.width, height: og.height }
+    : { url: "/og-card.png", width: 1200, height: 630 };
   const title = seo.title;
   const description = seo.description;
   return {
@@ -40,13 +45,13 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: "en_PH",
       title,
       description,
-      ...(og ? { images: [{ url: url(og)!, width: og.width, height: og.height, alt: store.name }] } : {}),
+      images: [{ ...ogImage, alt: store.name }],
     },
     twitter: {
-      card: og ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      ...(og ? { images: [url(og)!] } : {}),
+      images: [ogImage.url],
     },
   };
 }
@@ -61,7 +66,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         <PwaRegister />
       </body>
     </html>

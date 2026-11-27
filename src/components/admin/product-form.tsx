@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { centavosToPesos } from "@/lib/money";
+import { MAX_TAGS } from "@/lib/tags";
 import {
   createProductAction,
   updateProductAction,
@@ -30,6 +31,7 @@ export type ProductFormValues = {
   name: string;
   description: string;
   category: string;
+  tags?: string[];
   basePriceCents: number;
   weightGrams?: number | null;
   status: "draft" | "published" | "archived";
@@ -42,6 +44,7 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
     name: initial?.name ?? "",
     description: initial?.description ?? "",
     category: initial?.category ?? "general",
+    tags: (initial?.tags ?? []).join(", "),
     basePrice: initial ? String(centavosToPesos(initial.basePriceCents)) : "",
     status: initial?.status ?? "draft",
     weightGrams: initial?.weightGrams ? String(initial.weightGrams) : "",
@@ -121,6 +124,16 @@ export function ProductForm({ initial }: { initial?: ProductFormValues }) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="tags">Tags</Label>
+        <Input
+          id="tags"
+          value={v.tags}
+          placeholder="gift, desk, name keychain"
+          onChange={(e) => setV({ ...v, tags: e.target.value })}
+        />
+        <p className="text-xs text-muted-foreground">Comma separated, up to {MAX_TAGS}. Customers can search and filter the shop by them. Lower-case is applied for you.</p>
       </div>
       <div className="max-w-xs space-y-1.5">
         <Label htmlFor="weightGrams">Packed weight (g)</Label>

@@ -9,22 +9,35 @@ import type { Provider } from "./settings";
 const BASE: Record<Provider, string> = { openrouter: "https://openrouter.ai/api/v1", ollama: "https://ollama.com" };
 const CHAT_URL: Record<Provider, string> = { openrouter: `${BASE.openrouter}/chat/completions`, ollama: `${BASE.ollama}/v1/chat/completions` };
 
-export type ModelInfo = { id: string; name: string; vision: boolean; tools: boolean; note: string };
+/** `imageOnly` marks an image model that answers with a picture and no text (it needs `modalities: ["image"]`). */
+export type ModelInfo = { id: string; name: string; vision: boolean; tools: boolean; note: string; imageOnly?: boolean };
 
 // ---- model lists --------------------------------------------------------------------------------------------------
 
-type OrModel = { id: string; name?: string; architecture?: { input_modalities?: string[]; output_modalities?: string[] }; supported_parameters?: string[]; pricing?: { prompt?: string; completion?: string } };
+type OrModel = { id: string; name?: string; architecture?: { input_modalities?: string[]; output_modalities?: string[] }; supported_parameters?: string[]; pricing?: { prompt?: string; completion?: string; image_output?: string } };
+function priceNote(m: OrModel): string {
+  const inP = Number(m.pricing?.prompt), outP = Number(m.pricing?.completion);
+  return Number.isFinite(inP) && Number.isFinite(outP) && inP >= 0 ? (inP === 0 && outP === 0 ? "free" : `$${(inP * 1e6).toFixed(2)} in / $${(outP * 1e6).toFixed(2)} out per M`) : "";
+}
 /** OpenRouter models that answer in text only (image-making models are left out: they are not for writing). Prices are per million tokens, as a short note. */
 export function parseOpenRouterModels(json: unknown): ModelInfo[] {
   const data = (json as { data?: OrModel[] } | null)?.data;
   if (!Array.isArray(data)) return [];
   return data
     .filter((m) => typeof m.id === "string" && m.architecture?.output_modalities?.includes("text") && !m.architecture.output_modalities.includes("image") && !m.id.startsWith("openrouter/"))
-    .map((m) => {
-      const inP = Number(m.pricing?.prompt), outP = Number(m.pricing?.completion);
-      const note = Number.isFinite(inP) && Number.isFinite(outP) && inP >= 0 ? (inP === 0 && outP === 0 ? "free" : `$${(inP * 1e6).toFixed(2)} in / $${(outP * 1e6).toFixed(2)} out per M`) : "";
-      return { id: m.id, name: m.name ?? m.id, vision: Boolean(m.architecture?.input_modalities?.includes("image")), tools: Boolean(m.supported_parameters?.includes("tools")), note };
-    })
+    .map((m) => ({ id: m.id, name: m.name ?? m.id, vision: Boolean(m.architecture?.input_modalities?.includes("image")), tools: Boolean(m.supported_parameters?.includes("tools")), note: priceNote(m) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Image models bill per image token, which is not a number an owner can read, so the list only flags free ones; the real cost is shown after each picture. */
+const imageNote = (m: OrModel) => (Number(m.pricing?.prompt) === 0 && Number(m.pricing?.image_output) === 0 ? "free" : "");
+/** OpenRouter models that can make pictures (the router models are left out: they pick a model themselves). `vision` = can take a reference photo. */
+export function parseOpenRouterImageModels(json: unknown): ModelInfo[] {
+  const data = (json as { data?: OrModel[] } | null)?.data;
+  if (!Array.isArray(data)) return [];
+  return data
+    .filter((m) => typeof m.id === "string" && m.architecture?.output_modalities?.includes("image") && !m.id.startsWith("openrouter/"))
+    .map((m) => ({ id: m.id, name: m.name ?? m.id, vision: Boolean(m.architecture?.input_modalities?.includes("image")), tools: false, note: imageNote(m), imageOnly: !m.architecture?.output_modalities?.includes("text") }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -39,35 +52,43 @@ export function parseOllamaModels(json: unknown): ModelInfo[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-const listCache = new Map<Provider, { at: number; models: ModelInfo[] }>();
-const listFailed = new Map<Provider, { at: number; error: string }>();
-/** The provider's models (public lists; cached 10 minutes). */
-export async function listModels(p: Provider): Promise<{ ok: true; models: ModelInfo[] } | { ok: false; error: string }> {
-  const hit = listCache.get(p);
+const listCache = new Map<string, { at: number; models: ModelInfo[] }>();
+const listFailed = new Map<string, { at: number; error: string }>();
+async function cachedList(cacheKey: string, url: string, parse: (json: unknown) => ModelInfo[], label: string): Promise<{ ok: true; models: ModelInfo[] } | { ok: false; error: string }> {
+  const hit = listCache.get(cacheKey);
   if (hit && Date.now() - hit.at < 10 * 60_000) return { ok: true, models: hit.models };
-  const bad = listFailed.get(p); // a failure is remembered for 30 s, so an outage is not hammered
+  const bad = listFailed.get(cacheKey); // a failure is remembered for 30 s, so an outage is not hammered
   if (bad && Date.now() - bad.at < 30_000) return { ok: false, error: bad.error };
-  const fail = (error: string): { ok: false; error: string } => { listFailed.set(p, { at: Date.now(), error }); return { ok: false, error }; };
+  const fail = (error: string): { ok: false; error: string } => { listFailed.set(cacheKey, { at: Date.now(), error }); return { ok: false, error }; };
   try {
-    const res = await fetch(p === "openrouter" ? `${BASE.openrouter}/models` : `${BASE.ollama}/api/tags`, { signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) return fail(`${p} answered ${res.status} when listing models.`);
-    const models = (p === "openrouter" ? parseOpenRouterModels : parseOllamaModels)(await res.json());
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return fail(`${label} answered ${res.status} when listing models.`);
+    const models = parse(await res.json());
     if (!models.length) return fail("The provider returned no models.");
-    listCache.set(p, { at: Date.now(), models });
-    listFailed.delete(p);
+    listCache.set(cacheKey, { at: Date.now(), models });
+    listFailed.delete(cacheKey);
     return { ok: true, models };
   } catch {
     return fail("Could not reach the provider to list models.");
   }
 }
+/** The provider's text models (public lists; cached 10 minutes). */
+export const listModels = (p: Provider) => cachedList(p, p === "openrouter" ? `${BASE.openrouter}/models` : `${BASE.ollama}/api/tags`, p === "openrouter" ? parseOpenRouterModels : parseOllamaModels, p);
+/** OpenRouter's image-making models (cached 10 minutes). */
+export const listImageModels = () => cachedList("openrouter:image", `${BASE.openrouter}/models?output_modalities=image`, parseOpenRouterImageModels, "openrouter");
 
 // ---- chat ---------------------------------------------------------------------------------------------------------
 
 export type ChatPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ChatPart[] };
+export type ToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+export type ChatMessage =
+  | { role: "system" | "user"; content: string | ChatPart[] }
+  | { role: "assistant"; content: string | ChatPart[] | null; tool_calls?: ToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+export type ToolSpec = { type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } };
 export type AiResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
-type Raw = { error?: { message?: string }; usage?: { cost?: number }; choices?: { message?: { content?: string | null; images?: { image_url?: { url?: string } }[] } }[] };
+type Raw = { error?: { message?: string }; usage?: { cost?: number }; choices?: { message?: { content?: string | null; tool_calls?: ToolCall[]; images?: { image_url?: { url?: string } }[] } }[] };
 
 function failure(status: number, json: Raw, what: string, apiKey: string): { ok: false; error: string } {
   // the provider's wording is shown to the admin, with the key (and anything shaped like one) taken out
@@ -78,14 +99,20 @@ function failure(status: number, json: Raw, what: string, apiKey: string): { ok:
   return { ok: false, error: `${what} failed (${status})${msg ? `: ${msg}` : ""}` };
 }
 
-/** One chat call. `json` asks for a JSON object back. */
-export async function chat(o: { provider: Provider; apiKey: string; model: string; messages: ChatMessage[]; json?: boolean; maxTokens?: number; timeoutMs?: number }): Promise<AiResult<{ text: string; costUsd: number | null }>> {
+/** One chat call. `json` asks for a JSON object back; `tools` lets the model ask for tool calls (see `toolCalls` in the answer). */
+export async function chat(o: { provider: Provider; apiKey: string; model: string; messages: ChatMessage[]; json?: boolean; tools?: ToolSpec[]; maxTokens?: number; timeoutMs?: number }): Promise<AiResult<{ text: string; toolCalls: ToolCall[]; costUsd: number | null }>> {
   let res: Response;
   try {
     res = await fetch(CHAT_URL[o.provider], {
       method: "POST",
       headers: { Authorization: `Bearer ${o.apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: o.model, messages: o.messages, max_tokens: o.maxTokens ?? 2000, ...(o.json ? { response_format: { type: "json_object" } } : {}) }),
+      body: JSON.stringify({
+        model: o.model,
+        messages: o.messages,
+        max_tokens: o.maxTokens ?? 2000,
+        ...(o.json ? { response_format: { type: "json_object" } } : {}),
+        ...(o.tools?.length ? { tools: o.tools, tool_choice: "auto" } : {}),
+      }),
       signal: AbortSignal.timeout(o.timeoutMs ?? 90_000),
     });
   } catch {
@@ -93,13 +120,15 @@ export async function chat(o: { provider: Provider; apiKey: string; model: strin
   }
   const json = (await res.json().catch(() => ({}))) as Raw;
   if (!res.ok || json.error) return failure(res.status, json, "The model call", o.apiKey);
-  const text = json.choices?.[0]?.message?.content;
-  if (!text) return { ok: false, error: "The model returned an empty answer." };
-  return { ok: true, text, costUsd: json.usage?.cost ?? null };
+  const msg = json.choices?.[0]?.message;
+  const toolCalls = (msg?.tool_calls ?? []).filter((t) => t?.function?.name && typeof t.id === "string");
+  const text = msg?.content ?? "";
+  if (!text && !toolCalls.length) return { ok: false, error: "The model returned an empty answer." };
+  return { ok: true, text, toolCalls, costUsd: json.usage?.cost ?? null };
 }
 
 /** An image from OpenRouter (chat endpoint with image output). `refs` are data: URLs of reference pictures. */
-export async function generateImage(o: { apiKey: string; model: string; prompt: string; refs: string[]; aspect?: string }): Promise<AiResult<{ bytes: Uint8Array; mime: "image/png" | "image/jpeg" | "image/webp"; costUsd: number | null }>> {
+export async function generateImage(o: { apiKey: string; model: string; prompt: string; refs: string[]; aspect?: string; imageOnly?: boolean }): Promise<AiResult<{ bytes: Uint8Array; mime: "image/png" | "image/jpeg" | "image/webp"; costUsd: number | null }>> {
   let res: Response;
   try {
     res = await fetch(CHAT_URL.openrouter, {
@@ -107,7 +136,7 @@ export async function generateImage(o: { apiKey: string; model: string; prompt: 
       headers: { Authorization: `Bearer ${o.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: o.model,
-        modalities: ["image", "text"],
+        modalities: o.imageOnly ? ["image"] : ["image", "text"],
         image_config: { aspect_ratio: o.aspect ?? "1:1" },
         messages: [{ role: "user", content: [{ type: "text", text: o.prompt }, ...o.refs.map((url) => ({ type: "image_url", image_url: { url } }))] }],
       }),

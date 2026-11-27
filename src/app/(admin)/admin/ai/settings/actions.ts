@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { adminAudit } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
-import { chat, listModels, type ModelInfo } from "@/lib/ai/providers";
+import { chat, listImageModels, listModels, type ModelInfo } from "@/lib/ai/providers";
 import { getAiKey, getAiPrefs, PROVIDERS, prefsSchema, saveAiKey, saveAiPrefs } from "@/lib/ai/settings";
 
 type Result = { ok: true; message?: string } | { ok: false; error: string };
@@ -46,6 +46,12 @@ export async function listModelsAction(input: unknown): Promise<{ ok: true; mode
   const p = z.object({ provider }).safeParse(input);
   if (!p.success) return { ok: false, error: "Unknown provider." };
   return listModels(p.data.provider);
+}
+
+/** OpenRouter's image-making models, for the image model pickers. */
+export async function listImageModelsAction(): Promise<{ ok: true; models: ModelInfo[] } | { ok: false; error: string }> {
+  await requireAdmin();
+  return listImageModels();
 }
 
 export async function savePrefsAction(input: unknown): Promise<Result> {

@@ -1,6 +1,6 @@
 # Design system
 
-> Last updated: 2026-11-11. Source: `src/app/globals.css`, `src/components/shell/*`, `src/components/admin/editor-bits.tsx`.
+> Last updated: 2026-11-23. Source: `src/app/globals.css`, `src/components/shell/*`, `src/components/admin/editor-bits.tsx`.
 
 Rules for building UI that matches the rest of the app. Check any new screen against this page.
 
@@ -103,3 +103,6 @@ Primitives live in `src/components/ui` (new-york style, Radix). After `shadcn ad
 ## Responsive check
 
 Before merging a UI change, load it at **375px** and **320px** wide. Look for horizontal scroll, clipped numbers, and buttons pushed off screen. Tables must stack; product page and checkout must fit at 320px.
+
+## Confirmations
+Never use `window.confirm`. Ask with `const confirm = useConfirm()` (`components/confirm-provider.tsx`) and `if (!(await confirm({ title, description, confirmLabel, destructive })))  return;`. It renders the shared `ConfirmDialog` (focus trapped, Escape and Cancel close it, the confirm button says what happens). For a confirmation with its own inputs (a reason, a typed word), use `ConfirmDialog` directly.

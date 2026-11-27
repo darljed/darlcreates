@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { products } from "@/db/schema";
@@ -17,7 +18,9 @@ import { listPartsWithCost } from "@/lib/workshop/inventory";
 import { KeychainSetup } from "@/components/admin/keychain-setup";
 import { keychainOptionOf } from "@/lib/keychain/of-product";
 import { NameSlotEditor } from "@/components/admin/name-slot-editor";
-import { inStock } from "@/lib/colour-inventory-schema";
+import { applyInventory, inStock } from "@/lib/colour-inventory-schema";
+import { PresetEditor } from "@/components/admin/preset-editor";
+import { DESIGN_MODES, resolvePresets, type DesignMode } from "@/lib/presets";
 import { aiConfigured } from "@/lib/clicker/redraw";
 import { loadColourInventory } from "@/lib/site-content-store";
 
@@ -42,12 +45,15 @@ export default async function EditProductPage({
     <div className="max-w-3xl space-y-5">
       <div>
         <PageHeader title={product.name} />
+        {/* keyed by its data, so a change made elsewhere (the agent, another tab) shows up instead of being overwritten by a stale form */}
         <ProductForm
+          key={JSON.stringify([product.name, product.description, product.category, product.tags, product.basePriceCents, product.weightGrams, product.status])}
           initial={{
             id: product.id,
             name: product.name,
             description: product.description,
             category: product.category,
+            tags: product.tags,
             basePriceCents: product.basePriceCents,
             weightGrams: product.weightGrams,
             status: product.status as "draft" | "published" | "archived",
@@ -77,6 +83,29 @@ export default async function EditProductPage({
         <div>
           <h2 className="mb-2 text-sm font-bold">Customization options</h2>
           <SchemaBuilder productId={product.id} options={product.options} inventory={inventory} canDetect={Boolean(product.stlKey && /\.3mf$/i.test(product.stlKey))} />
+        </div>
+      )}
+
+      {!clicker && !keychain && product.options.some((o) => o.type === "color") && (
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold">Design presets</h2>
+            <Link href={`/admin/ai?product=${product.id}`} className="text-xs underline">Chat these changes in the Product studio</Link>
+          </div>
+          <PresetEditor
+            productId={product.id}
+            options={product.options}
+            mode={(DESIGN_MODES as readonly string[]).includes(product.designMode) ? (product.designMode as DesignMode) : "custom"}
+            // what customers get now: the same designs, checked against the colours the shop offers today
+            presets={resolvePresets(applyInventory(product.options, inventory), product.presets).map((live) => ({
+              id: live.id,
+              name: live.name,
+              active: live.active,
+              swatches: live.swatches,
+              missing: live.missing,
+              choices: Object.fromEntries(Object.entries(product.presets.find((r) => r.id === live.id)?.selection ?? {}).map(([optId, s]) => [optId, s.valueId ?? ""])),
+            }))}
+          />
         </div>
       )}
 

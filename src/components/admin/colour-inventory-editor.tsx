@@ -15,6 +15,7 @@ import { Panel } from "@/components/shell/ui";
 import { colorName } from "@/lib/color-name";
 import { MAX_INVENTORY_COLOURS, type ColourInventory } from "@/lib/colour-inventory-schema";
 import { resetColourInventoryAction, saveColourInventoryAction } from "@/app/(admin)/admin/colours/actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export function ColourInventoryEditor({ initial, configured }: { initial: ColourInventory; configured: boolean }) {
   const router = useRouter();
@@ -44,8 +45,9 @@ export function ColourInventoryEditor({ initial, configured }: { initial: Colour
     });
   }
 
-  function reset() {
-    if (!window.confirm("Stop limiting colours? Every colour already on your products is offered again.")) return;
+  const confirm = useConfirm();
+  async function reset() {
+    if (!(await confirm({ title: "Stop limiting colours?", description: "Every colour already on your products is offered again.", confirmLabel: "Stop limiting" }))) return;
     start(async () => {
       const res = await resetColourInventoryAction();
       if (!res.ok) {

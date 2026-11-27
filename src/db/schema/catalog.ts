@@ -37,6 +37,10 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   category: text("category").notNull().default("general"),
+  /** Free-form labels (lower-case, up to 8) shown as filters on the shop and searched with the name. */
+  tags: text("tags").array().notNull().default([]),
+  /** How colours are chosen: "custom" (the customer picks each colour), "presets" (only the ready-made designs) or "both". See lib/presets.ts. */
+  designMode: text("design_mode").notNull().default("custom"),
   basePriceCents: integer("base_price_cents").notNull().default(0),
   status: productStatus("status").notNull().default("draft"),
   stlKey: text("stl_key"),
@@ -91,6 +95,23 @@ export const productOptionValues = pgTable("product_option_values", {
   priceDeltaCents: integer("price_delta_cents").notNull().default(0),
   stlKey: text("stl_key"),
   sort: integer("sort").notNull().default(0),
+});
+
+/**
+ * A ready-made colour design for a product ("Ocean", "Sunset"). Stored by what each colour option IS (its part name or
+ * label) and the hex, not by option or value ids, so it survives "detect from 3MF" rebuilding the options.
+ * `colours` = [{ key, label, hex }]. The shop turns it into a normal selection (lib/presets.ts); orders store that selection.
+ */
+export const productPresets = pgTable("product_presets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(true),
+  colours: jsonb("colours").notNull().default([]),
+  sort: integer("sort").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const reviews = pgTable("reviews", {
