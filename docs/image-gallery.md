@@ -1,11 +1,12 @@
 # Image gallery (AI product pictures)
 
-> Last updated: 2026-11-27. Source: `src/lib/ai/image-studio.ts`, `src/app/(admin)/admin/ai/images/page.tsx`,
-> `src/components/ai/image-gallery.tsx`, `src/app/(admin)/admin/ai/image-actions.ts`, `ai_images`, `product_photos.hidden`.
+> Last updated: 2026-11-27. Source: `src/lib/ai/image-studio.ts`, `src/components/ai/image-gallery.tsx`,
+> `src/app/(admin)/admin/ai/image-actions.ts`, `ai_images`, `product_photos.hidden`.
 
-AI → **Image gallery** (`/admin/ai/images`) makes product pictures without chat: pick a product, press a preset chip
-with an optional extra direction, and the picture lands in the gallery as it is made. **Generate set** makes the
-standard trio (Cover, Studio, Lifestyle) in one go.
+Admin → **Product studio** → the right side's **"AI images" tab** makes product pictures without chat: on an existing
+product, press a preset chip with an optional extra direction, and the picture lands in the gallery as it is made.
+**Generate set** makes the standard trio (Cover, Studio, Lifestyle) in one go. (It lives in the same screen as the
+studio's chat; there is no separate page.)
 
 ## Why
 Before this the only way to make a mockup was to ask the studio chat, and a small model sometimes claimed it had made

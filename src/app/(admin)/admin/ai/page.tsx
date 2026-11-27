@@ -11,6 +11,7 @@ import { applyInventory } from "@/lib/colour-inventory-schema";
 import { listImageModels } from "@/lib/ai/providers";
 import { getAiKey, getAiPrefs, PROVIDER_LABEL } from "@/lib/ai/settings";
 import { findProductChat, loadDraft, snapshotOf } from "@/lib/ai/studio";
+import { productGallery, realPhotoCount } from "@/lib/ai/image-studio";
 import { DESIGN_MODE_LABEL, effectiveMode, resolvePresets } from "@/lib/presets";
 import { loadColourInventory } from "@/lib/site-content-store";
 import { fileUrl } from "@/lib/storage-url";
@@ -54,6 +55,7 @@ export default async function ProductStudioPage({ searchParams }: { searchParams
   const productId = (product && UUID.test(product) ? product : null) ?? d?.payload.productId ?? null;
   const panel = productId ? await productPanel(productId) : null;
   const current = d ? await snapshotOf(d) : null;
+  const [gallery, photoCount] = productId ? await Promise.all([productGallery(productId), realPhotoCount(productId)]) : [[], 0];
   const products = list.filter((p) => !p.isService && !p.designer).map((p) => ({ id: p.id, name: p.name }));
 
   return (
@@ -66,7 +68,7 @@ export default async function ProductStudioPage({ searchParams }: { searchParams
       {productId && !panel ? (
         <Panel title="This product cannot be used here"><p className="text-sm text-muted-foreground">It does not exist, or it is a clicker or keychain designer (those are set up in their own designer). <Link className="underline" href="/admin/ai">Start a new product</Link>.</p></Panel>
       ) : (
-        <AiStudio key={`${current?.id ?? "new"}:${productId ?? ""}`} current={current} productId={productId} product={panel} products={products} ready={{ copy: Boolean(prefs.copyModel), imagesKey: Boolean(orKey) }} imageModels={images.ok ? images.models : []} defaultImageModel={prefs.imageModel} chatModel={prefs.copyModel ? `${PROVIDER_LABEL[prefs.copyProvider]} / ${prefs.copyModel}` : null} />
+        <AiStudio key={`${current?.id ?? "new"}:${productId ?? ""}`} current={current} productId={productId} product={panel} products={products} ready={{ copy: Boolean(prefs.copyModel), imagesKey: Boolean(orKey) }} imageModels={images.ok ? images.models : []} defaultImageModel={prefs.imageModel} chatModel={prefs.copyModel ? `${PROVIDER_LABEL[prefs.copyProvider]} / ${prefs.copyModel}` : null} gallery={gallery} realPhotoCount={photoCount} />
       )}
       {recent.length > 0 && (
         <Panel title="Recent chats">

@@ -59,7 +59,7 @@ Three surfaces share one root layout (`layout.tsx`: fonts, `<Toaster>`, metadata
 | `/clicker-examples/*.jpg` | (static files in `public/clicker-examples`) before / after examples for the picture chooser |
 | `/admin/ai` | Product studio: one chat per product (`?product=<id>`, or `?draft=<id>` for a product not created yet): listing, mockups, price, designs and options |
 | `/admin/ai/settings` | AI settings: OpenRouter and Ollama Cloud keys (encrypted, write-only), model selector, test |
-| `/admin/ai/images` | Image gallery: per-product AI pictures (`?product=<id>`) — preset chips (Cover / Studio / Lifestyle / Detail / Custom), "Generate set", and the gallery (on/off the product, cover, alt text, delete); [image-gallery.md](../docs/image-gallery.md) |
+| `/admin/ai` | Product studio's right side has two tabs: "Listing & pictures" (the review panels) and "AI images" (the product's generated pictures), see [image-gallery.md](../docs/image-gallery.md) |
 | `/admin/estimator` | Workshop: the price estimator (cost + three prices), saved estimates, "save as product" |
 | `/admin/inventory` | Workshop: parts, purchase lots, stock adjustments and history |
 | `/admin/sales` | Workshop: the off-site sales (sales taken outside the website), table and kanban |
@@ -328,7 +328,7 @@ Rule: files marked **pure** or **service** use no `next/*`, so scripts and tests
 | `../ai/ai-settings-form.tsx` | (in `components/ai`) AI settings screen: keys, model pickers (writing, agent, image) with the active model marked, test |
 | `../ai/agent-dock.tsx` | (in `components/ai`) The agent chat: floating button on every admin page, Ctrl/Cmd+J, proposal cards with Approve / Reject |
 | `../ai/ai-studio.tsx` | (in `components/ai`) The Product studio: product picker, the chat (attachments, mockups, proposal cards with Approve / Reject / Approve all, the image model dropdown in the message box), and the review side (the product's designs with a 3D preview, the listing, pictures, Create / Apply) |
-| `../ai/image-gallery.tsx` | (in `components/ai`) The image gallery: product picker, preset chips + extra direction + model, "Generate set", and the grid of generated pictures with badges (preset, model, cost, On product / Off, Cover) and per-tile buttons (add / remove, cover, regenerate, alt text, delete — via the app dialog) |
+| `../ai/image-gallery.tsx` | (in `components/ai`) The Product studio's "AI images" tab: preset chips + one-line extra direction + compact model select + Generate / Generate set, and the grid of generated pictures with badges (preset, cost, on / off / cover) and per-tile icon buttons (add / remove, cover, regenerate, alt text, delete — via the app dialog) |
 | `keychain-setup.tsx` | Make a product a keychain product (a standalone service) and set styles, fonts, icons, limits, colours and every price |
 | `clicker-setup.tsx` | Make a product a clicker product (a standalone service, cannot go back) and set sizes, price steps, palette, colours per print, most switches and the price of each extra one, name keys and printer fit |
 | `confirm-dialog.tsx` | Confirmation dialog |
