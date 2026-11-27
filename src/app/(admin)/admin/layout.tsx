@@ -38,7 +38,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       { href: "/admin/sales", label: "Off-site sales", icon: "sales" },
     ] },
     { label: "AI", items: [
-      { href: "/admin/ai", label: "AI studio", icon: "sparkles", exact: true },
+      { href: "/admin/ai", label: "Product studio", icon: "sparkles", exact: true },
       { href: "/admin/ai/settings", label: "AI settings", icon: "settings" },
     ] },
     { label: "People", items: [{ href: "/admin/users", label: "Users", icon: "users" }] },
@@ -55,7 +55,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       <InsetShell
         density="compact"
         rootLabel="Admin"
-        labels={{ ai: "AI studio", settings: "AI settings", studio: "Design studio", estimator: "Estimator", inventory: "Inventory", sales: "Off-site sales", users: "Users", new: "New", payments: "Payments", colours: "Colours", shipping: "Shipping", content: "Landing page", branding: "Logos & branding", store: "Store & footer", legal: "Legal pages", acknowledgment: "Acknowledgment" }}
+        labels={{ ai: "Product studio", settings: "AI settings", studio: "Design studio", estimator: "Estimator", inventory: "Inventory", sales: "Off-site sales", users: "Users", new: "New", payments: "Payments", colours: "Colours", shipping: "Shipping", content: "Landing page", branding: "Logos & branding", store: "Store & footer", legal: "Legal pages", acknowledgment: "Acknowledgment" }}
         brand={
           <Link href="/admin" className="flex items-center gap-2" aria-label="Admin home">
             <BrandLogo variant="icon" className="h-7" />

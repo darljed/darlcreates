@@ -14,6 +14,7 @@ export function JobSheetView({ sheet }: { sheet: JobSheet }) {
   return (
     <div className="space-y-2 text-sm">
       {sheet.model && <p><span className="font-medium">Model file:</span> <span className="font-mono">{sheet.model}</span></p>}
+      {sheet.preset && <p><span className="font-medium">Design preset:</span> <strong>{sheet.preset}</strong> <span className="text-muted-foreground">(ready-made design: a pre-printed one can go in the parcel)</span></p>}
 
       {sheet.choices.length > 0 && (
         <ul>
