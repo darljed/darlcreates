@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelOrderAction, reorderAction } from "@/app/(portal)/orders/actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 /** "Buy again": copies the order's items into the cart and goes there. */
 export function ReorderButton({ orderNo, size = "sm", variant = "outline" }: { orderNo: string; size?: "sm" | "default"; variant?: "outline" | "default" }) {
@@ -38,6 +39,7 @@ export function ReorderButton({ orderNo, size = "sm", variant = "outline" }: { o
 export function CancelOrderButton({ orderNo }: { orderNo: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  const confirm = useConfirm();
   return (
     <Button
       type="button"
@@ -45,8 +47,8 @@ export function CancelOrderButton({ orderNo }: { orderNo: string }) {
       variant="outline"
       className="text-destructive hover:text-destructive"
       disabled={pending}
-      onClick={() => {
-        if (!window.confirm(`Cancel order ${orderNo}? This can't be undone.`)) return;
+      onClick={async () => {
+        if (!(await confirm({ title: `Cancel order ${orderNo}?`, description: "This can't be undone.", confirmLabel: "Cancel order", destructive: true }))) return;
         start(async () => {
           const res = await cancelOrderAction({ orderNo });
           if (!res.ok) return void toast.error(res.error);
