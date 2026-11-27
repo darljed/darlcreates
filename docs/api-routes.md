@@ -145,7 +145,17 @@ Last updated: 2026-11-22
 | `studioSnapshotAction` | same | The draft as it is now, after a card was approved or rejected |
 | `removeImageAction` | same | Delete one picture from the chat: a mockup or an uploaded photo (from storage, the photo list and the chat). A picture already added to the product is refused |
 | `saveDraftAction`, `discardDraftAction` | same | Save the owner's edits to the listing and price; discard deletes the draft's files |
-| `applyDraftAction` | same | New product: creates it unpublished via `createProductAction` (with tags), `attachModelAction`, `addPhotoAction`; the chat stays open on the product. Existing product: `updateProductAction` with the proposed listing (status and weight kept; empty price keeps the current one) and `addPhotoAction` for ticked pictures not added before. Claims the chat while it runs |
+| `applyDraftAction` | same | New product: creates it unpublished via `createProductAction` (with tags), `attachModelAction`, `addPhotoAction`; the chat stays open on the product. Existing product: `updateProductAction` with the proposed listing (status and weight kept; empty price keeps the current one) and `addPhotoAction` for ticked pictures not added before. Claims the chat while it runs. Applied chat mockups get `ai_images` gallery rows, so the product has one history of its generated pictures |
+
+## Image gallery Server Actions (admin only; `(admin)/admin/ai/image-actions.ts`)
+| Action | Notes |
+|---|---|
+| `generateImageAction` | One picture from a preset (`cover` / `studio` / `lifestyle` / `detail` / `custom`, extra direction ≤400 chars, image model from AI settings). The generator redraws the product's real photos with the chosen model (a prompt-only model may run without photos); stores the picture, records the `ai_images` row with its USD cost, expires the product caches. Refused for an unknown model, no OpenRouter key, or per-product cap 40 |
+| `generateSetAction` | Cover + Studio + Lifestyle in one go (each recorded like above); a failure is a per-preset warning, not a whole-set failure |
+| `imageOnProductAction` | Add a gallery picture to the product, or take it off: the picture always keeps its gallery row; on the product it is a normal `product_photos` row, off = `hidden` (reversible), never deleted here |
+| `imageCoverAction` | Make a picture the cover (first in the shop's gallery). Refused while it is off the product |
+| `imageDeleteAction` | Delete a generated picture: the gallery row and the stored file. Refused while it is on the product |
+| `imageAltAction` | One alt sentence from the chat model (it must have vision), saved on the gallery row and the linked `product_photos` row |
 
 ## Admin agent Server Actions (admin only)
 | Action | File | Notes |

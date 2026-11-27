@@ -34,7 +34,7 @@ export default async function EditProductPage({
   params,
 }: PageProps<"/admin/products/[id]">) {
   const { id } = await params;
-  const [product, inventory] = await Promise.all([getProductById(id, { raw: true }), loadColourInventory()]);
+  const [product, inventory] = await Promise.all([getProductById(id, { raw: true, allPhotos: true }), loadColourInventory()]);
   if (!product) notFound();
   const clicker = clickerOptionOf(product.options);
   const keychain = keychainOptionOf(product.options);

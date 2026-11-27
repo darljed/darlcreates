@@ -27,6 +27,7 @@ Living documentation. Update it in the same unit of work as any code change.
 | [clicker-designer.md](./clicker-designer.md) | The clicker designer: what customers can do, how the model and print file are built, owner settings, limits |
 | [ai-agent.md](./ai-agent.md) | The admin agent: a page-aware chat on every admin page that looks things up and proposes changes you approve |
 | [ai-studio.md](./ai-studio.md) | AI settings (keys; writing, agent and image models) and the studio chat that drafts a product page and mockups from a 3MF/STL and real photos, plus side-by-side image model tests |
+| [image-gallery.md](./image-gallery.md) | The image gallery: one-click AI pictures per product from presets (Cover / Studio / Lifestyle / Detail / Custom), on/off the product, cover choice, alt text and per-picture costs |
 | [workshop.md](./workshop.md) | The workshop (admin): estimator and costing model, inventory, product costing, the sales log, and how orders use up stock |
 | [keychain-designer.md](./keychain-designer.md) | The name keychain designer: three styles, fonts and icons, how the plate and print file are built, owner prices and limits |
 | [clicker-redesign-plan.md](./clicker-redesign-plan.md) | Research on the reference clicker makers and the plan to rebuild the clicker as a mechanical-switch fidget clicker (for review) |
